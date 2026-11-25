@@ -1,6 +1,3 @@
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -9,11 +6,27 @@ export class ApiError extends Error {
   }
 }
 
+function resolveApiUrl(path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const apiPath = `/api/v1${normalizedPath}`;
+
+  if (typeof window === "undefined" && process.env.BACKEND_URL) {
+    return new URL(apiPath, process.env.BACKEND_URL).toString();
+  }
+
+  const publicBase = process.env.NEXT_PUBLIC_API_URL;
+  if (publicBase) {
+    return `${publicBase.replace(/\/+$/, "")}${normalizedPath}`;
+  }
+
+  return apiPath;
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await fetch(resolveApiUrl(path), {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -38,10 +51,9 @@ export async function apiFetch<T>(
 
 export async function checkBackendHealth(): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE_URL}/health`, { cache: "no-store" });
+    const res = await fetch(resolveApiUrl("/health"), { cache: "no-store" });
     return res.ok;
   } catch {
     return false;
   }
 }
-
