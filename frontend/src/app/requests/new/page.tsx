@@ -2,30 +2,76 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Search } from "lucide-react";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import {
+  DEMO_CAMPUSES,
   DEMO_CLASSES,
   DEMO_COURSES,
   DEMO_SEMESTERS,
 } from "@/lib/demo-data";
 import { useAppState } from "@/lib/app-state";
+import { AcademicClass } from "@/types";
+
+const DEFAULT_SLOTS = [
+  { suffix: "01", dayOfWeek: "Thứ 2 & Thứ 4", slot: "Slot 1 (07:30 - 09:50)" },
+  { suffix: "02", dayOfWeek: "Thứ 2 & Thứ 4", slot: "Slot 2 (10:00 - 12:20)" },
+  { suffix: "03", dayOfWeek: "Thứ 3 & Thứ 5", slot: "Slot 3 (12:50 - 15:10)" },
+  { suffix: "04", dayOfWeek: "Thứ 3 & Thứ 5", slot: "Slot 4 (15:20 - 17:40)" },
+];
 
 export default function NewRequestPage() {
   const router = useRouter();
   const { addRequest } = useAppState();
 
+  const [campusId, setCampusId] = useState(DEMO_CAMPUSES[0].id);
   const [semesterId, setSemesterId] = useState(DEMO_SEMESTERS[0].id);
+  const [courseSearch, setCourseSearch] = useState("");
   const [courseId, setCourseId] = useState(DEMO_COURSES[0].id);
 
-  const availableClasses = useMemo(
-    () =>
-      DEMO_CLASSES.filter(
-        (c) => c.courseId === courseId && c.semesterId === semesterId && c.isSwappable
-      ),
-    [courseId, semesterId]
-  );
+  const filteredCourses = useMemo(() => {
+    const q = courseSearch.trim().toLowerCase();
+    if (!q) return DEMO_COURSES;
+    return DEMO_COURSES.filter(
+      (c) =>
+        c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)
+    );
+  }, [courseSearch]);
+
+  const availableClasses: AcademicClass[] = useMemo(() => {
+    const seeded = DEMO_CLASSES.filter(
+      (c) =>
+        c.courseId === courseId &&
+        c.semesterId === semesterId &&
+        c.campusId === campusId &&
+        c.isSwappable
+    );
+    if (seeded.length >= 2) return seeded;
+
+    const course = DEMO_COURSES.find((c) => c.id === courseId);
+    if (!course) return [];
+    const campus = DEMO_CAMPUSES.find((cp) => cp.id === campusId);
+    const campusTag = campus?.code || "HN";
+
+    return DEFAULT_SLOTS.map((s) => ({
+      id: `cls-${course.code.toLowerCase()}-${campusTag.toLowerCase()}-${s.suffix}`,
+      code: `${course.code}_${campusTag}_${s.suffix}`,
+      courseId,
+      semesterId,
+      campusId,
+      lecturer: "Đang cập nhật",
+      isSwappable: true,
+      schedules: [
+        {
+          id: `sch-${course.code}-${s.suffix}`,
+          dayOfWeek: s.dayOfWeek,
+          slot: s.slot,
+          room: "FPTU",
+        },
+      ],
+    }));
+  }, [courseId, semesterId, campusId]);
 
   const [currentClassId, setCurrentClassId] = useState(
     availableClasses[0]?.id || ""
@@ -37,14 +83,45 @@ export default function NewRequestPage() {
   const [expiresAt, setExpiresAt] = useState("2026-12-20");
   const [error, setError] = useState("");
 
+  const syncClassDefaults = (
+    nextCourseId: string,
+    nextSemesterId: string,
+    nextCampusId: string
+  ) => {
+    const seeded = DEMO_CLASSES.filter(
+      (c) =>
+        c.courseId === nextCourseId &&
+        c.semesterId === nextSemesterId &&
+        c.campusId === nextCampusId &&
+        c.isSwappable
+    );
+    if (seeded.length >= 2) {
+      setCurrentClassId(seeded[0].id);
+      setTargetClassId(seeded[1].id);
+    } else {
+      const course = DEMO_COURSES.find((c) => c.id === nextCourseId);
+      const campus = DEMO_CAMPUSES.find((cp) => cp.id === nextCampusId);
+      const tag = (campus?.code || "HN").toLowerCase();
+      const code = course?.code.toLowerCase() || "";
+      setCurrentClassId(code ? `cls-${code}-${tag}-01` : "");
+      setTargetClassId(code ? `cls-${code}-${tag}-02` : "");
+    }
+    setError("");
+  };
+
   const handleCourseChange = (newCourseId: string) => {
     setCourseId(newCourseId);
-    const filtered = DEMO_CLASSES.filter(
-      (c) => c.courseId === newCourseId && c.semesterId === semesterId && c.isSwappable
-    );
-    setCurrentClassId(filtered[0]?.id || "");
-    setTargetClassId(filtered[1]?.id || "");
-    setError("");
+    syncClassDefaults(newCourseId, semesterId, campusId);
+  };
+
+  const handleCampusChange = (newCampusId: string) => {
+    setCampusId(newCampusId);
+    syncClassDefaults(courseId, semesterId, newCampusId);
+  };
+
+  const handleSemesterChange = (newSemesterId: string) => {
+    setSemesterId(newSemesterId);
+    syncClassDefaults(courseId, newSemesterId, campusId);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -102,7 +179,7 @@ export default function NewRequestPage() {
               Tạo yêu cầu đổi lớp
             </h1>
             <p className="text-sm text-slate-500">
-              Chọn lớp từ danh mục chuẩn do Admin quản lý
+              Hỗ trợ {DEMO_COURSES.length} môn học tại 5 cơ sở FPT University
             </p>
           </div>
         </div>
@@ -120,11 +197,28 @@ export default function NewRequestPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                Cơ sở (Campus)
+              </label>
+              <select
+                value={campusId}
+                onChange={(e) => handleCampusChange(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
+              >
+                {DEMO_CAMPUSES.map((cp) => (
+                  <option key={cp.id} value={cp.id}>
+                    {cp.name} ({cp.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
                 Học kỳ
               </label>
               <select
                 value={semesterId}
-                onChange={(e) => setSemesterId(e.target.value)}
+                onChange={(e) => handleSemesterChange(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
               >
                 {DEMO_SEMESTERS.map((s) => (
@@ -134,23 +228,49 @@ export default function NewRequestPage() {
                 ))}
               </select>
             </div>
+          </div>
 
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Môn học
-              </label>
-              <select
-                value={courseId}
-                onChange={(e) => handleCourseChange(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
-              >
-                {DEMO_COURSES.map((c) => (
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-slate-700">
+              Môn học ({filteredCourses.length}/{DEMO_COURSES.length} môn)
+            </label>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={courseSearch}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCourseSearch(val);
+                  const q = val.trim().toLowerCase();
+                  const firstMatch = DEMO_COURSES.find(
+                    (c) =>
+                      c.code.toLowerCase().includes(q) ||
+                      c.name.toLowerCase().includes(q)
+                  );
+                  if (firstMatch) {
+                    handleCourseChange(firstMatch.id);
+                  }
+                }}
+                placeholder="Tìm mã môn hoặc tên môn (VD: PRF192, SWP391, JPD126...)"
+                className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3.5 text-sm outline-none focus:border-orange-500"
+              />
+            </div>
+            <select
+              value={courseId}
+              onChange={(e) => handleCourseChange(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
+            >
+              {filteredCourses.length === 0 ? (
+                <option value="">Không tìm thấy môn học phù hợp</option>
+              ) : (
+                filteredCourses.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.code} — {c.name}
                   </option>
-                ))}
-              </select>
-            </div>
+                ))
+              )}
+            </select>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -242,4 +362,3 @@ export default function NewRequestPage() {
     </AppShell>
   );
 }
-

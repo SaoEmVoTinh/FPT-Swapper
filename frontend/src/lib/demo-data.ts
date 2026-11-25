@@ -12,12 +12,14 @@ import {
   SwapRequest,
 } from "@/types";
 
+import { FPT_COURSES } from "./fpt-courses";
+
 export const DEMO_CAMPUSES: Campus[] = [
-  { id: "campus-hl", code: "HL", name: "FPTU Hòa Lạc (Hà Nội)" },
-  { id: "campus-hcm", code: "HCM", name: "FPTU TP. Hồ Chí Minh" },
-  { id: "campus-dn", code: "DN", name: "FPTU Đà Nẵng" },
-  { id: "campus-ct", code: "CT", name: "FPTU Cần Thơ" },
-  { id: "campus-qn", code: "QN", name: "FPTU Quy Nhơn" },
+  { id: "campus-hl", code: "HN", name: "Hà Nội (Hòa Lạc)" },
+  { id: "campus-dn", code: "DN", name: "Đà Nẵng" },
+  { id: "campus-hcm", code: "HCM", name: "TP. Hồ Chí Minh" },
+  { id: "campus-qn", code: "QN", name: "Quy Nhơn" },
+  { id: "campus-ct", code: "CT", name: "Cần Thơ" },
 ];
 
 export const DEMO_SEMESTERS: Semester[] = [
@@ -25,12 +27,7 @@ export const DEMO_SEMESTERS: Semester[] = [
   { id: "sem-su26", code: "SU26", name: "Summer 2026", isActive: false },
 ];
 
-export const DEMO_COURSES: Course[] = [
-  { id: "crs-mkt201", code: "MKT201", name: "Consumer Behavior", credits: 3 },
-  { id: "crs-swp391", code: "SWP391", name: "Application Development Project", credits: 3 },
-  { id: "crs-prj301", code: "PRJ301", name: "Java Web Application Development", credits: 3 },
-  { id: "crs-csd201", code: "CSD201", name: "Data Structures and Algorithms", credits: 3 },
-];
+export const DEMO_COURSES: Course[] = FPT_COURSES;
 
 export const DEMO_CLASSES: AcademicClass[] = [
   {
