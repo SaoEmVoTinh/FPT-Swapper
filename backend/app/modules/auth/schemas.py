@@ -39,6 +39,7 @@ class StudentPublicResponse(BaseModel):
     campus_code: str | None = None
     campus_name: str | None = None
     avatar_url: str | None = None
+    bio: str | None = None
 
 
 class TokenResponse(BaseModel):

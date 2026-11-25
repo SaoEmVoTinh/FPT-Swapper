@@ -56,6 +56,7 @@ export interface AuthMeResponse {
   campus_code?: string | null;
   campus_name?: string | null;
   avatar_url?: string | null;
+  bio?: string | null;
 }
 
 // ───────────────────────── API payloads ─────────────────────────
@@ -431,6 +432,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         campusId: me.campus_id || matchedCampus?.id || campusList[0]?.id || "campus-hl",
         campusName: normalizeCampusName(me.campus_name || matchedCampus?.name || "Hà Nội"),
         avatarUrl: me.avatar_url || undefined,
+        bio: me.bio || undefined,
       };
       setBackendAuthed(true);
       setStudent(nextProfile);
@@ -730,6 +732,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           major: cleanedPatch.major,
           campus_id: cleanedPatch.campusId,
           avatar_url: cleanedPatch.avatarUrl,
+          bio: cleanedPatch.bio,
         }),
       });
     }

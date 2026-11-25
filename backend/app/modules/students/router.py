@@ -1,12 +1,22 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
+from app.common.enums import SwapRequestStatus
 from app.core.dependencies import get_current_student
 from app.database.models import Student
 from app.database.session import get_db
-from app.modules.students.schemas import ProfileResponse, ProfileUpdateRequest
+from app.modules.students.schemas import (
+    AccountDataExportResponse,
+    AccountSummaryResponse,
+    AccountUpdateRequest,
+    BulkRequestsActionResponse,
+    ChangePasswordRequest,
+    DeleteAccountRequest,
+    ProfileResponse,
+    ProfileUpdateRequest,
+)
 from app.modules.students.service import StudentService
 
 router = APIRouter(prefix="/students", tags=["Students"])
@@ -56,6 +66,84 @@ def update_my_profile(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     db.refresh(student)
     return _profile_to_response(profile, student.campus_id)
+
+
+@router.get("/me/summary", response_model=AccountSummaryResponse)
+def get_my_account_summary(
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+) -> AccountSummaryResponse:
+    return StudentService(db).get_account_summary(student)
+
+
+@router.patch("/me/account", response_model=AccountSummaryResponse)
+def update_my_account_identity(
+    payload: AccountUpdateRequest,
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+) -> AccountSummaryResponse:
+    return StudentService(db).update_account_identity(
+        student=student,
+        email=payload.email,
+        student_code=payload.student_code,
+    )
+
+
+@router.post("/me/change-password", status_code=status.HTTP_204_NO_CONTENT)
+def change_my_password(
+    payload: ChangePasswordRequest,
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+) -> None:
+    StudentService(db).change_password(
+        student=student,
+        current_password=payload.current_password,
+        new_password=payload.new_password,
+    )
+
+
+@router.post("/me/requests/pause-all", response_model=BulkRequestsActionResponse)
+def pause_all_my_requests(
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+) -> BulkRequestsActionResponse:
+    return StudentService(db).bulk_toggle_requests(
+        student=student,
+        from_status=SwapRequestStatus.ACTIVE,
+        to_status=SwapRequestStatus.PAUSED,
+    )
+
+
+@router.post("/me/requests/resume-all", response_model=BulkRequestsActionResponse)
+def resume_all_my_requests(
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+) -> BulkRequestsActionResponse:
+    return StudentService(db).bulk_toggle_requests(
+        student=student,
+        from_status=SwapRequestStatus.PAUSED,
+        to_status=SwapRequestStatus.ACTIVE,
+    )
+
+
+@router.get("/me/export", response_model=AccountDataExportResponse)
+def export_my_account_data(
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+) -> AccountDataExportResponse:
+    return StudentService(db).export_my_data(student)
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+def delete_my_account(
+    response: Response,
+    payload: DeleteAccountRequest = Body(...),
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+) -> None:
+    StudentService(db).delete_own_account(student=student, password=payload.password)
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("refresh_token", path="/api/v1/auth/refresh")
 
 
 @router.get("/{student_id}", response_model=ProfileResponse)

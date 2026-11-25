@@ -36,6 +36,7 @@ def _student_to_response(student: Student, db: Session) -> StudentPublicResponse
         campus_code=campus.code if campus else None,
         campus_name=campus.name if campus else None,
         avatar_url=profile.avatar_url if profile else None,
+        bio=profile.bio if profile else None,
     )
 
 

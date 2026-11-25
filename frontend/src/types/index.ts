@@ -66,6 +66,7 @@ export interface StudentProfile {
   major: string;
   role: UserRole;
   avatarUrl?: string;
+  bio?: string;
 }
 
 export interface SwapRequest {

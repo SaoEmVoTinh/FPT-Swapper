@@ -18,13 +18,10 @@ from app.database.models import (
     AuditLog,
     Campus,
     Conversation,
-    ConversationMember,
     Course,
     Match,
     MatchingRequest,
     Message,
-    Notification,
-    Report,
     Semester,
     Student,
     StudentProfile,
@@ -38,6 +35,7 @@ from app.modules.admin.schemas import (
     AdminUserItem,
 )
 from app.modules.auth.service import resolve_campus
+from app.modules.students.cleanup import purge_student_account
 
 
 def _is_super_admin_email(email: str) -> bool:
@@ -242,69 +240,7 @@ class AdminService:
                 detail="Không thể xóa tài khoản quản trị chính.",
             )
 
-        deleted_email = student.email
-        deleted_code = student.student_code
-
-        req_ids = [
-            r[0]
-            for r in db.query(MatchingRequest.id)
-            .filter(MatchingRequest.student_id == target_id)
-            .all()
-        ]
-
-        # Clean up reports referencing this user
-        db.query(Report).filter(
-            or_(Report.reporter_id == target_id, Report.reported_student_id == target_id)
-        ).delete(synchronize_session=False)
-        db.query(Report).filter(Report.resolved_by_id == target_id).update(
-            {"resolved_by_id": None}, synchronize_session=False
-        )
-
-        # Clean up matches & match conversations referencing this user or their requests
-        match_filters = [Match.student_a_id == target_id, Match.student_b_id == target_id]
-        if req_ids:
-            match_filters.extend(
-                [Match.request_low_id.in_(req_ids), Match.request_high_id.in_(req_ids)]
-            )
-        matches = db.query(Match).filter(or_(*match_filters)).all()
-        for m in matches:
-            convs = (
-                db.query(Conversation)
-                .filter(
-                    Conversation.source_type == ConversationSourceType.CLASS_SWAP,
-                    Conversation.source_id == m.id,
-                )
-                .all()
-            )
-            for conv in convs:
-                db.delete(conv)
-            db.delete(m)
-        db.flush()
-
-        # Clean up any direct messages / memberships / swipes / notifications
-        db.query(Message).filter(Message.sender_id == target_id).delete(synchronize_session=False)
-        db.query(ConversationMember).filter(
-            ConversationMember.student_id == target_id
-        ).delete(synchronize_session=False)
-
-        swipe_filters = [Swipe.swiper_student_id == target_id]
-        if req_ids:
-            swipe_filters.extend(
-                [Swipe.swiper_request_id.in_(req_ids), Swipe.target_request_id.in_(req_ids)]
-            )
-        db.query(Swipe).filter(or_(*swipe_filters)).delete(synchronize_session=False)
-        db.query(MatchingRequest).filter(
-            MatchingRequest.student_id == target_id
-        ).delete(synchronize_session=False)
-        db.query(Notification).filter(Notification.student_id == target_id).delete(
-            synchronize_session=False
-        )
-        db.query(AuditLog).filter(AuditLog.actor_id == target_id).update(
-            {"actor_id": None}, synchronize_session=False
-        )
-
-        db.delete(student)
-        db.flush()
+        deleted_email, deleted_code = purge_student_account(db, target_id)
         db.add(
             AuditLog(
                 actor_id=actor_id,

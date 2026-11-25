@@ -1,9 +1,32 @@
 import uuid
+from datetime import datetime, timezone
 
+from fastapi import HTTPException, status
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from app.database.models import Student, StudentProfile
+from app.common.enums import MatchStatus, SwapRequestStatus
+from app.core.config import settings
+from app.core.security import hash_password, verify_password
+from app.database.models import (
+    AcademicClass,
+    AuditLog,
+    Campus,
+    Course,
+    Match,
+    MatchingRequest,
+    Notification,
+    Semester,
+    Student,
+    StudentProfile,
+)
 from app.modules.auth.service import resolve_campus
+from app.modules.students.cleanup import purge_student_account
+from app.modules.students.schemas import (
+    AccountDataExportResponse,
+    AccountSummaryResponse,
+    BulkRequestsActionResponse,
+)
 
 
 class StudentService:
@@ -30,13 +53,13 @@ class StudentService:
         if profile is None:
             raise ValueError("Profile not found.")
         if full_name is not None:
-            profile.full_name = full_name
+            profile.full_name = full_name.strip()
         if major is not None:
-            profile.major = major
+            profile.major = major.strip()
         if avatar_url is not None:
-            profile.avatar_url = avatar_url
+            profile.avatar_url = avatar_url.strip() or None
         if bio is not None:
-            profile.bio = bio
+            profile.bio = bio.strip() or None
         if campus_id is not None:
             campus = resolve_campus(self.db, campus_id)
             if campus is None:
@@ -47,3 +70,288 @@ class StudentService:
         self.db.commit()
         self.db.refresh(profile)
         return profile
+
+    def get_account_summary(self, student: Student) -> AccountSummaryResponse:
+        profile = student.profile or self.get_profile(student.id)
+        campus = self.db.get(Campus, student.campus_id) if student.campus_id else None
+
+        total_requests = (
+            self.db.query(func.count(MatchingRequest.id))
+            .filter(MatchingRequest.student_id == student.id)
+            .scalar()
+            or 0
+        )
+        active_requests = (
+            self.db.query(func.count(MatchingRequest.id))
+            .filter(
+                MatchingRequest.student_id == student.id,
+                MatchingRequest.status == SwapRequestStatus.ACTIVE,
+            )
+            .scalar()
+            or 0
+        )
+        paused_requests = (
+            self.db.query(func.count(MatchingRequest.id))
+            .filter(
+                MatchingRequest.student_id == student.id,
+                MatchingRequest.status == SwapRequestStatus.PAUSED,
+            )
+            .scalar()
+            or 0
+        )
+        matched_requests = (
+            self.db.query(func.count(MatchingRequest.id))
+            .filter(
+                MatchingRequest.student_id == student.id,
+                MatchingRequest.status == SwapRequestStatus.MATCHED,
+            )
+            .scalar()
+            or 0
+        )
+        total_matches = (
+            self.db.query(func.count(Match.id))
+            .filter(or_(Match.student_a_id == student.id, Match.student_b_id == student.id))
+            .scalar()
+            or 0
+        )
+        confirmed_matches = (
+            self.db.query(func.count(Match.id))
+            .filter(
+                or_(Match.student_a_id == student.id, Match.student_b_id == student.id),
+                Match.status.in_([MatchStatus.CONFIRMED, MatchStatus.COMPLETED]),
+            )
+            .scalar()
+            or 0
+        )
+        unread_notifications = (
+            self.db.query(func.count(Notification.id))
+            .filter(
+                Notification.student_id == student.id,
+                Notification.is_read.is_(False),
+            )
+            .scalar()
+            or 0
+        )
+
+        return AccountSummaryResponse(
+            id=student.id,
+            email=student.email,
+            student_code=student.student_code,
+            role=student.role.value,
+            status=student.status.value,
+            created_at=student.created_at,
+            full_name=profile.full_name if profile else None,
+            major=profile.major if profile else None,
+            campus_id=student.campus_id,
+            campus_code=campus.code if campus else None,
+            campus_name=campus.name if campus else None,
+            avatar_url=profile.avatar_url if profile else None,
+            bio=profile.bio if profile else None,
+            total_requests=total_requests,
+            active_requests=active_requests,
+            paused_requests=paused_requests,
+            matched_requests=matched_requests,
+            total_matches=total_matches,
+            confirmed_matches=confirmed_matches,
+            unread_notifications=unread_notifications,
+        )
+
+    def update_account_identity(
+        self,
+        student: Student,
+        email: str | None,
+        student_code: str | None,
+    ) -> AccountSummaryResponse:
+        if email is not None and email != student.email:
+            if student.email.lower() == settings.ADMIN_EMAIL.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Không thể đổi email của tài khoản Super Admin.",
+                )
+            existing_email = (
+                self.db.query(Student)
+                .filter(func.lower(Student.email) == email.lower(), Student.id != student.id)
+                .first()
+            )
+            if existing_email is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Email này đã được sử dụng bởi tài khoản khác.",
+                )
+            student.email = email
+
+        if student_code is not None and student_code != student.student_code:
+            existing_code = (
+                self.db.query(Student)
+                .filter(
+                    func.upper(Student.student_code) == student_code.upper(),
+                    Student.id != student.id,
+                )
+                .first()
+            )
+            if existing_code is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Mã sinh viên này đã được đăng ký bởi tài khoản khác.",
+                )
+            student.student_code = student_code
+
+        self.db.add(
+            AuditLog(
+                actor_id=student.id,
+                action="SELF_UPDATE_ACCOUNT",
+                entity_type="student",
+                entity_id=student.id,
+                details={"email": student.email, "student_code": student.student_code},
+            )
+        )
+        self.db.commit()
+        self.db.refresh(student)
+        return self.get_account_summary(student)
+
+    def change_password(
+        self,
+        student: Student,
+        current_password: str,
+        new_password: str,
+    ) -> None:
+        if not verify_password(current_password, student.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Mật khẩu hiện tại không đúng.",
+            )
+        if current_password == new_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Mật khẩu mới phải khác mật khẩu hiện tại.",
+            )
+        student.password_hash = hash_password(new_password)
+        self.db.add(
+            AuditLog(
+                actor_id=student.id,
+                action="SELF_CHANGE_PASSWORD",
+                entity_type="student",
+                entity_id=student.id,
+                details={"email": student.email},
+            )
+        )
+        self.db.commit()
+
+    def bulk_toggle_requests(
+        self,
+        student: Student,
+        from_status: SwapRequestStatus,
+        to_status: SwapRequestStatus,
+    ) -> BulkRequestsActionResponse:
+        updated = (
+            self.db.query(MatchingRequest)
+            .filter(
+                MatchingRequest.student_id == student.id,
+                MatchingRequest.status == from_status,
+            )
+            .update({"status": to_status}, synchronize_session=False)
+        )
+        self.db.add(
+            AuditLog(
+                actor_id=student.id,
+                action="SELF_TOGGLE_REQUESTS",
+                entity_type="matching_request",
+                entity_id=student.id,
+                details={
+                    "from": from_status.value,
+                    "to": to_status.value,
+                    "updated_count": updated,
+                },
+            )
+        )
+        self.db.commit()
+        return BulkRequestsActionResponse(updated_count=updated, status=to_status.value)
+
+    def export_my_data(self, student: Student) -> AccountDataExportResponse:
+        summary = self.get_account_summary(student)
+        reqs = (
+            self.db.query(MatchingRequest)
+            .filter(MatchingRequest.student_id == student.id)
+            .order_by(MatchingRequest.created_at.desc())
+            .all()
+        )
+        req_items = []
+        for req in reqs:
+            course = self.db.get(Course, req.course_id)
+            sem = self.db.get(Semester, req.semester_id)
+            cur = self.db.get(AcademicClass, req.current_class_id)
+            tgt = self.db.get(AcademicClass, req.target_class_id)
+            req_items.append(
+                {
+                    "id": str(req.id),
+                    "course_code": course.code if course else None,
+                    "semester": sem.name if sem else None,
+                    "current_class": cur.code if cur else None,
+                    "target_class": tgt.code if tgt else None,
+                    "status": req.status.value,
+                    "note": req.note,
+                    "created_at": req.created_at.isoformat(),
+                }
+            )
+
+        notifs = (
+            self.db.query(Notification)
+            .filter(Notification.student_id == student.id)
+            .order_by(Notification.created_at.desc())
+            .limit(100)
+            .all()
+        )
+        notif_items = [
+            {
+                "id": str(n.id),
+                "type": n.notification_type.value,
+                "title": n.title,
+                "body": n.body,
+                "is_read": n.is_read,
+                "created_at": n.created_at.isoformat(),
+            }
+            for n in notifs
+        ]
+
+        return AccountDataExportResponse(
+            exported_at=datetime.now(timezone.utc),
+            account={
+                "id": str(summary.id),
+                "email": summary.email,
+                "student_code": summary.student_code,
+                "full_name": summary.full_name,
+                "major": summary.major,
+                "campus": summary.campus_name,
+                "bio": summary.bio,
+                "role": summary.role,
+                "status": summary.status,
+                "created_at": summary.created_at.isoformat(),
+            },
+            requests=req_items,
+            notifications=notif_items,
+        )
+
+    def delete_own_account(self, student: Student, password: str) -> None:
+        if student.email.lower() == settings.ADMIN_EMAIL.lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Không thể tự xóa tài khoản Super Admin.",
+            )
+        if not verify_password(password, student.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Mật khẩu xác nhận không đúng.",
+            )
+
+        target_id = student.id
+        deleted_email, deleted_code = purge_student_account(self.db, target_id)
+        self.db.add(
+            AuditLog(
+                actor_id=None,
+                action="SELF_DELETE_ACCOUNT",
+                entity_type="student",
+                entity_id=target_id,
+                details={"email": deleted_email, "student_code": deleted_code},
+            )
+        )
+        self.db.commit()
