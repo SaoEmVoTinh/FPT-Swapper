@@ -22,6 +22,24 @@ function resolveApiUrl(path: string): string {
   return apiPath;
 }
 
+function formatApiErrorDetail(detail: unknown, fallback: string): string {
+  if (typeof detail === "string" && detail.trim()) {
+    return detail;
+  }
+  if (Array.isArray(detail) && detail.length > 0) {
+    return detail
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object" && "msg" in item) {
+          return String((item as { msg: unknown }).msg).replace(/^Value error,\s*/i, "");
+        }
+        return JSON.stringify(item);
+      })
+      .join("; ");
+  }
+  return fallback;
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
@@ -39,11 +57,15 @@ export async function apiFetch<T>(
     let detail = `HTTP ${res.status}`;
     try {
       const data = await res.json();
-      detail = data.detail || data.message || detail;
+      detail = formatApiErrorDetail(data.detail ?? data.message, detail);
     } catch {
       // ignore json parse error
     }
     throw new ApiError(detail, res.status);
+  }
+
+  if (res.status === 204) {
+    return undefined as T;
   }
 
   return res.json() as Promise<T>;

@@ -17,6 +17,7 @@ import { useAppState } from "@/lib/app-state";
 export default function DashboardPage() {
   const {
     student,
+    isAuthenticated,
     requests,
     discoverCards,
     matches,
@@ -28,13 +29,38 @@ export default function DashboardPage() {
   return (
     <AppShell>
       <div className="space-y-6">
+        {!isAuthenticated && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-orange-200 bg-orange-50/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-orange-900">
+              Bạn đang xem ở chế độ khách. Hãy đăng nhập hoặc đăng ký để đồng bộ
+              thông tin tài khoản của bạn.
+            </p>
+            <div className="flex shrink-0 gap-2">
+              <Link
+                href="/login"
+                className="rounded-xl bg-orange-500 px-3.5 py-2 text-xs font-semibold text-white hover:bg-orange-600"
+              >
+                Đăng nhập
+              </Link>
+              <Link
+                href="/register"
+                className="rounded-xl border border-orange-300 bg-white px-3.5 py-2 text-xs font-semibold text-orange-700 hover:bg-orange-50"
+              >
+                Đăng ký
+              </Link>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">
               Xin chào, {student.fullName}
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              {student.studentCode} • {student.campusName} • {student.major}
+              {isAuthenticated
+                ? `${student.studentCode} • ${student.campusName} • ${student.major}`
+                : "Chế độ xem trước • Vui lòng đăng nhập tài khoản sinh viên"}
             </p>
           </div>
           <div className="flex flex-wrap gap-2.5">

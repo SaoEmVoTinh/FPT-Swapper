@@ -51,5 +51,17 @@ def create_refresh_token(subject: str) -> str:
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
+def create_ws_ticket(subject: str, expires_seconds: int = 60) -> str:
+    """Create a short-lived token for WebSocket handshakes (e.g. cross-domain)."""
+    expire = _utcnow() + timedelta(seconds=expires_seconds)
+    payload: dict[str, Any] = {
+        "sub": subject,
+        "exp": expire,
+        "iat": _utcnow(),
+        "type": "ws_ticket",
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
 def decode_token(token: str) -> dict[str, Any]:
     return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])

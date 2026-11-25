@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
     ENVIRONMENT: str = "development"
     DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/fpt_classswap"
+    REDIS_URL: str | None = None
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
     # JWT

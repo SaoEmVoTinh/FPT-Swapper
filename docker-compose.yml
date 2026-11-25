@@ -16,6 +16,17 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: fpt_classswap_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -23,6 +34,7 @@ services:
     container_name: fpt_classswap_backend
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-fpt_classswap}
+      REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: '["http://localhost:3000"]'
     ports:
       - "8000:8000"
@@ -30,6 +42,8 @@ services:
       - ./backend:/app
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   frontend:

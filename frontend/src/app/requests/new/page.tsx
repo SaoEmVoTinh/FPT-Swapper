@@ -6,7 +6,6 @@ import { ArrowLeft, CheckCircle2, Search } from "lucide-react";
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import {
-  DEMO_CAMPUSES,
   DEMO_CLASSES,
   DEMO_COURSES,
   DEMO_SEMESTERS,
@@ -23,9 +22,18 @@ const DEFAULT_SLOTS = [
 
 export default function NewRequestPage() {
   const router = useRouter();
-  const { addRequest } = useAppState();
+  const { student, campuses, addRequest } = useAppState();
 
-  const [campusId, setCampusId] = useState(DEMO_CAMPUSES[0].id);
+  const [campusIdOverride, setCampusIdOverride] = useState<string | null>(null);
+  const campusId = useMemo(() => {
+    if (campusIdOverride && campuses.some((c) => c.id === campusIdOverride)) {
+      return campusIdOverride;
+    }
+    if (campuses.some((c) => c.id === student.campusId)) {
+      return student.campusId;
+    }
+    return campuses[0]?.id || "";
+  }, [campusIdOverride, campuses, student.campusId]);
   const [semesterId, setSemesterId] = useState(DEMO_SEMESTERS[0].id);
   const [courseSearch, setCourseSearch] = useState("");
   const [courseId, setCourseId] = useState(DEMO_COURSES[0].id);
@@ -51,7 +59,7 @@ export default function NewRequestPage() {
 
     const course = DEMO_COURSES.find((c) => c.id === courseId);
     if (!course) return [];
-    const campus = DEMO_CAMPUSES.find((cp) => cp.id === campusId);
+    const campus = campuses.find((cp) => cp.id === campusId);
     const campusTag = campus?.code || "HN";
 
     return DEFAULT_SLOTS.map((s) => ({
@@ -67,18 +75,20 @@ export default function NewRequestPage() {
           id: `sch-${course.code}-${s.suffix}`,
           dayOfWeek: s.dayOfWeek,
           slot: s.slot,
-          room: "FPTU",
+          room: "P.201",
         },
       ],
     }));
-  }, [courseId, semesterId, campusId]);
+  }, [courseId, semesterId, campusId, campuses]);
 
-  const [currentClassId, setCurrentClassId] = useState(
-    availableClasses[0]?.id || ""
-  );
-  const [targetClassId, setTargetClassId] = useState(
-    availableClasses[1]?.id || ""
-  );
+  const [currentClassId, setCurrentClassId] = useState("");
+  const [targetClassId, setTargetClassId] = useState("");
+  const selectedCurrentClassId = availableClasses.some((c) => c.id === currentClassId)
+    ? currentClassId
+    : availableClasses[0]?.id || "";
+  const selectedTargetClassId = availableClasses.some((c) => c.id === targetClassId)
+    ? targetClassId
+    : availableClasses[1]?.id || "";
   const [note, setNote] = useState("");
   const [expiresAt, setExpiresAt] = useState("2026-12-20");
   const [error, setError] = useState("");
@@ -100,7 +110,7 @@ export default function NewRequestPage() {
       setTargetClassId(seeded[1].id);
     } else {
       const course = DEMO_COURSES.find((c) => c.id === nextCourseId);
-      const campus = DEMO_CAMPUSES.find((cp) => cp.id === nextCampusId);
+      const campus = campuses.find((cp) => cp.id === nextCampusId);
       const tag = (campus?.code || "HN").toLowerCase();
       const code = course?.code.toLowerCase() || "";
       setCurrentClassId(code ? `cls-${code}-${tag}-01` : "");
@@ -115,7 +125,7 @@ export default function NewRequestPage() {
   };
 
   const handleCampusChange = (newCampusId: string) => {
-    setCampusId(newCampusId);
+    setCampusIdOverride(newCampusId);
     syncClassDefaults(courseId, semesterId, newCampusId);
   };
 
@@ -128,8 +138,8 @@ export default function NewRequestPage() {
     e.preventDefault();
     const semester = DEMO_SEMESTERS.find((s) => s.id === semesterId);
     const course = DEMO_COURSES.find((c) => c.id === courseId);
-    const currCls = availableClasses.find((c) => c.id === currentClassId);
-    const targCls = availableClasses.find((c) => c.id === targetClassId);
+    const currCls = availableClasses.find((c) => c.id === selectedCurrentClassId);
+    const targCls = availableClasses.find((c) => c.id === selectedTargetClassId);
 
     if (!semester || !course || !currCls || !targCls) {
       setError("Môn học hoặc học kỳ này chưa có đủ lớp khả dụng trong danh mục.");
@@ -179,7 +189,7 @@ export default function NewRequestPage() {
               Tạo yêu cầu đổi lớp
             </h1>
             <p className="text-sm text-slate-500">
-              Hỗ trợ {DEMO_COURSES.length} môn học tại 5 cơ sở FPT University
+              Hỗ trợ {DEMO_COURSES.length} môn học tại 5 cơ sở trên toàn quốc
             </p>
           </div>
         </div>
@@ -204,7 +214,7 @@ export default function NewRequestPage() {
                 onChange={(e) => handleCampusChange(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
               >
-                {DEMO_CAMPUSES.map((cp) => (
+                {campuses.map((cp) => (
                   <option key={cp.id} value={cp.id}>
                     {cp.name} ({cp.code})
                   </option>
@@ -279,7 +289,7 @@ export default function NewRequestPage() {
                 Lớp hiện tại của bạn
               </label>
               <select
-                value={currentClassId}
+                value={selectedCurrentClassId}
                 onChange={(e) => setCurrentClassId(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
               >
@@ -300,7 +310,7 @@ export default function NewRequestPage() {
                 Lớp mong muốn chuyển sang
               </label>
               <select
-                value={targetClassId}
+                value={selectedTargetClassId}
                 onChange={(e) => setTargetClassId(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
               >

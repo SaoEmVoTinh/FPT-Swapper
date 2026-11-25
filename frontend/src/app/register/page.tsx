@@ -4,26 +4,58 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { DEMO_CAMPUSES } from "@/lib/demo-data";
+import { Loader2 } from "lucide-react";
+import { apiFetch, ApiError } from "@/lib/api";
+import { AuthMeResponse, useAppState } from "@/lib/app-state";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { campuses, setAuthenticatedUser } = useAppState();
   const [fullName, setFullName] = useState("");
   const [studentCode, setStudentCode] = useState("");
   const [email, setEmail] = useState("");
-  const [campusId, setCampusId] = useState(DEMO_CAMPUSES[0].id);
+  const [campusId, setCampusId] = useState("");
   const [major, setMajor] = useState("Software Engineering");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const selectedCampusId = campuses.some((c) => c.id === campusId)
+    ? campusId
+    : campuses[0]?.id || "";
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim() || !studentCode.trim() || !email.trim() || password.length < 6) {
       setError("Vui lòng điền đầy đủ thông tin và mật khẩu tối thiểu 6 ký tự.");
       return;
     }
+
     setError("");
-    router.push("/dashboard");
+    setSubmitting(true);
+    try {
+      const createdUser = await apiFetch<AuthMeResponse>("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          full_name: fullName.trim(),
+          student_code: studentCode.trim().toUpperCase(),
+          email: email.trim().toLowerCase(),
+          campus_id: selectedCampusId,
+          major: major.trim(),
+          password,
+        }),
+      });
+      setAuthenticatedUser(createdUser);
+      router.push("/dashboard");
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError("Đăng ký thất bại. Vui lòng thử lại.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -67,7 +99,8 @@ export default function RegisterPage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Nguyễn Văn An"
-                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                disabled={submitting}
+                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100"
               />
             </div>
             <div>
@@ -79,21 +112,23 @@ export default function RegisterPage() {
                 value={studentCode}
                 onChange={(e) => setStudentCode(e.target.value.toUpperCase())}
                 placeholder="HE180123"
-                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                disabled={submitting}
+                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100"
               />
             </div>
           </div>
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
-              Email trường (@fpt.edu.vn)
+              Email trường (@fpt.edu.vn hoặc @fe.edu.vn)
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="annvhe180123@fpt.edu.vn"
-              className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+              disabled={submitting}
+              className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100"
             />
           </div>
 
@@ -103,13 +138,14 @@ export default function RegisterPage() {
                 Campus
               </label>
               <select
-                value={campusId}
+                value={selectedCampusId}
                 onChange={(e) => setCampusId(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                disabled={submitting}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100"
               >
-                {DEMO_CAMPUSES.map((c) => (
+                {campuses.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}
+                    {c.name} ({c.code})
                   </option>
                 ))}
               </select>
@@ -123,7 +159,8 @@ export default function RegisterPage() {
                 type="text"
                 value={major}
                 onChange={(e) => setMajor(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                disabled={submitting}
+                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100"
               />
             </div>
           </div>
@@ -137,15 +174,18 @@ export default function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+              disabled={submitting}
+              className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full rounded-xl bg-orange-500 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-600 transition-colors"
+            disabled={submitting}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-600 transition-colors disabled:opacity-60"
           >
-            Đăng ký tài khoản
+            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {submitting ? "Đang tạo tài khoản..." : "Đăng ký tài khoản"}
           </button>
         </form>
 
@@ -162,4 +202,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-

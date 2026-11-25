@@ -5,10 +5,13 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_student
+from app.database.models.communication import Conversation
 from app.database.models.identity import Student
 from app.database.session import get_db
 from app.modules.chat.schemas import ConversationResponse, MessageCreate, MessageResponse
 from app.modules.chat.service import ChatService
+from app.modules.realtime.hub import realtime_hub
+from app.modules.realtime.router import build_chat_message_event
 
 router = APIRouter(prefix="/conversations", tags=["Chat"])
 
@@ -48,4 +51,9 @@ def send_message(
     current_student: Student = Depends(get_current_student),
     db: Session = Depends(get_db),
 ):
-    return ChatService.send_message(db, conversation_id, current_student.id, data)
+    msg = ChatService.send_message(db, conversation_id, current_student.id, data)
+    conv = db.get(Conversation, conversation_id)
+    if conv:
+        member_ids = [m.student_id for m in conv.members]
+        realtime_hub.emit_from_sync(member_ids, build_chat_message_event(msg))
+    return msg

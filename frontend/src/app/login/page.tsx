@@ -4,22 +4,50 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Lock, Mail } from "lucide-react";
+import { Loader2, Lock, Mail } from "lucide-react";
+import { apiFetch, ApiError } from "@/lib/api";
+import { AuthMeResponse, useAppState } from "@/lib/app-state";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { setAuthenticatedUser, refreshAuth } = useAppState();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) {
-      setError("Vui lòng nhập đầy đủ email sinh viên và mật khẩu.");
+      setError("Vui lòng nhập đầy đủ email/mã sinh viên và mật khẩu.");
       return;
     }
+
     setError("");
-    router.push("/dashboard");
+    setSubmitting(true);
+    try {
+      const loginRes = await apiFetch<{ user?: AuthMeResponse | null }>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+        }),
+      });
+      if (loginRes.user) {
+        setAuthenticatedUser(loginRes.user);
+      } else {
+        await refreshAuth();
+      }
+      router.push("/dashboard");
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError("Đăng nhập thất bại. Vui lòng thử lại.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -40,7 +68,7 @@ export default function LoginPage() {
           </Link>
           <h1 className="mt-4 text-2xl font-bold text-slate-900">Đăng nhập</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Sử dụng tài khoản sinh viên FPT của bạn
+            Sử dụng tài khoản sinh viên FPT đã đăng ký trên hệ thống
           </p>
         </div>
 
@@ -61,8 +89,9 @@ export default function LoginPage() {
                 type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="annvhe180123@fpt.edu.vn"
-                className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-3.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                placeholder="annvhe180123@fpt.edu.vn hoặc HE180123"
+                disabled={submitting}
+                className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-3.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100"
               />
             </div>
           </div>
@@ -78,16 +107,19 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-3.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                disabled={submitting}
+                className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-3.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100"
               />
             </div>
           </div>
 
           <button
             type="submit"
-            className="w-full rounded-xl bg-orange-500 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-600 transition-colors"
+            disabled={submitting}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-600 transition-colors disabled:opacity-60"
           >
-            Đăng nhập
+            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {submitting ? "Đang đăng nhập..." : "Đăng nhập"}
           </button>
         </form>
 
@@ -104,4 +136,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

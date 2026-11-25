@@ -2,12 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
   Flame,
   LayoutDashboard,
   ListChecks,
+  LogIn,
+  LogOut,
   MessageSquare,
   PlusCircle,
   ShieldCheck,
@@ -18,7 +20,19 @@ import { useAppState } from "@/lib/app-state";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { student, unreadNotificationsCount, unreadMessagesCount } = useAppState();
+  const router = useRouter();
+  const {
+    student,
+    isAuthenticated,
+    logout,
+    unreadNotificationsCount,
+    unreadMessagesCount,
+  } = useAppState();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
 
   const navItems = [
     { href: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
@@ -100,7 +114,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="border-t border-slate-100 p-4">
+        <div className="border-t border-slate-100 p-4 space-y-3">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-orange-700">
               {student.fullName.charAt(0)}
@@ -114,6 +128,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </p>
             </div>
           </div>
+
+          {isAuthenticated ? (
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 transition-colors"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Đăng xuất
+            </button>
+          ) : (
+            <Link
+              href="/login"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-50 px-3 py-2 text-xs font-semibold text-orange-700 hover:bg-orange-100 transition-colors"
+            >
+              <LogIn className="h-3.5 w-3.5" />
+              Đăng nhập tài khoản
+            </Link>
+          )}
         </div>
       </aside>
 

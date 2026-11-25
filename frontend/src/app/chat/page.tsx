@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Flag, Send } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { MatchStatusBadge } from "@/components/StatusBadge";
@@ -12,6 +12,8 @@ export default function ChatPage() {
     conversations,
     messages,
     sendMessage,
+    loadConversationMessages,
+    realtimeStatus,
     updateMatchStatus,
   } = useAppState();
 
@@ -20,6 +22,7 @@ export default function ChatPage() {
   );
   const [draft, setDraft] = useState("");
   const [reported, setReported] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const activeConv =
     conversations.find((c) => c.id === selectedId) || conversations[0] || null;
@@ -27,6 +30,16 @@ export default function ChatPage() {
   const activeMessages = activeConv
     ? messages.filter((m) => m.conversationId === activeConv.id)
     : [];
+
+  useEffect(() => {
+    if (activeConv?.id) {
+      loadConversationMessages(activeConv.id);
+    }
+  }, [activeConv?.id, loadConversationMessages]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [activeMessages.length]);
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,11 +51,29 @@ export default function ChatPage() {
   return (
     <AppShell>
       <div className="space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Tin nhắn 1-1</h1>
-          <p className="text-sm text-slate-500">
-            Chỉ mở cuộc trò chuyện khi hai bên đã Match
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Tin nhắn 1-1</h1>
+            <p className="text-sm text-slate-500">
+              Chỉ mở cuộc trò chuyện khi hai bên đã Match
+            </p>
+          </div>
+          {realtimeStatus !== "disconnected" && (
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+                realtimeStatus === "connected"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-amber-50 text-amber-700"
+              }`}
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  realtimeStatus === "connected" ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
+                }`}
+              />
+              {realtimeStatus === "connected" ? "Trực tuyến" : "Đang kết nối..."}
+            </span>
+          )}
         </div>
 
         <div className="grid h-[calc(100vh-14rem)] min-h-[480px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:grid-cols-3">
@@ -177,11 +208,14 @@ export default function ChatPage() {
                             }`}
                           >
                             {msg.createdAt}
+                            {msg.pending ? " • Đang gửi..." : ""}
+                            {msg.failed ? " • Gửi thất bại" : ""}
                           </p>
                         </div>
                       </div>
                     );
                   })}
+                  <div ref={messagesEndRef} />
                 </div>
 
                 {/* Input */}

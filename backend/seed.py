@@ -17,7 +17,7 @@ from app.database.models import *  # noqa: F401, F403
 
 # ─────────────────────────── Campuses ───────────────────────────
 CAMPUSES = [
-    {"code": "HN",  "name": "Hà Nội (Hòa Lạc)"},
+    {"code": "HN",  "name": "Hà Nội"},
     {"code": "DN",  "name": "Đà Nẵng"},
     {"code": "HCM", "name": "TP. Hồ Chí Minh"},
     {"code": "QN",  "name": "Quy Nhơn"},
@@ -461,8 +461,12 @@ def run():
                 campus_map[c["code"]] = obj
                 print(f"  [+] Campus: {c['code']} — {c['name']}")
             else:
+                if existing.name != c["name"]:
+                    existing.name = c["name"]
+                    print(f"  [~] Campus updated: {c['code']} — {c['name']}")
+                else:
+                    print(f"  [=] Campus exists: {c['code']}")
                 campus_map[c["code"]] = existing
-                print(f"  [=] Campus exists: {c['code']}")
 
         # ── Semesters ─────────────────────────────────────────────────────────
         semester_map: dict[str, Semester] = {}

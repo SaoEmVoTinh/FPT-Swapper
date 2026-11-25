@@ -12,12 +12,13 @@ from app.modules.students.service import StudentService
 router = APIRouter(prefix="/students", tags=["Students"])
 
 
-def _profile_to_response(profile) -> ProfileResponse:
+def _profile_to_response(profile, campus_id: uuid.UUID | None = None) -> ProfileResponse:
     return ProfileResponse(
         id=profile.id,
         student_id=profile.student_id,
         full_name=profile.full_name,
         major=profile.major,
+        campus_id=campus_id,
         avatar_url=profile.avatar_url,
         bio=profile.bio,
     )
@@ -32,7 +33,7 @@ def get_my_profile(
     profile = svc.get_profile(student.id)
     if profile is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found.")
-    return _profile_to_response(profile)
+    return _profile_to_response(profile, student.campus_id)
 
 
 @router.put("/me", response_model=ProfileResponse)
@@ -49,10 +50,12 @@ def update_my_profile(
             major=payload.major,
             avatar_url=payload.avatar_url,
             bio=payload.bio,
+            campus_id=payload.campus_id,
         )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    return _profile_to_response(profile)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    db.refresh(student)
+    return _profile_to_response(profile, student.campus_id)
 
 
 @router.get("/{student_id}", response_model=ProfileResponse)
@@ -65,4 +68,5 @@ def get_student_profile(
     profile = svc.get_profile(student_id)
     if profile is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found.")
-    return _profile_to_response(profile)
+    target_student = db.get(Student, student_id)
+    return _profile_to_response(profile, target_student.campus_id if target_student else None)

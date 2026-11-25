@@ -196,3 +196,60 @@ def test_unread_only_filter(client, notif_ctx):
     r = client.get("/api/v1/notifications?unread_only=true", headers=auth_headers(token))
     assert r.status_code == 200
     assert r.json() == []
+
+
+# ══════════════════════════════════════════════════════════════════
+#  Realtime WebSocket tests
+# ══════════════════════════════════════════════════════════════════
+
+def test_ws_rejects_unauthenticated(client):
+    from starlette.websockets import WebSocketDisconnect
+
+    with pytest.raises(WebSocketDisconnect) as exc_info:
+        with client.websocket_connect("/api/v1/ws"):
+            pass
+    assert exc_info.value.code == 4401
+
+
+def test_ws_ticket_and_ping_pong(client, chat_ctx):
+    r = client.get("/api/v1/auth/ws-ticket", cookies={"access_token": chat_ctx["token_a"]})
+    assert r.status_code == 200
+    ticket = r.json()["ticket"]
+
+    with client.websocket_connect(f"/api/v1/ws?token={ticket}") as ws:
+        ws.send_json({"type": "ping"})
+        assert ws.receive_json() == {"type": "pong"}
+
+
+def test_ws_realtime_chat_between_members(client, chat_ctx):
+    conv_id = chat_ctx["conv_id"]
+    with client.websocket_connect(f"/api/v1/ws?token={chat_ctx['token_a']}") as ws_a:
+        with client.websocket_connect(f"/api/v1/ws?token={chat_ctx['token_b']}") as ws_b:
+            ws_a.send_json({
+                "type": "chat.message.send",
+                "conversation_id": conv_id,
+                "content": "Realtime hello!",
+                "client_message_id": "ws-msg-001",
+            })
+            evt_a = ws_a.receive_json()
+            evt_b = ws_b.receive_json()
+
+            assert evt_a["type"] == "chat.message.new"
+            assert evt_b["type"] == "chat.message.new"
+            assert evt_a["data"]["id"] == evt_b["data"]["id"]
+            assert evt_b["data"]["content"] == "Realtime hello!"
+            assert evt_b["data"]["client_message_id"] == "ws-msg-001"
+
+
+def test_ws_outsider_cannot_send(client, chat_ctx):
+    conv_id = chat_ctx["conv_id"]
+    with client.websocket_connect(f"/api/v1/ws?token={chat_ctx['token_out']}") as ws_out:
+        ws_out.send_json({
+            "type": "chat.message.send",
+            "conversation_id": conv_id,
+            "content": "hack ws",
+            "client_message_id": "ws-hack-001",
+        })
+        evt = ws_out.receive_json()
+        assert evt["type"] == "error"
+        assert evt["client_message_id"] == "ws-hack-001"

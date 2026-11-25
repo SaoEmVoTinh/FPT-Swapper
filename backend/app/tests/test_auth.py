@@ -172,6 +172,31 @@ def test_update_my_profile(test_client: TestClient) -> None:
     assert res.json()["bio"] == "Hello FPT ClassSwap!"
 
 
+def test_login_by_student_code(test_client: TestClient) -> None:
+    res = test_client.post(
+        "/api/v1/auth/login",
+        json={"email": "he180999", "password": TEST_PASSWORD},
+    )
+    assert res.status_code == 200, res.json()
+    assert "access_token" in res.cookies
+
+
+def test_register_by_campus_code(test_client: TestClient) -> None:
+    res = test_client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "seconduser@fpt.edu.vn",
+            "student_code": "SE180888",
+            "full_name": "Second User",
+            "major": "AI",
+            "campus_id": "HL",
+            "password": TEST_PASSWORD,
+        },
+    )
+    assert res.status_code == 201, res.json()
+    assert res.json()["campus_code"] == "HL"
+
+
 def test_logout(test_client: TestClient) -> None:
     test_client.post(
         "/api/v1/auth/login",

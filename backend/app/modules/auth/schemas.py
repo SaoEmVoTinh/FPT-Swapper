@@ -1,5 +1,4 @@
 import uuid
-from datetime import timedelta
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
@@ -9,7 +8,7 @@ class RegisterRequest(BaseModel):
     student_code: str = Field(min_length=4, max_length=32)
     full_name: str = Field(min_length=2, max_length=120)
     major: str = Field(min_length=2, max_length=120)
-    campus_id: uuid.UUID
+    campus_id: uuid.UUID | str
     password: str = Field(min_length=6, max_length=128)
 
     @field_validator("email")
@@ -22,18 +21,12 @@ class RegisterRequest(BaseModel):
     @field_validator("student_code")
     @classmethod
     def uppercase_code(cls, v: str) -> str:
-        return v.upper()
+        return v.strip().upper()
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-
-class TokenResponse(BaseModel):
-    token_type: str = "bearer"
-    access_token: str
-    expires_in: int  # seconds
+    email: str = Field(min_length=2, max_length=255)
+    password: str = Field(min_length=1, max_length=128)
 
 
 class StudentPublicResponse(BaseModel):
@@ -45,4 +38,13 @@ class StudentPublicResponse(BaseModel):
     full_name: str | None = None
     major: str | None = None
     campus_id: uuid.UUID
+    campus_code: str | None = None
+    campus_name: str | None = None
     avatar_url: str | None = None
+
+
+class TokenResponse(BaseModel):
+    token_type: str = "bearer"
+    access_token: str
+    expires_in: int  # seconds
+    user: StudentPublicResponse | None = None

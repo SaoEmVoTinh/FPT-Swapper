@@ -14,8 +14,22 @@ import {
 
 import { FPT_COURSES } from "./fpt-courses";
 
+export function normalizeCampusName(raw?: string | null): string {
+  if (!raw) return "Hà Nội";
+  const cleaned = raw
+    .replace(/^FPTU\s+/i, "")
+    .replace(/^FPT\s+/i, "")
+    .replace(/\s*\(Hòa Lạc\)/gi, "")
+    .replace(/\s*\(Hà Nội\)/gi, "")
+    .trim();
+  if (/^hòa lạc$/i.test(cleaned) || /^hoa lac$/i.test(cleaned)) {
+    return "Hà Nội";
+  }
+  return cleaned || "Hà Nội";
+}
+
 export const DEMO_CAMPUSES: Campus[] = [
-  { id: "campus-hl", code: "HN", name: "Hà Nội (Hòa Lạc)" },
+  { id: "campus-hl", code: "HN", name: "Hà Nội" },
   { id: "campus-dn", code: "DN", name: "Đà Nẵng" },
   { id: "campus-hcm", code: "HCM", name: "TP. Hồ Chí Minh" },
   { id: "campus-qn", code: "QN", name: "Quy Nhơn" },
@@ -92,16 +106,18 @@ export const DEMO_CLASSES: AcademicClass[] = [
   },
 ];
 
-export const DEMO_STUDENT: StudentProfile = {
-  id: "stu-me",
-  fullName: "Nguyễn Văn An",
-  studentCode: "HE180123",
-  email: "annvhe180123@fpt.edu.vn",
+export const GUEST_STUDENT: StudentProfile = {
+  id: "guest",
+  fullName: "Khách (Chưa đăng nhập)",
+  studentCode: "GUEST",
+  email: "Chưa đăng nhập",
   campusId: "campus-hl",
-  campusName: "FPTU Hòa Lạc (Hà Nội)",
-  major: "Software Engineering (SE)",
+  campusName: "Hà Nội",
+  major: "Chưa cập nhật",
   role: "STUDENT",
 };
+
+export const DEMO_STUDENT: StudentProfile = GUEST_STUDENT;
 
 export const DEMO_REQUESTS: SwapRequest[] = [
   {
@@ -150,7 +166,7 @@ export const DEMO_DISCOVER_CARDS: DiscoverCard[] = [
     requestId: "req-cand-1",
     studentDisplayName: "Trần Bảo Ngọc",
     studentCodeMasked: "HE18****",
-    campusName: "FPTU Hòa Lạc",
+    campusName: "Hà Nội",
     major: "Digital Marketing",
     semesterName: "Spring 2026",
     courseCode: "MKT201",
@@ -167,7 +183,7 @@ export const DEMO_DISCOVER_CARDS: DiscoverCard[] = [
     requestId: "req-cand-2",
     studentDisplayName: "Lê Hoàng Phúc",
     studentCodeMasked: "HE17****",
-    campusName: "FPTU Hòa Lạc",
+    campusName: "Đà Nẵng",
     major: "Software Engineering",
     semesterName: "Spring 2026",
     courseCode: "PRJ301",
@@ -184,7 +200,7 @@ export const DEMO_DISCOVER_CARDS: DiscoverCard[] = [
     requestId: "req-cand-3",
     studentDisplayName: "Phạm Khánh Linh",
     studentCodeMasked: "HS18****",
-    campusName: "FPTU Hòa Lạc",
+    campusName: "TP. Hồ Chí Minh",
     major: "International Business",
     semesterName: "Spring 2026",
     courseCode: "MKT201",
@@ -205,7 +221,7 @@ export const DEMO_MATCHES: MatchItem[] = [
     myRequestId: "req-1",
     partnerRequestId: "req-cand-99",
     partnerName: "Đỗ Minh Quân",
-    partnerCampus: "FPTU Hòa Lạc",
+    partnerCampus: "Hà Nội",
     courseCode: "MKT201",
     courseName: "Consumer Behavior",
     semesterName: "Spring 2026",
@@ -246,7 +262,7 @@ export const DEMO_MESSAGES: MessageItem[] = [
   {
     id: "msg-2",
     conversationId: "conv-1",
-    senderId: "stu-me",
+    senderId: "guest",
     clientMessageId: "cm-2",
     content: "Tuyệt quá! Mình đã tạo request sẵn rồi, bạn check lịch giúp mình nhé.",
     createdAt: "10:22",
@@ -281,4 +297,3 @@ export const DEMO_NOTIFICATIONS: NotificationItem[] = [
     createdAt: "1 ngày trước",
   },
 ];
-

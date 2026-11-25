@@ -132,6 +132,8 @@ export interface MessageItem {
   clientMessageId: string;
   content: string;
   createdAt: string;
+  pending?: boolean;
+  failed?: boolean;
 }
 
 export interface ConversationItem {
