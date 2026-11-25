@@ -186,7 +186,7 @@ export default function DiscoverPage() {
                 </button>
               )}
               <Link
-                href="/requests/new"
+                href="/requests?create=1"
                 className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-600"
               >
                 Tạo yêu cầu đổi lớp

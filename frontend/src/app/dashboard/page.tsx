@@ -65,7 +65,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex flex-wrap gap-2.5">
             <Link
-              href="/requests/new"
+              href="/requests?create=1"
               className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-600 transition-colors"
             >
               <PlusCircle className="h-4 w-4" />

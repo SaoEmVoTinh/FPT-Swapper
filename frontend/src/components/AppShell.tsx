@@ -11,7 +11,6 @@ import {
   LogIn,
   LogOut,
   MessageSquare,
-  PlusCircle,
   ShieldCheck,
   Sparkles,
   User,
@@ -45,8 +44,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
     { href: "/discover", label: "Discover", icon: Flame },
-    { href: "/requests", label: "Yêu cầu của tôi", icon: ListChecks },
-    { href: "/requests/new", label: "Tạo yêu cầu", icon: PlusCircle },
+    { href: "/requests", label: "Yêu cầu đổi lớp", icon: ListChecks },
     { href: "/matches", label: "Matches", icon: Sparkles },
     {
       href: "/chat",
@@ -94,8 +92,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {navItems.map((item) => {
             const Icon = item.icon;
             const active =
-              pathname === item.href ||
-              (item.href !== "/requests" && pathname.startsWith(item.href + "/"));
+              pathname === item.href || pathname.startsWith(item.href + "/");
             return (
               <Link
                 key={item.href}
