@@ -1,5 +1,6 @@
 import uuid
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database.models.academic import (
@@ -181,3 +182,55 @@ class ClassService:
         db.commit()
         db.refresh(schedule)
         return schedule
+
+
+# Default timetable slots used when a course has no classes yet for a campus/semester.
+DEFAULT_CLASS_SLOTS: list[tuple[str, str, str]] = [
+    ("01", "Thứ 2 & Thứ 4", "Slot 1 (07:30 - 09:50)"),
+    ("02", "Thứ 2 & Thứ 4", "Slot 2 (10:00 - 12:20)"),
+    ("03", "Thứ 3 & Thứ 5", "Slot 3 (12:50 - 15:10)"),
+    ("04", "Thứ 3 & Thứ 5", "Slot 4 (15:20 - 17:40)"),
+]
+
+
+def ensure_default_classes(
+    db: Session,
+    course: Course,
+    semester: Semester,
+    campus: Campus,
+) -> list[AcademicClass]:
+    """Return the classes of a course/semester/campus, provisioning default ones if missing."""
+
+    def _list() -> list[AcademicClass]:
+        return ClassService.list(
+            db,
+            semester_id=semester.id,
+            course_id=course.id,
+            campus_id=campus.id,
+        )
+
+    existing = _list()
+    if len(existing) >= 2:
+        return existing
+
+    existing_codes = {c.code for c in existing}
+    try:
+        for suffix, day, slot in DEFAULT_CLASS_SLOTS:
+            code = f"{course.code}_{campus.code}_{suffix}"
+            if code in existing_codes:
+                continue
+            cls = AcademicClass(
+                code=code,
+                course_id=course.id,
+                semester_id=semester.id,
+                campus_id=campus.id,
+                is_swappable=True,
+            )
+            db.add(cls)
+            db.flush()
+            db.add(ClassSchedule(class_id=cls.id, day_of_week=day, slot=slot))
+        db.commit()
+    except IntegrityError:
+        # Another request provisioned the same classes concurrently.
+        db.rollback()
+    return _list()

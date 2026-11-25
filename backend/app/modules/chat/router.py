@@ -12,6 +12,7 @@ from app.modules.chat.schemas import ConversationResponse, MessageCreate, Messag
 from app.modules.chat.service import ChatService
 from app.modules.realtime.hub import realtime_hub
 from app.modules.realtime.router import build_chat_message_event
+from app.modules.views import conversation_view
 
 router = APIRouter(prefix="/conversations", tags=["Chat"])
 
@@ -21,7 +22,10 @@ def list_conversations(
     current_student: Student = Depends(get_current_student),
     db: Session = Depends(get_db),
 ):
-    return ChatService.list_conversations(db, current_student.id)
+    return [
+        conversation_view(db, conv, current_student.id)
+        for conv in ChatService.list_conversations(db, current_student.id)
+    ]
 
 
 @router.get("/{conversation_id}", response_model=ConversationResponse)
@@ -30,7 +34,8 @@ def get_conversation(
     current_student: Student = Depends(get_current_student),
     db: Session = Depends(get_db),
 ):
-    return ChatService.get_conversation(db, conversation_id, current_student.id)
+    conv = ChatService.get_conversation(db, conversation_id, current_student.id)
+    return conversation_view(db, conv, current_student.id)
 
 
 @router.get("/{conversation_id}/messages", response_model=list[MessageResponse])

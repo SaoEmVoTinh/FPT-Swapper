@@ -41,3 +41,13 @@ class RequestResponse(BaseModel):
     status: SwapRequestStatus
     created_at: datetime
     updated_at: datetime
+    # Enriched display fields (filled by views.request_view)
+    course_code: str | None = None
+    course_name: str | None = None
+    semester_name: str | None = None
+    campus_id: uuid.UUID | None = None
+    campus_name: str | None = None
+    current_class_code: str | None = None
+    current_schedule_text: str | None = None
+    target_class_code: str | None = None
+    target_schedule_text: str | None = None

@@ -28,3 +28,12 @@ class ConversationResponse(BaseModel):
     status: ConversationStatus
     created_at: datetime
     updated_at: datetime
+    # Viewer-relative display fields (filled by views.conversation_view)
+    match_id: uuid.UUID | None = None
+    partner_name: str | None = None
+    course_code: str | None = None
+    my_class_code: str | None = None
+    partner_class_code: str | None = None
+    match_status: str | None = None
+    last_message: str | None = None
+    last_message_at: datetime | None = None

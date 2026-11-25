@@ -1,7 +1,14 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { apiFetch } from "@/lib/api";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { ApiError, apiFetch } from "@/lib/api";
 import { RealtimeEvent, RealtimeStatus, useRealtimeSocket } from "@/lib/use-realtime-socket";
 import {
   DEMO_CAMPUSES,
@@ -19,11 +26,13 @@ import {
 import {
   Campus,
   ConversationItem,
+  Course,
   DiscoverCard,
   MatchItem,
   MatchStatus,
   MessageItem,
   NotificationItem,
+  Semester,
   StudentProfile,
   SwapRequest,
   SwapRequestStatus,
@@ -43,31 +52,244 @@ export interface AuthMeResponse {
   avatar_url?: string | null;
 }
 
+// ───────────────────────── API payloads ─────────────────────────
+
+interface ApiRequest {
+  id: string;
+  student_id: string;
+  semester_id: string;
+  course_id: string;
+  current_class_id: string;
+  target_class_id: string;
+  note?: string | null;
+  expires_at?: string | null;
+  status: SwapRequestStatus;
+  created_at: string;
+  course_code?: string | null;
+  course_name?: string | null;
+  semester_name?: string | null;
+  current_class_code?: string | null;
+  current_schedule_text?: string | null;
+  target_class_code?: string | null;
+  target_schedule_text?: string | null;
+}
+
+interface ApiDiscover {
+  id: string;
+  for_request_id?: string | null;
+  note?: string | null;
+  student_display_name?: string | null;
+  student_code_masked?: string | null;
+  major?: string | null;
+  campus_name?: string | null;
+  semester_name?: string | null;
+  course_code?: string | null;
+  course_name?: string | null;
+  current_class_code?: string | null;
+  current_schedule_text?: string | null;
+  target_class_code?: string | null;
+  target_schedule_text?: string | null;
+  lecturer_current?: string | null;
+  is_reciprocal_ready: boolean;
+}
+
+interface ApiMatch {
+  id: string;
+  status: MatchStatus;
+  created_at: string;
+  my_request_id?: string | null;
+  partner_request_id?: string | null;
+  partner_name?: string | null;
+  partner_campus?: string | null;
+  course_code?: string | null;
+  course_name?: string | null;
+  semester_name?: string | null;
+  my_class_code?: string | null;
+  partner_class_code?: string | null;
+  my_confirmed: boolean;
+  partner_confirmed: boolean;
+  conversation_id?: string | null;
+}
+
+interface ApiSwipe {
+  match_id?: string | null;
+  match_created: boolean;
+  match?: ApiMatch | null;
+}
+
+interface ApiConversation {
+  id: string;
+  match_id?: string | null;
+  partner_name?: string | null;
+  course_code?: string | null;
+  my_class_code?: string | null;
+  partner_class_code?: string | null;
+  match_status?: MatchStatus | null;
+  last_message?: string | null;
+  last_message_at?: string | null;
+}
+
+interface ApiNotification {
+  id: string;
+  notification_type: NotificationItem["type"];
+  title: string;
+  body: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+// ───────────────────────── Mapping helpers ─────────────────────────
+
+function formatTime(isoOrTime: string): string {
+  const d = new Date(isoOrTime);
+  if (Number.isNaN(d.getTime())) return isoOrTime;
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function formatRelative(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const minutes = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (minutes < 1) return "Vừa xong";
+  if (minutes < 60) return `${minutes} phút trước`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} giờ trước`;
+  return `${Math.floor(hours / 24)} ngày trước`;
+}
+
+function mapRequest(r: ApiRequest): SwapRequest {
+  return {
+    id: r.id,
+    studentId: r.student_id,
+    semesterId: r.semester_id,
+    semesterName: r.semester_name || "—",
+    courseId: r.course_id,
+    courseCode: r.course_code || "—",
+    courseName: r.course_name || "",
+    currentClassId: r.current_class_id,
+    currentClassCode: r.current_class_code || r.current_class_id.slice(0, 8).toUpperCase(),
+    currentScheduleText: r.current_schedule_text || "Chưa cập nhật lịch",
+    targetClassId: r.target_class_id,
+    targetClassCode: r.target_class_code || r.target_class_id.slice(0, 8).toUpperCase(),
+    targetScheduleText: r.target_schedule_text || "Chưa cập nhật lịch",
+    note: r.note || undefined,
+    expiresAt: r.expires_at ? r.expires_at.slice(0, 10) : "—",
+    status: r.status,
+    createdAt: r.created_at,
+  };
+}
+
+function mapDiscover(d: ApiDiscover): DiscoverCard {
+  return {
+    requestId: d.id,
+    myRequestId: d.for_request_id || undefined,
+    studentDisplayName: d.student_display_name || "Sinh viên",
+    studentCodeMasked: d.student_code_masked || "****",
+    campusName: normalizeCampusName(d.campus_name),
+    major: d.major || "—",
+    semesterName: d.semester_name || "—",
+    courseCode: d.course_code || "—",
+    courseName: d.course_name || "",
+    currentClassCode: d.current_class_code || "—",
+    currentScheduleText: d.current_schedule_text || "Chưa cập nhật lịch",
+    targetClassCode: d.target_class_code || "—",
+    targetScheduleText: d.target_schedule_text || "Chưa cập nhật lịch",
+    lecturerCurrent: d.lecturer_current || "Đang cập nhật",
+    note: d.note || undefined,
+    isReciprocalReady: d.is_reciprocal_ready,
+  };
+}
+
+function mapMatch(m: ApiMatch): MatchItem {
+  return {
+    id: m.id,
+    myRequestId: m.my_request_id || "",
+    partnerRequestId: m.partner_request_id || "",
+    partnerName: m.partner_name || "Sinh viên",
+    partnerCampus: normalizeCampusName(m.partner_campus),
+    courseCode: m.course_code || "—",
+    courseName: m.course_name || "",
+    semesterName: m.semester_name || "—",
+    myClassCode: m.my_class_code || "—",
+    partnerClassCode: m.partner_class_code || "—",
+    status: m.status,
+    myConfirmed: m.my_confirmed,
+    partnerConfirmed: m.partner_confirmed,
+    conversationId: m.conversation_id || "",
+    createdAt: m.created_at,
+  };
+}
+
+function mapConversation(c: ApiConversation, unreadCount: number): ConversationItem {
+  return {
+    id: c.id,
+    matchId: c.match_id || "",
+    partnerName: c.partner_name || "Sinh viên",
+    courseCode: c.course_code || "—",
+    myClassCode: c.my_class_code || "—",
+    partnerClassCode: c.partner_class_code || "—",
+    matchStatus: c.match_status || "PENDING_CONFIRMATION",
+    lastMessage: c.last_message || "Hai bạn đã Match! Hãy bắt đầu trao đổi lịch đổi lớp.",
+    lastMessageAt: c.last_message_at ? formatTime(c.last_message_at) : undefined,
+    unreadCount,
+  };
+}
+
+function mapNotification(n: ApiNotification): NotificationItem {
+  return {
+    id: n.id,
+    title: n.title,
+    body: n.body,
+    type: n.notification_type,
+    isRead: n.is_read,
+    createdAt: formatRelative(n.created_at),
+    href:
+      n.notification_type === "MATCH"
+        ? "/matches"
+        : n.notification_type === "MESSAGE"
+          ? "/chat"
+          : undefined,
+  };
+}
+
+async function safeFetch<T>(path: string): Promise<T | null> {
+  try {
+    return await apiFetch<T>(path);
+  } catch {
+    return null;
+  }
+}
+
 const STORAGE_STUDENT_KEY = "fpt_classswap_student_v1";
-const STORAGE_REQUESTS_PREFIX = "fpt_classswap_reqs_v1_";
 
 function sanitizeCampuses(list: Campus[]): Campus[] {
-  return list.map((c) => ({
-    ...c,
-    name: normalizeCampusName(c.name),
-  }));
+  return list.map((c) => ({ ...c, name: normalizeCampusName(c.name) }));
 }
 
 interface AppStateContextValue {
   student: StudentProfile;
   campuses: Campus[];
+  semesters: Semester[];
+  courses: Course[];
   isAuthenticated: boolean;
   setAuthenticatedUser: (me: AuthMeResponse) => void;
   refreshAuth: () => Promise<AuthMeResponse | null>;
   logout: () => Promise<void>;
   updateStudent: (patch: Partial<StudentProfile>) => Promise<void>;
   requests: SwapRequest[];
-  addRequest: (req: Omit<SwapRequest, "id" | "studentId" | "status" | "createdAt">) => void;
-  updateRequestStatus: (id: string, status: SwapRequestStatus) => void;
+  /** Creates a request. When logged in it is saved to the database; throws ApiError on failure. */
+  addRequest: (req: Omit<SwapRequest, "id" | "studentId" | "status" | "createdAt">) => Promise<void>;
+  updateRequestStatus: (id: string, status: SwapRequestStatus) => Promise<void>;
   discoverCards: DiscoverCard[];
-  swipeCard: (requestId: string, action: SwipeAction) => { matched: boolean; match?: MatchItem };
+  swipeCard: (
+    requestId: string,
+    action: SwipeAction
+  ) => Promise<{ matched: boolean; match?: MatchItem }>;
   matches: MatchItem[];
-  updateMatchStatus: (matchId: string, action: "confirm" | "decline" | "complete") => void;
+  updateMatchStatus: (
+    matchId: string,
+    action: "confirm" | "decline" | "complete"
+  ) => Promise<void>;
   conversations: ConversationItem[];
   messages: MessageItem[];
   sendMessage: (conversationId: string, content: string) => void;
@@ -77,6 +299,9 @@ interface AppStateContextValue {
   markNotificationRead: (id: string) => void;
   unreadNotificationsCount: number;
   unreadMessagesCount: number;
+  refreshWorkspace: () => Promise<void>;
+  actionError: string | null;
+  clearActionError: () => void;
 }
 
 const AppStateContext = createContext<AppStateContextValue | null>(null);
@@ -84,6 +309,8 @@ const AppStateContext = createContext<AppStateContextValue | null>(null);
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [student, setStudent] = useState<StudentProfile>(GUEST_STUDENT);
   const [campuses, setCampuses] = useState<Campus[]>(DEMO_CAMPUSES);
+  const [semesters, setSemesters] = useState<Semester[]>(DEMO_SEMESTERS);
+  const [courses, setCourses] = useState<Course[]>(DEMO_COURSES);
   const [requests, setRequests] = useState<SwapRequest[]>(DEMO_REQUESTS);
   const [discoverCards, setDiscoverCards] = useState<DiscoverCard[]>(DEMO_DISCOVER_CARDS);
   const [matches, setMatches] = useState<MatchItem[]>(DEMO_MATCHES);
@@ -91,100 +318,33 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<MessageItem[]>(DEMO_MESSAGES);
   const [notifications, setNotifications] = useState<NotificationItem[]>(DEMO_NOTIFICATIONS);
   const [backendAuthed, setBackendAuthed] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const workspaceOwnerRef = useRef<string | null>(null);
 
-  const formatTime = (isoOrTime: string) => {
-    const d = new Date(isoOrTime);
-    if (Number.isNaN(d.getTime())) return isoOrTime;
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  };
+  const reportError = useCallback((err: unknown, fallback: string) => {
+    setActionError(err instanceof ApiError ? err.message : fallback);
+  }, []);
 
-  const loadUserWorkspaceData = useCallback(async (studentId: string) => {
-    // Load per-account saved requests + backend requests/notifications/matches/conversations
-    let localReqs: SwapRequest[] = [];
-    if (typeof window !== "undefined") {
-      try {
-        const raw = window.localStorage.getItem(`${STORAGE_REQUESTS_PREFIX}${studentId}`);
-        if (raw) {
-          localReqs = JSON.parse(raw) as SwapRequest[];
-        }
-      } catch {
-        // ignore storage error
-      }
-    }
-
-    try {
-      const apiReqs = await apiFetch<
-        Array<{
-          id: string;
-          student_id: string;
-          semester_id: string;
-          course_id: string;
-          current_class_id: string;
-          target_class_id: string;
-          note?: string | null;
-          expires_at?: string | null;
-          status: SwapRequestStatus;
-          created_at: string;
-        }>
-      >("/class-swap/requests/me");
-
-      const mappedReqs: SwapRequest[] = apiReqs.map((r) => {
-        const crs = DEMO_COURSES.find((c) => c.id === r.course_id);
-        const sem = DEMO_SEMESTERS.find((s) => s.id === r.semester_id);
-        return {
-          id: r.id,
-          studentId: r.student_id,
-          semesterId: r.semester_id,
-          semesterName: sem?.name || "Fall 2025",
-          courseId: r.course_id,
-          courseCode: crs?.code || "COURSE",
-          courseName: crs?.name || "Môn học",
-          currentClassId: r.current_class_id,
-          currentClassCode: r.current_class_id.slice(0, 8).toUpperCase(),
-          currentScheduleText: "Theo lịch lớp hiện tại",
-          targetClassId: r.target_class_id,
-          targetClassCode: r.target_class_id.slice(0, 8).toUpperCase(),
-          targetScheduleText: "Theo lịch lớp mong muốn",
-          note: r.note || undefined,
-          expiresAt: r.expires_at ? r.expires_at.slice(0, 10) : "2026-12-20",
-          status: r.status,
-          createdAt: r.created_at,
-        };
-      });
-      const mergedIds = new Set(mappedReqs.map((r) => r.id));
-      setRequests([...mappedReqs, ...localReqs.filter((r) => !mergedIds.has(r.id))]);
-    } catch {
-      setRequests(localReqs);
-    }
-
-    try {
-      const apiNotifs = await apiFetch<
-        Array<{
-          id: string;
-          notification_type: NotificationItem["type"];
-          title: string;
-          body: string;
-          is_read: boolean;
-          created_at: string;
-        }>
-      >("/notifications");
-      setNotifications(
-        apiNotifs.map((n) => ({
-          id: n.id,
-          title: n.title,
-          body: n.body,
-          type: n.notification_type,
-          isRead: n.is_read,
-          createdAt: formatTime(n.created_at),
-        }))
+  /** Reload requests / discover / matches / conversations / notifications from the database. */
+  const refreshWorkspace = useCallback(async () => {
+    const [reqs, cards, ms, convs, notifs] = await Promise.all([
+      safeFetch<ApiRequest[]>("/class-swap/requests/me"),
+      safeFetch<ApiDiscover[]>("/class-swap/discover"),
+      safeFetch<ApiMatch[]>("/class-swap/matches"),
+      safeFetch<ApiConversation[]>("/conversations"),
+      safeFetch<ApiNotification[]>("/notifications"),
+    ]);
+    if (reqs) setRequests(reqs.map(mapRequest));
+    if (cards) setDiscoverCards(cards.map(mapDiscover));
+    if (ms) setMatches(ms.map(mapMatch));
+    if (convs) {
+      setConversations((prev) =>
+        convs.map((c) =>
+          mapConversation(c, prev.find((p) => p.id === c.id)?.unreadCount ?? 0)
+        )
       );
-    } catch {
-      setNotifications([]);
     }
-
-    setMatches([]);
-    setConversations([]);
-    setMessages([]);
+    if (notifs) setNotifications(notifs.map(mapNotification));
   }, []);
 
   const applyAuthMe = useCallback(
@@ -213,9 +373,20 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           // ignore storage error
         }
       }
-      void loadUserWorkspaceData(me.id);
+
+      // A different account logged in → drop everything the previous one saw.
+      if (workspaceOwnerRef.current !== me.id) {
+        workspaceOwnerRef.current = me.id;
+        setRequests([]);
+        setDiscoverCards([]);
+        setMatches([]);
+        setConversations([]);
+        setMessages([]);
+        setNotifications([]);
+      }
+      void refreshWorkspace();
     },
-    [loadUserWorkspaceData]
+    [refreshWorkspace]
   );
 
   const setAuthenticatedUser = useCallback(
@@ -226,9 +397,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   );
 
   const clearAuthSession = useCallback(() => {
+    workspaceOwnerRef.current = null;
     setBackendAuthed(false);
     setStudent(GUEST_STUDENT);
     setRequests(DEMO_REQUESTS);
+    setDiscoverCards(DEMO_DISCOVER_CARDS);
     setMatches(DEMO_MATCHES);
     setConversations(DEMO_CONVERSATIONS);
     setMessages(DEMO_MESSAGES);
@@ -265,32 +438,58 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    // Hydrate cached student immediately to avoid flashing Guest state on reload
+    /* eslint-disable react-hooks/set-state-in-effect */
+    // Hydrate the cached account immediately to avoid flashing guest/demo data on reload.
     if (typeof window !== "undefined") {
       try {
         const cached = window.localStorage.getItem(STORAGE_STUDENT_KEY);
         if (cached) {
           const parsed = JSON.parse(cached) as StudentProfile;
           parsed.campusName = normalizeCampusName(parsed.campusName);
-          // eslint-disable-next-line react-hooks/set-state-in-effect
           setStudent(parsed);
           setBackendAuthed(true);
+          workspaceOwnerRef.current = parsed.id;
+          setRequests([]);
+          setDiscoverCards([]);
+          setMatches([]);
+          setConversations([]);
+          setMessages([]);
+          setNotifications([]);
         }
       } catch {
         // ignore parse error
       }
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     (async () => {
       let loadedCampuses = DEMO_CAMPUSES;
-      try {
-        const dbCampuses = await apiFetch<Campus[]>("/academic/campuses");
-        if (active && dbCampuses.length > 0) {
-          loadedCampuses = sanitizeCampuses(dbCampuses);
-          setCampuses(loadedCampuses);
-        }
-      } catch {
-        // Keep fallback DEMO_CAMPUSES
+
+      const [dbCampuses, dbSemesters, dbCourses] = await Promise.all([
+        safeFetch<Campus[]>("/academic/campuses"),
+        safeFetch<
+          Array<{ id: string; code: string; name: string; is_active: boolean }>
+        >("/academic/semesters"),
+        safeFetch<Course[]>("/academic/courses"),
+      ]);
+      if (!active) return;
+
+      if (dbCampuses && dbCampuses.length > 0) {
+        loadedCampuses = sanitizeCampuses(dbCampuses);
+        setCampuses(loadedCampuses);
+      }
+      if (dbSemesters && dbSemesters.length > 0) {
+        setSemesters(
+          dbSemesters.map((s) => ({
+            id: s.id,
+            code: s.code,
+            name: s.name,
+            isActive: s.is_active,
+          }))
+        );
+      }
+      if (dbCourses && dbCourses.length > 0) {
+        setCourses(dbCourses);
       }
 
       try {
@@ -307,8 +506,23 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     };
   }, [applyAuthMe, clearAuthSession]);
 
+  // Keep Discover / Matches fresh even when the realtime socket is unavailable (e.g. serverless hosting).
+  useEffect(() => {
+    if (!backendAuthed) return;
+    const timer = setInterval(() => {
+      if (typeof document === "undefined" || document.visibilityState === "visible") {
+        void refreshWorkspace();
+      }
+    }, 20000);
+    return () => clearInterval(timer);
+  }, [backendAuthed, refreshWorkspace]);
+
   const handleRealtimeEvent = useCallback(
     (event: RealtimeEvent) => {
+      if (event.type === "match.created" || event.type === "match.updated") {
+        void refreshWorkspace();
+        return;
+      }
       if (event.type === "chat.message.new" && event.data) {
         const raw = event.data as {
           id: string;
@@ -343,8 +557,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           return [...prev, incoming];
         });
 
-        setConversations((prev) => {
-          const updated = prev.map((c) =>
+        setConversations((prev) =>
+          prev.map((c) =>
             c.id === incoming.conversationId
               ? {
                   ...c,
@@ -354,9 +568,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
                     incoming.senderId === student.id ? c.unreadCount : c.unreadCount + 1,
                 }
               : c
-          );
-          return updated;
-        });
+          )
+        );
       } else if (event.type === "error" && event.client_message_id) {
         setMessages((prev) =>
           prev.map((m) =>
@@ -367,7 +580,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         );
       }
     },
-    [student.id]
+    [student.id, refreshWorkspace]
   );
 
   const { status: realtimeStatus, sendEvent } = useRealtimeSocket({
@@ -442,11 +655,31 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       }
       return next;
     });
+    if (backendAuthed) {
+      // Campus/major changes can change which candidates are visible.
+      void refreshWorkspace();
+    }
   };
 
-  const addRequest = (
+  const addRequest = async (
     req: Omit<SwapRequest, "id" | "studentId" | "status" | "createdAt">
   ) => {
+    if (backendAuthed) {
+      await apiFetch("/class-swap/requests", {
+        method: "POST",
+        body: JSON.stringify({
+          semester_id: req.semesterId,
+          course_id: req.courseId,
+          current_class_id: req.currentClassId,
+          target_class_id: req.targetClassId,
+          note: req.note ?? null,
+          expires_at: req.expiresAt ? `${req.expiresAt}T23:59:59Z` : null,
+        }),
+      });
+      await refreshWorkspace();
+      return;
+    }
+
     const newReq: SwapRequest = {
       ...req,
       id: `req-${Date.now()}`,
@@ -454,46 +687,71 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       status: "ACTIVE",
       createdAt: new Date().toISOString(),
     };
-    setRequests((prev) => {
-      const next = [newReq, ...prev];
-      if (backendAuthed && typeof window !== "undefined") {
-        try {
-          window.localStorage.setItem(
-            `${STORAGE_REQUESTS_PREFIX}${student.id}`,
-            JSON.stringify(next)
-          );
-        } catch {
-          // ignore storage error
-        }
-      }
-      return next;
-    });
+    setRequests((prev) => [newReq, ...prev]);
   };
 
-  const updateRequestStatus = (id: string, status: SwapRequestStatus) => {
-    setRequests((prev) => {
-      const next = prev.map((item) => (item.id === id ? { ...item, status } : item));
-      if (backendAuthed && typeof window !== "undefined") {
-        try {
-          window.localStorage.setItem(
-            `${STORAGE_REQUESTS_PREFIX}${student.id}`,
-            JSON.stringify(next)
-          );
-        } catch {
-          // ignore storage error
+  const updateRequestStatus = async (id: string, status: SwapRequestStatus) => {
+    if (backendAuthed) {
+      try {
+        if (status === "CANCELLED") {
+          await apiFetch(`/class-swap/requests/${id}`, { method: "DELETE" });
+        } else {
+          await apiFetch(`/class-swap/requests/${id}`, {
+            method: "PUT",
+            body: JSON.stringify({ status }),
+          });
         }
+      } catch (err) {
+        reportError(err, "Không thể cập nhật yêu cầu. Vui lòng thử lại.");
       }
-      return next;
-    });
+      await refreshWorkspace();
+      return;
+    }
+    setRequests((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, status } : item))
+    );
   };
 
-  const swipeCard = (
+  const swipeCard = async (
     requestId: string,
     action: SwipeAction
-  ): { matched: boolean; match?: MatchItem } => {
+  ): Promise<{ matched: boolean; match?: MatchItem }> => {
     const card = discoverCards.find((c) => c.requestId === requestId);
-    setDiscoverCards((prev) => prev.filter((c) => c.requestId !== requestId));
 
+    if (backendAuthed) {
+      if (!card?.myRequestId) {
+        setDiscoverCards((prev) => prev.filter((c) => c.requestId !== requestId));
+        return { matched: false };
+      }
+      try {
+        const res = await apiFetch<ApiSwipe>("/class-swap/swipes", {
+          method: "POST",
+          body: JSON.stringify({
+            swiper_request_id: card.myRequestId,
+            target_request_id: card.requestId,
+            action,
+          }),
+        });
+        setDiscoverCards((prev) => prev.filter((c) => c.requestId !== requestId));
+        if (res.match && res.match_created) {
+          const match = mapMatch(res.match);
+          setMatches((prev) => [match, ...prev.filter((m) => m.id !== match.id)]);
+          void refreshWorkspace();
+          return { matched: true, match };
+        }
+        return { matched: false };
+      } catch (err) {
+        reportError(err, "Không thể ghi nhận lượt quẹt. Vui lòng thử lại.");
+        if (err instanceof ApiError && (err.status === 404 || err.status === 422)) {
+          // Candidate is gone (cancelled / matched elsewhere) — drop the stale card.
+          setDiscoverCards((prev) => prev.filter((c) => c.requestId !== requestId));
+        }
+        return { matched: false };
+      }
+    }
+
+    // ── Guest/demo mode ──
+    setDiscoverCards((prev) => prev.filter((c) => c.requestId !== requestId));
     if (!card || action === "PASS" || !card.isReciprocalReady) {
       return { matched: false };
     }
@@ -548,10 +806,27 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     return { matched: true, match: newMatch };
   };
 
-  const updateMatchStatus = (
+  const updateMatchStatus = async (
     matchId: string,
     action: "confirm" | "decline" | "complete"
   ) => {
+    if (backendAuthed) {
+      try {
+        const updated = await apiFetch<ApiMatch>(`/class-swap/matches/${matchId}/${action}`, {
+          method: "POST",
+        });
+        const mapped = mapMatch(updated);
+        setMatches((prev) => prev.map((m) => (m.id === mapped.id ? mapped : m)));
+        setConversations((prev) =>
+          prev.map((c) => (c.matchId === mapped.id ? { ...c, matchStatus: mapped.status } : c))
+        );
+      } catch (err) {
+        reportError(err, "Không thể cập nhật trạng thái Match. Vui lòng thử lại.");
+      }
+      await refreshWorkspace();
+      return;
+    }
+
     let nextStatus: MatchStatus = "PENDING_CONFIRMATION";
     setMatches((prev) =>
       prev.map((m) => {
@@ -664,6 +939,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const clearActionError = useCallback(() => setActionError(null), []);
+
   const unreadNotificationsCount = notifications.filter((n) => !n.isRead).length;
   const unreadMessagesCount = conversations.reduce((acc, c) => acc + c.unreadCount, 0);
 
@@ -672,6 +949,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       value={{
         student,
         campuses,
+        semesters,
+        courses,
         isAuthenticated: backendAuthed,
         setAuthenticatedUser,
         refreshAuth,
@@ -693,6 +972,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         markNotificationRead,
         unreadNotificationsCount,
         unreadMessagesCount,
+        refreshWorkspace,
+        actionError,
+        clearActionError,
       }}
     >
       {children}

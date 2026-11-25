@@ -10,8 +10,10 @@ import {
   GraduationCap,
   Heart,
   Info,
+  Loader2,
   MapPin,
   MessageSquare,
+  RefreshCw,
   Sparkles,
   User,
   X,
@@ -21,25 +23,51 @@ import { useAppState } from "@/lib/app-state";
 import { MatchItem } from "@/types";
 
 export default function DiscoverPage() {
-  const { discoverCards, swipeCard } = useAppState();
+  const {
+    discoverCards,
+    requests,
+    isAuthenticated,
+    swipeCard,
+    refreshWorkspace,
+    actionError,
+    clearActionError,
+  } = useAppState();
   const [matchedModal, setMatchedModal] = useState<MatchItem | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [swiping, setSwiping] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const currentCard = discoverCards[0];
+  const hasActiveRequest = requests.some((r) => r.status === "ACTIVE");
 
-  const handleSwipe = (action: "LIKE" | "PASS") => {
-    if (!currentCard) return;
+  const handleSwipe = async (action: "LIKE" | "PASS") => {
+    if (!currentCard || swiping) return;
+    clearActionError();
     setShowDetails(false);
-    const result = swipeCard(currentCard.requestId, action);
-    if (result.matched && result.match) {
-      setMatchedModal(result.match);
+    setSwiping(true);
+    try {
+      const result = await swipeCard(currentCard.requestId, action);
+      if (result.matched && result.match) {
+        setMatchedModal(result.match);
+      }
+    } finally {
+      setSwiping(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshWorkspace();
+    } finally {
+      setRefreshing(false);
     }
   };
 
   return (
     <AppShell>
       <div className="mx-auto max-w-xl space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
               <Flame className="h-6 w-6 text-orange-500" />
@@ -50,7 +78,33 @@ export default function DiscoverPage() {
               ứng viên còn lại)
             </p>
           </div>
+          {isAuthenticated && (
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+              />
+              Làm mới
+            </button>
+          )}
         </div>
+
+        {actionError && (
+          <div className="flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <span>{actionError}</span>
+            <button
+              type="button"
+              onClick={clearActionError}
+              className="text-xs font-semibold underline"
+            >
+              Đóng
+            </button>
+          </div>
+        )}
 
         {!currentCard ? (
           <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center shadow-sm">
@@ -58,24 +112,27 @@ export default function DiscoverPage() {
               <Sparkles className="h-7 w-7" />
             </div>
             <h2 className="mt-4 text-lg font-bold text-slate-900">
-              Bạn đã xem hết ứng viên hiện tại
+              {isAuthenticated && !hasActiveRequest
+                ? "Bạn chưa có yêu cầu đổi lớp đang mở"
+                : "Chưa có ứng viên tương thích mới"}
             </h2>
             <p className="mt-2 text-sm text-slate-500">
-              Hãy kiểm tra danh sách Match hoặc tạo thêm yêu cầu đổi lớp mới để
-              mở rộng cơ hội kết nối.
+              {isAuthenticated && !hasActiveRequest
+                ? "Hãy tạo một yêu cầu đổi lớp (lớp hiện tại → lớp mong muốn) để hệ thống tìm sinh viên có nhu cầu ngược lại cho bạn."
+                : "Hệ thống chỉ hiển thị người muốn đổi đúng chiều ngược lại với bạn. Hãy thử làm mới hoặc kiểm tra danh sách Match."}
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <Link
-                href="/matches"
+                href="/requests/new"
                 className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-600"
               >
-                Xem Matches
+                Tạo yêu cầu đổi lớp
               </Link>
               <Link
-                href="/requests/new"
+                href="/matches"
                 className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
-                Tạo yêu cầu mới
+                Xem Matches
               </Link>
             </div>
           </div>
@@ -83,7 +140,7 @@ export default function DiscoverPage() {
           <div className="rounded-3xl border border-slate-200 bg-white shadow-lg overflow-hidden">
             {/* Card Header */}
             <div className="bg-gradient-to-r from-orange-500 to-amber-500 p-6 text-white">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur">
                   {currentCard.semesterName}
                 </span>
@@ -91,7 +148,13 @@ export default function DiscoverPage() {
                   {currentCard.campusName}
                 </span>
               </div>
-              <h2 className="mt-4 text-2xl font-extrabold tracking-tight">
+              {currentCard.isReciprocalReady && (
+                <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/90 px-3 py-1 text-xs font-bold text-white shadow-sm">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Đã Like bạn — Like lại để Match ngay!
+                </div>
+              )}
+              <h2 className="mt-3 text-2xl font-extrabold tracking-tight">
                 {currentCard.courseCode}
               </h2>
               <p className="text-sm text-white/90">{currentCard.courseName}</p>
@@ -182,18 +245,24 @@ export default function DiscoverPage() {
               <div className="flex items-center justify-center gap-5 pt-2">
                 <button
                   type="button"
+                  disabled={swiping}
                   onClick={() => handleSwipe("PASS")}
-                  className="flex h-14 w-32 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 transition-all active:scale-95"
+                  className="flex h-14 w-32 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 transition-all active:scale-95 disabled:opacity-60"
                 >
                   <X className="h-5 w-5" />
                   Pass
                 </button>
                 <button
                   type="button"
+                  disabled={swiping}
                   onClick={() => handleSwipe("LIKE")}
-                  className="flex h-14 w-40 items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white shadow-md shadow-orange-500/25 hover:bg-orange-600 transition-all active:scale-95"
+                  className="flex h-14 w-40 items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white shadow-md shadow-orange-500/25 hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-60"
                 >
-                  <Heart className="h-5 w-5 fill-current" />
+                  {swiping ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Heart className="h-5 w-5 fill-current" />
+                  )}
                   Like để đổi
                 </button>
               </div>
@@ -244,4 +313,3 @@ export default function DiscoverPage() {
     </AppShell>
   );
 }
-

@@ -12,6 +12,7 @@ from app.modules.class_swap.schemas import (
     UpdateRequestSchema,
 )
 from app.modules.class_swap.service import ClassSwapService
+from app.modules.views import request_view
 
 router = APIRouter(prefix="/class-swap", tags=["Class Swap"])
 
@@ -22,7 +23,8 @@ def create_request(
     current_student: Student = Depends(get_current_student),
     db: Session = Depends(get_db),
 ):
-    return ClassSwapService.create(db, current_student.id, data)
+    req = ClassSwapService.create(db, current_student.id, data)
+    return request_view(db, req)
 
 
 @router.get("/requests/me", response_model=list[RequestResponse])
@@ -30,7 +32,7 @@ def list_my_requests(
     current_student: Student = Depends(get_current_student),
     db: Session = Depends(get_db),
 ):
-    return ClassSwapService.list_mine(db, current_student.id)
+    return [request_view(db, r) for r in ClassSwapService.list_mine(db, current_student.id)]
 
 
 @router.get("/requests/{request_id}", response_model=RequestResponse)
@@ -45,7 +47,7 @@ def get_request(
     # students can read their own; admins can read any (admin dep not added here — use admin router)
     if req.student_id != current_student.id:
         raise HTTPException(status_code=403, detail="Not your request")
-    return req
+    return request_view(db, req)
 
 
 @router.put("/requests/{request_id}", response_model=RequestResponse)
@@ -56,7 +58,8 @@ def update_request(
     db: Session = Depends(get_db),
 ):
     req = ClassSwapService.get_owned(db, request_id, current_student.id)
-    return ClassSwapService.update(db, req, current_student.id, data)
+    updated = ClassSwapService.update(db, req, current_student.id, data)
+    return request_view(db, updated)
 
 
 @router.delete("/requests/{request_id}", status_code=status.HTTP_204_NO_CONTENT)

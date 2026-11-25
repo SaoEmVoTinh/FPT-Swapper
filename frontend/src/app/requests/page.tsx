@@ -7,11 +7,23 @@ import { RequestStatusBadge } from "@/components/StatusBadge";
 import { useAppState } from "@/lib/app-state";
 
 export default function MyRequestsPage() {
-  const { requests, updateRequestStatus } = useAppState();
+  const { requests, updateRequestStatus, actionError, clearActionError } = useAppState();
 
   return (
     <AppShell>
       <div className="space-y-6">
+        {actionError && (
+          <div className="flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <span>{actionError}</span>
+            <button
+              type="button"
+              onClick={clearActionError}
+              className="text-xs font-semibold underline"
+            >
+              Đóng
+            </button>
+          </div>
+        )}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">

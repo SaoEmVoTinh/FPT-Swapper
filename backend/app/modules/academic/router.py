@@ -15,6 +15,7 @@ from app.modules.academic.schemas import (
     CourseCreate,
     CourseResponse,
     CourseUpdate,
+    EnsureClassesRequest,
     ScheduleCreate,
     ScheduleResponse,
     SemesterCreate,
@@ -26,6 +27,7 @@ from app.modules.academic.service import (
     ClassService,
     CourseService,
     SemesterService,
+    ensure_default_classes,
 )
 
 router = APIRouter(prefix="/academic", tags=["Academic"])
@@ -196,6 +198,25 @@ def list_classes(
     db: Session = Depends(get_db),
 ):
     return ClassService.list(db, semester_id=semester_id, course_id=course_id, campus_id=campus_id)
+
+
+@router.post(
+    "/classes/ensure",
+    response_model=list[ClassResponse],
+    dependencies=[Depends(get_current_student)],
+)
+def ensure_classes(data: EnsureClassesRequest, db: Session = Depends(get_db)):
+    """List classes for a course/semester/campus, auto-provisioning default timetable slots."""
+    course = CourseService.get(db, data.course_id)
+    semester = SemesterService.get(db, data.semester_id)
+    campus = CampusService.get(db, data.campus_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if not semester:
+        raise HTTPException(status_code=404, detail="Semester not found")
+    if not campus:
+        raise HTTPException(status_code=404, detail="Campus not found")
+    return ensure_default_classes(db, course, semester, campus)
 
 
 @router.get("/classes/{class_id}", response_model=ClassResponse)

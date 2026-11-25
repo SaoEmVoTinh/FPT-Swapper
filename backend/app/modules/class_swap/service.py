@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.common.enums import SwapRequestStatus
+from app.database.models.academic import AcademicClass
 from app.database.models.matching import MatchingRequest
 from app.modules.class_swap.schemas import CreateRequestSchema, UpdateRequestSchema
 
@@ -30,7 +31,9 @@ class ClassSwapService:
                 MatchingRequest.student_id == student_id,
                 MatchingRequest.course_id == course_id,
                 MatchingRequest.semester_id == semester_id,
-                MatchingRequest.status.in_([SwapRequestStatus.ACTIVE, SwapRequestStatus.DRAFT]),
+                MatchingRequest.status.in_(
+                    [SwapRequestStatus.ACTIVE, SwapRequestStatus.DRAFT, SwapRequestStatus.MATCHED]
+                ),
             )
         )
         if exclude_id:
@@ -38,11 +41,38 @@ class ClassSwapService:
         if q.first():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="You already have an active swap request for this course/semester.",
+                detail="Bạn đã có một yêu cầu đổi lớp đang hoạt động cho môn/học kỳ này.",
+            )
+
+    @staticmethod
+    def _validate_classes(db: Session, data: CreateRequestSchema) -> None:
+        current = db.get(AcademicClass, data.current_class_id)
+        target = db.get(AcademicClass, data.target_class_id)
+        if current is None or target is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Lớp hiện tại hoặc lớp mong muốn không tồn tại trong danh mục.",
+            )
+        for cls in (current, target):
+            if cls.course_id != data.course_id or cls.semester_id != data.semester_id:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Lớp học phải thuộc đúng môn học và học kỳ đã chọn.",
+                )
+            if not cls.is_swappable:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Lớp {cls.code} hiện không cho phép đổi.",
+                )
+        if current.campus_id != target.campus_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Hai lớp phải cùng một cơ sở.",
             )
 
     @staticmethod
     def create(db: Session, student_id: uuid.UUID, data: CreateRequestSchema) -> MatchingRequest:
+        ClassSwapService._validate_classes(db, data)
         ClassSwapService._check_no_conflicting_active(
             db, student_id, data.course_id, data.semester_id
         )

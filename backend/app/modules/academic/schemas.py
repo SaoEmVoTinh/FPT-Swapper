@@ -118,3 +118,9 @@ class ClassResponse(ClassBase):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     schedules: list[ScheduleResponse] = []
+
+
+class EnsureClassesRequest(BaseModel):
+    course_id: uuid.UUID
+    semester_id: uuid.UUID
+    campus_id: uuid.UUID

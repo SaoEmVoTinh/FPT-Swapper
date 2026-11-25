@@ -91,6 +91,8 @@ export interface SwapRequest {
 
 export interface DiscoverCard {
   requestId: string;
+  /** Your own ACTIVE request this candidate is compatible with (used when swiping). */
+  myRequestId?: string;
   studentDisplayName: string;
   studentCodeMasked: string;
   campusName: string;

@@ -5,15 +5,13 @@ import { BookOpen, Building2, CalendarDays, Layers, ShieldCheck } from "lucide-r
 import { AppShell } from "@/components/AppShell";
 import {
   DEMO_CLASSES,
-  DEMO_COURSES,
-  DEMO_SEMESTERS,
 } from "@/lib/demo-data";
 import { useAppState } from "@/lib/app-state";
 
 type AdminTab = "campuses" | "semesters" | "courses" | "classes";
 
 export default function AdminPage() {
-  const { campuses } = useAppState();
+  const { campuses, semesters, courses } = useAppState();
   const [tab, setTab] = useState<AdminTab>("classes");
 
   return (
@@ -36,8 +34,8 @@ export default function AdminPage() {
         <div className="grid gap-4 sm:grid-cols-4">
           {[
             { label: "Campuses", count: campuses.length, icon: Building2 },
-            { label: "Học kỳ", count: DEMO_SEMESTERS.length, icon: CalendarDays },
-            { label: "Môn học", count: DEMO_COURSES.length, icon: BookOpen },
+            { label: "Học kỳ", count: semesters.length, icon: CalendarDays },
+            { label: "Môn học", count: courses.length, icon: BookOpen },
             { label: "Lớp học", count: DEMO_CLASSES.length, icon: Layers },
           ].map((item) => {
             const Icon = item.icon;
@@ -131,7 +129,7 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {DEMO_COURSES.map((c) => (
+                  {courses.map((c) => (
                     <tr key={c.id}>
                       <td className="px-4 py-3 font-semibold">{c.code}</td>
                       <td className="px-4 py-3 text-slate-600">{c.name}</td>
@@ -154,7 +152,7 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {DEMO_SEMESTERS.map((s) => (
+                  {semesters.map((s) => (
                     <tr key={s.id}>
                       <td className="px-4 py-3 font-semibold">{s.code}</td>
                       <td className="px-4 py-3 text-slate-600">{s.name}</td>
