@@ -748,3 +748,86 @@ def test_campus_wide_discover_shows_all_posts_in_same_campus_only(client, db_ses
     same_card = next(x for x in disc.json() if x["id"] == r_same.json()["id"])
     assert same_card["is_compatible"] is False
     assert same_card["for_request_id"] is None
+
+
+def test_custom_class_code_requests_and_campus_isolation(client, db_session, flow):
+    """Students can enter class names directly (e.g. AI21A01), without campus prefixes or room/lecturer."""
+    from app.database.models.academic import AcademicClass, Campus, Course
+
+    # Ensure default provisioned class codes do not include campus tag HN/DN
+    assert all("_HN_" not in c["code"] and "_DN_" not in c["code"] for c in flow["classes"])
+
+    other_campus = Campus(id=uuid.uuid4(), code="DN", name="Đà Nẵng")
+    course = Course(code="MAI391", name="Mathematics for Machine Learning", credits=3)
+    db_session.add_all([other_campus, course])
+    db_session.commit()
+
+    _, tok_hn_1 = make_student(db_session, f"mai_hn1_{uuid.uuid4().hex[:4]}@fpt.edu.vn")
+    _, tok_hn_2 = make_student(db_session, f"mai_hn2_{uuid.uuid4().hex[:4]}@fpt.edu.vn")
+    _, tok_dn = make_student(
+        db_session,
+        f"mai_dn_{uuid.uuid4().hex[:4]}@fpt.edu.vn",
+        campus_id=other_campus.id,
+    )
+
+    r_hn_1 = client.post(
+        "/api/v1/class-swap/requests",
+        json={
+            "semester_id": str(flow["semester"].id),
+            "course_id": str(course.id),
+            "current_class_code": "ai21a01",
+            "target_class_code": "ai21a02",
+        },
+        headers=auth_headers(tok_hn_1),
+    )
+    assert r_hn_1.status_code == 201, r_hn_1.text
+    d1 = r_hn_1.json()
+    assert d1["current_class_code"] == "AI21A01"
+    assert d1["target_class_code"] == "AI21A02"
+    assert d1["lecturer_current"] is None
+
+    # Same-campus second student swaps AI21A02 -> AI21A01
+    r_hn_2 = client.post(
+        "/api/v1/class-swap/requests",
+        json={
+            "semester_id": str(flow["semester"].id),
+            "course_id": str(course.id),
+            "current_class_code": "AI21A02",
+            "target_class_code": "AI21A01",
+        },
+        headers=auth_headers(tok_hn_2),
+    )
+    assert r_hn_2.status_code == 201, r_hn_2.text
+
+    # Student in DN using exact same class names AI21A02 -> AI21A01 must NOT be visible/compatible in HN
+    r_dn = client.post(
+        "/api/v1/class-swap/requests",
+        json={
+            "semester_id": str(flow["semester"].id),
+            "course_id": str(course.id),
+            "current_class_code": "AI21A02",
+            "target_class_code": "AI21A01",
+        },
+        headers=auth_headers(tok_dn),
+    )
+    assert r_dn.status_code == 201, r_dn.text
+
+    disc_hn = client.get("/api/v1/class-swap/discover", headers=auth_headers(tok_hn_1)).json()
+    hn_ids = {item["id"] for item in disc_hn}
+    assert r_hn_2.json()["id"] in hn_ids
+    assert r_dn.json()["id"] not in hn_ids
+
+    disc_dn = client.get("/api/v1/class-swap/discover", headers=auth_headers(tok_dn)).json()
+    assert all(item["id"] not in {d1["id"], r_hn_2.json()["id"]} for item in disc_dn)
+
+    # Confirm swiping HN <-> DN fails 422
+    cross_swipe = client.post(
+        "/api/v1/class-swap/swipes",
+        json={
+            "swiper_request_id": d1["id"],
+            "target_request_id": r_dn.json()["id"],
+            "action": "LIKE",
+        },
+        headers=auth_headers(tok_hn_1),
+    )
+    assert cross_swipe.status_code == 422

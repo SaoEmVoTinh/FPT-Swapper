@@ -76,6 +76,7 @@ class AuthService:
         major: str,
         campus_id: uuid.UUID | str,
         password: str,
+        class_name: str | None = None,
     ) -> Student:
         campus = resolve_campus(self.db, campus_id)
         if campus is None:
@@ -114,6 +115,7 @@ class AuthService:
             student_id=student.id,
             full_name=full_name.strip(),
             major=major.strip(),
+            class_name=class_name.strip().upper() if class_name and class_name.strip() else None,
         )
         self.db.add(profile)
 

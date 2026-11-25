@@ -29,9 +29,11 @@ def build_swap_insights(
 
     active_campus_reqs = (
         db.query(MatchingRequest)
+        .join(Student, Student.id == MatchingRequest.student_id)
         .join(AcademicClass, AcademicClass.id == MatchingRequest.current_class_id)
         .filter(
             MatchingRequest.status == SwapRequestStatus.ACTIVE,
+            Student.campus_id == campus_id,
             AcademicClass.campus_id == campus_id,
             or_(MatchingRequest.expires_at.is_(None), MatchingRequest.expires_at > now),
         )

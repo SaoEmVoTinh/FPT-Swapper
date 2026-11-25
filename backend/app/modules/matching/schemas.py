@@ -78,6 +78,7 @@ class DiscoverItem(BaseModel):
     campus_id: uuid.UUID | None = None
     student_display_name: str | None = None
     student_code_masked: str | None = None
+    student_class_name: str | None = None
     major: str | None = None
     campus_name: str | None = None
     semester_name: str | None = None

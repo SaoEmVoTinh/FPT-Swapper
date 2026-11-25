@@ -528,9 +528,9 @@ export default function DiscoverPage() {
                             </span>
                           </div>
                           <p className="mt-1 text-slate-600 dark:text-slate-300">
-                            {p.current_class_code} →{" "}
+                            {cycle.course_code} - {p.current_class_code} →{" "}
                             <span className="font-semibold text-violet-600 dark:text-violet-300">
-                              {p.target_class_code}
+                              {cycle.course_code} - {p.target_class_code}
                             </span>
                           </p>
                         </div>
@@ -606,7 +606,7 @@ export default function DiscoverPage() {
                                 {rec.score}% phù hợp
                               </span>
                               <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                                {rec.course_code} · {rec.current_class_code} → {rec.target_class_code}
+                                {rec.course_code} - {rec.current_class_code} → {rec.course_code} - {rec.target_class_code}
                               </span>
                             </div>
                             <p className="text-xs text-slate-600 dark:text-slate-300">
@@ -660,7 +660,7 @@ export default function DiscoverPage() {
                           >
                             <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                               <span className="font-bold text-slate-900 dark:text-slate-100">
-                                {h.course_code} • {h.class_code}
+                                {h.course_code} - {h.class_code}
                               </span>
                               <div className="flex items-center gap-2">
                                 <span className="text-emerald-600 dark:text-emerald-400">
@@ -794,7 +794,7 @@ export default function DiscoverPage() {
                   )}
                 </div>
                 <h2 className="mt-3 text-2xl font-extrabold tracking-tight">
-                  {currentCard.courseCode}
+                  {currentCard.courseCode} - {currentCard.currentClassCode}
                 </h2>
                 <p className="text-sm text-white/90">
                   {currentCard.courseName}
@@ -809,7 +809,7 @@ export default function DiscoverPage() {
                       Lớp họ đang học
                     </span>
                     <p className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
-                      {currentCard.currentClassCode}
+                      {currentCard.courseCode} - {currentCard.currentClassCode}
                     </p>
                     <p className="mt-1.5 flex items-start gap-1.5 text-xs text-slate-600 dark:text-slate-300">
                       <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
@@ -822,7 +822,7 @@ export default function DiscoverPage() {
                       Lớp họ muốn sang
                     </span>
                     <p className="mt-1 text-lg font-bold text-orange-700 dark:text-orange-300">
-                      {currentCard.targetClassCode}
+                      {currentCard.courseCode} - {currentCard.targetClassCode}
                     </p>
                     <p className="mt-1.5 flex items-start gap-1.5 text-xs text-orange-900/80 dark:text-orange-200/80">
                       <ArrowLeftRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-orange-500 dark:text-orange-400" />
@@ -856,6 +856,9 @@ export default function DiscoverPage() {
                       <p className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                         <GraduationCap className="h-3.5 w-3.5" />
                         {currentCard.major}
+                        {currentCard.studentClassName
+                          ? ` • Lớp ${currentCard.studentClassName}`
+                          : ""}
                       </p>
                     </div>
                   </div>
@@ -879,15 +882,11 @@ export default function DiscoverPage() {
                 {showDetails && (
                   <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
                     <p>
-                      <span className="font-semibold text-slate-800 dark:text-slate-100">
-                        Giảng viên lớp hiện tại:
-                      </span>{" "}
-                      {currentCard.lecturerCurrent}
+                      Phòng học và giảng viên chi tiết sẽ tự động hiển thị trên thời khóa biểu web trường (FAP) sau khi hai bạn đổi lớp thành công.
                     </p>
                     <p className="flex items-center gap-1">
                       <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                      Thông tin liên hệ cá nhân (email, SĐT) được ẩn trừ khi bật
-                      tùy chọn chia sẻ sau Match.
+                      Chỉ sinh viên trong cùng campus ({currentCard.campusName}) mới nhìn thấy bài đăng của nhau. Thông tin liên hệ cá nhân được ẩn trừ khi bật tùy chọn chia sẻ sau Match.
                     </p>
                     {isAuthenticated && currentCard.studentId && (
                       <div className="pt-1">

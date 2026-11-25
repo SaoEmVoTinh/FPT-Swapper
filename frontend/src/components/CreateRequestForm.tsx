@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Loader2, Search } from "lucide-react";
+import { CheckCircle2, Loader2, MapPin, Search } from "lucide-react";
 
 import { ApiError, apiFetch } from "@/lib/api";
 import { DEMO_CLASSES } from "@/lib/demo-data";
@@ -30,7 +30,6 @@ interface ApiClassItem {
   course_id: string;
   semester_id: string;
   campus_id: string;
-  lecturer?: string | null;
   is_swappable: boolean;
   schedules: Array<{
     id: string;
@@ -50,16 +49,12 @@ export function CreateRequestForm({
   const { student, campuses, semesters, courses, isAuthenticated, addRequest } =
     useAppState();
 
-  const [campusIdOverride, setCampusIdOverride] = useState<string | null>(null);
   const campusId = useMemo(() => {
-    if (campusIdOverride && campuses.some((c) => c.id === campusIdOverride)) {
-      return campusIdOverride;
-    }
     if (campuses.some((c) => c.id === student.campusId)) {
       return student.campusId;
     }
     return campuses[0]?.id || "";
-  }, [campusIdOverride, campuses, student.campusId]);
+  }, [campuses, student.campusId]);
 
   const [semesterIdOverride, setSemesterIdOverride] = useState<string | null>(
     null,
@@ -92,6 +87,19 @@ export function CreateRequestForm({
     }
     return courses[0]?.id || "";
   }, [courseIdOverride, courses]);
+
+  const selectedCourse = useMemo(
+    () => courses.find((c) => c.id === courseId),
+    [courses, courseId],
+  );
+
+  const slotTemplates = useMemo(
+    () =>
+      selectedCourse?.code.toUpperCase().startsWith("VOV")
+        ? VOVINAM_SLOTS
+        : DEFAULT_SLOTS,
+    [selectedCourse],
+  );
 
   const [classesCache, setClassesCache] = useState<{
     key: string;
@@ -136,13 +144,13 @@ export function CreateRequestForm({
               courseId: r.course_id,
               semesterId: r.semester_id,
               campusId: r.campus_id,
-              lecturer: r.lecturer || "Đang cập nhật",
+              lecturer: "",
               isSwappable: r.is_swappable,
               schedules: r.schedules.map((s) => ({
                 id: s.id,
                 dayOfWeek: s.day_of_week,
                 slot: s.slot,
-                room: s.room || "",
+                room: "",
               })),
             })),
         });
@@ -178,70 +186,60 @@ export function CreateRequestForm({
     );
     if (seeded.length >= 2) return seeded;
 
-    const course = courses.find((c) => c.id === courseId);
-    if (!course) return [];
-    const campus = campuses.find((cp) => cp.id === campusId);
-    const campusTag = campus?.code || "HN";
-
-    const slotTemplates = course.code.toUpperCase().startsWith("VOV")
-      ? VOVINAM_SLOTS
-      : DEFAULT_SLOTS;
-
+    if (!selectedCourse) return [];
     return slotTemplates.map((s) => ({
-      id: `cls-${course.code.toLowerCase()}-${campusTag.toLowerCase()}-${s.suffix}`,
-      code: `${course.code}_${campusTag}_${s.suffix}`,
+      id: `cls-${selectedCourse.code.toLowerCase()}-${s.suffix}`,
+      code: `Lớp ${s.suffix}`,
       courseId,
       semesterId,
       campusId,
-      lecturer: "Đang cập nhật",
+      lecturer: "",
       isSwappable: true,
       schedules: [
         {
-          id: `sch-${course.code}-${s.suffix}`,
+          id: `sch-${selectedCourse.code}-${s.suffix}`,
           dayOfWeek: s.dayOfWeek,
           slot: s.slot,
-          room: "P.201",
+          room: "",
         },
       ],
     }));
-  }, [backendClasses, courseId, semesterId, campusId, courses, campuses]);
+  }, [backendClasses, courseId, semesterId, campusId, selectedCourse, slotTemplates]);
 
-  const [currentClassId, setCurrentClassId] = useState("");
-  const [targetClassId, setTargetClassId] = useState("");
-  const selectedCurrentClassId = availableClasses.some(
-    (c) => c.id === currentClassId,
-  )
-    ? currentClassId
-    : availableClasses[0]?.id || "";
-  const selectedTargetClassId = availableClasses.some(
-    (c) => c.id === targetClassId,
-  )
-    ? targetClassId
-    : availableClasses[1]?.id || "";
-
+  const [currentClassCodeInput, setCurrentClassCodeInput] = useState(
+    () => student.className || "",
+  );
+  const [targetClassCodeInput, setTargetClassCodeInput] = useState("");
+  const [currentSlotIdx, setCurrentSlotIdx] = useState<string>("");
+  const [targetSlotIdx, setTargetSlotIdx] = useState<string>("");
   const [note, setNote] = useState("");
   const [expiresAt, setExpiresAt] = useState("2026-12-20");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const effectiveCurrentCode = (
+    currentClassCodeInput ||
+    student.className ||
+    availableClasses[0]?.code ||
+    ""
+  ).toUpperCase();
+
+  const defaultTargetFallback =
+    availableClasses.find(
+      (c) => c.code.toUpperCase() !== effectiveCurrentCode.trim().toUpperCase(),
+    )?.code || "";
+
   const handleCourseChange = (newCourseId: string) => {
     setCourseIdOverride(newCourseId);
-    setCurrentClassId("");
-    setTargetClassId("");
-    setError("");
-  };
-
-  const handleCampusChange = (newCampusId: string) => {
-    setCampusIdOverride(newCampusId);
-    setCurrentClassId("");
-    setTargetClassId("");
+    setTargetClassCodeInput("");
+    setCurrentSlotIdx("");
+    setTargetSlotIdx("");
     setError("");
   };
 
   const handleSemesterChange = (newSemesterId: string) => {
     setSemesterIdOverride(newSemesterId);
-    setCurrentClassId("");
-    setTargetClassId("");
+    setTargetClassCodeInput("");
     setError("");
   };
 
@@ -249,28 +247,45 @@ export function CreateRequestForm({
     e.preventDefault();
     const semester = semesters.find((s) => s.id === semesterId);
     const course = courses.find((c) => c.id === courseId);
-    const currCls = availableClasses.find(
-      (c) => c.id === selectedCurrentClassId,
-    );
-    const targCls = availableClasses.find(
-      (c) => c.id === selectedTargetClassId,
-    );
+    const currCode = effectiveCurrentCode.trim().toUpperCase();
+    const targCode = targetClassCodeInput.trim().toUpperCase();
 
-    if (!semester || !course || !currCls || !targCls) {
-      setError(
-        "Môn học hoặc học kỳ này chưa có đủ lớp khả dụng trong danh mục.",
-      );
+    if (!semester || !course) {
+      setError("Vui lòng chọn học kỳ và môn học.");
       return;
     }
-    if (currCls.id === targCls.id) {
+    if (!currCode || !targCode) {
+      setError("Vui lòng nhập đầy đủ tên lớp hiện tại và lớp mong muốn.");
+      return;
+    }
+    if (currCode === targCode) {
       setError("Lớp hiện tại và lớp mong muốn không được trùng nhau.");
       return;
     }
 
-    const formatSchedule = (cls: AcademicClass) =>
-      cls.schedules[0]
-        ? `${cls.schedules[0].dayOfWeek} • ${cls.schedules[0].slot}`
-        : "Chưa cập nhật lịch";
+    const matchedCurr = availableClasses.find(
+      (c) => c.code.toUpperCase() === currCode,
+    );
+    const matchedTarg = availableClasses.find(
+      (c) => c.code.toUpperCase() === targCode,
+    );
+
+    const pickedCurrSlot =
+      currentSlotIdx !== "" ? slotTemplates[Number(currentSlotIdx)] : undefined;
+    const pickedTargSlot =
+      targetSlotIdx !== "" ? slotTemplates[Number(targetSlotIdx)] : undefined;
+
+    const currentScheduleText = pickedCurrSlot
+      ? `${pickedCurrSlot.dayOfWeek} • ${pickedCurrSlot.slot}`
+      : matchedCurr?.schedules[0]
+        ? `${matchedCurr.schedules[0].dayOfWeek} • ${matchedCurr.schedules[0].slot}`
+        : "Theo TKB trường (FAP)";
+
+    const targetScheduleText = pickedTargSlot
+      ? `${pickedTargSlot.dayOfWeek} • ${pickedTargSlot.slot}`
+      : matchedTarg?.schedules[0]
+        ? `${matchedTarg.schedules[0].dayOfWeek} • ${matchedTarg.schedules[0].slot}`
+        : "Theo TKB trường (FAP)";
 
     setError("");
     setSubmitting(true);
@@ -281,16 +296,21 @@ export function CreateRequestForm({
         courseId: course.id,
         courseCode: course.code,
         courseName: course.name,
-        currentClassId: currCls.id,
-        currentClassCode: currCls.code,
-        currentScheduleText: formatSchedule(currCls),
-        targetClassId: targCls.id,
-        targetClassCode: targCls.code,
-        targetScheduleText: formatSchedule(targCls),
+        currentClassId: matchedCurr?.id || `cls-custom-${currCode}`,
+        currentClassCode: currCode,
+        currentScheduleText,
+        currentDayOfWeek: pickedCurrSlot?.dayOfWeek,
+        currentSlot: pickedCurrSlot?.slot,
+        targetClassId: matchedTarg?.id || `cls-custom-${targCode}`,
+        targetClassCode: targCode,
+        targetScheduleText,
+        targetDayOfWeek: pickedTargSlot?.dayOfWeek,
+        targetSlot: pickedTargSlot?.slot,
         note: note.trim() || undefined,
         expiresAt,
       });
       setNote("");
+      setTargetClassCodeInput("");
       onCreated?.();
     } catch (err) {
       setError(
@@ -314,8 +334,7 @@ export function CreateRequestForm({
             Tạo yêu cầu đổi lớp mới
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Hỗ trợ {courses.length} môn học tại {campuses.length} cơ sở trên
-            toàn quốc
+            Chỉ cần nhập tên môn + lớp (VD: MAI391 - AI21A01). Web trường sẽ cập nhật TKB sau khi đổi thành công.
           </p>
         </div>
       </div>
@@ -331,18 +350,13 @@ export function CreateRequestForm({
           <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
             Cơ sở (Campus)
           </label>
-          <select
-            value={campusId}
-            onChange={(e) => handleCampusChange(e.target.value)}
-            disabled={submitting}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-          >
-            {campuses.map((cp) => (
-              <option key={cp.id} value={cp.id}>
-                {cp.name} ({cp.code})
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            <MapPin className="h-4 w-4 shrink-0 text-orange-500" />
+            <span className="font-semibold">{student.campusName}</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              (Cùng campus mới thấy nhau)
+            </span>
+          </div>
         </div>
 
         <div>
@@ -386,7 +400,7 @@ export function CreateRequestForm({
                 handleCourseChange(firstMatch.id);
               }
             }}
-            placeholder="Tìm mã môn hoặc tên môn (VD: PRF192, SWP391, JPD126...)"
+            placeholder="Tìm mã môn hoặc tên môn (VD: MAI391, PRF192, VOV112...)"
             disabled={submitting}
             className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3.5 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
@@ -410,50 +424,110 @@ export function CreateRequestForm({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
             Lớp hiện tại của bạn
             {loadingClasses && (
               <Loader2 className="h-3.5 w-3.5 animate-spin text-orange-500" />
             )}
           </label>
+          <input
+            type="text"
+            value={currentClassCodeInput || student.className || ""}
+            autoCapitalize="characters"
+            onChange={(e) =>
+              setCurrentClassCodeInput(e.target.value.toUpperCase())
+            }
+            placeholder={availableClasses[0]?.code || "VD: AI21A01"}
+            disabled={submitting}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm uppercase placeholder:normal-case outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          />
+          {availableClasses.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {availableClasses.slice(0, 6).map((cls) => (
+                <button
+                  key={`cur-${cls.id}`}
+                  type="button"
+                  onClick={() => setCurrentClassCodeInput(cls.code.toUpperCase())}
+                  className={`rounded-lg border px-2 py-0.5 text-[11px] font-medium transition ${
+                    effectiveCurrentCode.trim().toUpperCase() ===
+                    cls.code.toUpperCase()
+                      ? "border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300"
+                      : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  }`}
+                >
+                  {selectedCourse?.code} - {cls.code}
+                </button>
+              ))}
+            </div>
+          )}
           <select
-            value={selectedCurrentClassId}
-            onChange={(e) => setCurrentClassId(e.target.value)}
-            disabled={submitting || loadingClasses}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            value={currentSlotIdx}
+            onChange={(e) => setCurrentSlotIdx(e.target.value)}
+            disabled={submitting}
+            aria-label="Khung giờ lớp hiện tại (tùy chọn)"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
           >
-            {availableClasses.length === 0 ? (
-              <option value="">Không có lớp khả dụng</option>
-            ) : (
-              availableClasses.map((cls) => (
-                <option key={cls.id} value={cls.id}>
-                  {cls.code} ({cls.schedules[0]?.slot || "N/A"})
-                </option>
-              ))
-            )}
+            <option value="">Slot học (không bắt buộc — web trường tự cập nhật)</option>
+            {slotTemplates.map((s, idx) => (
+              <option key={`cslot-${s.suffix}`} value={String(idx)}>
+                {s.dayOfWeek} • {s.slot}
+              </option>
+            ))}
           </select>
         </div>
 
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
             Lớp mong muốn chuyển sang
           </label>
+          <input
+            type="text"
+            value={targetClassCodeInput}
+            autoCapitalize="characters"
+            onChange={(e) =>
+              setTargetClassCodeInput(e.target.value.toUpperCase())
+            }
+            placeholder={
+              defaultTargetFallback
+                ? `VD: AI21A02 hoặc ${defaultTargetFallback}`
+                : "VD: AI21A02"
+            }
+            disabled={submitting}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm uppercase placeholder:normal-case outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          />
+          {availableClasses.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {availableClasses.slice(0, 6).map((cls) => (
+                <button
+                  key={`tgt-${cls.id}`}
+                  type="button"
+                  onClick={() => setTargetClassCodeInput(cls.code.toUpperCase())}
+                  className={`rounded-lg border px-2 py-0.5 text-[11px] font-medium transition ${
+                    targetClassCodeInput.trim().toUpperCase() ===
+                    cls.code.toUpperCase()
+                      ? "border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300"
+                      : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  }`}
+                >
+                  {selectedCourse?.code} - {cls.code}
+                </button>
+              ))}
+            </div>
+          )}
           <select
-            value={selectedTargetClassId}
-            onChange={(e) => setTargetClassId(e.target.value)}
-            disabled={submitting || loadingClasses}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            value={targetSlotIdx}
+            onChange={(e) => setTargetSlotIdx(e.target.value)}
+            disabled={submitting}
+            aria-label="Khung giờ lớp mong muốn (tùy chọn)"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
           >
-            {availableClasses.length === 0 ? (
-              <option value="">Không có lớp khả dụng</option>
-            ) : (
-              availableClasses.map((cls) => (
-                <option key={cls.id} value={cls.id}>
-                  {cls.code} ({cls.schedules[0]?.slot || "N/A"})
-                </option>
-              ))
-            )}
+            <option value="">Slot mong muốn (không bắt buộc)</option>
+            {slotTemplates.map((s, idx) => (
+              <option key={`tslot-${s.suffix}`} value={String(idx)}>
+                {s.dayOfWeek} • {s.slot}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -468,7 +542,7 @@ export function CreateRequestForm({
             value={expiresAt}
             onChange={(e) => setExpiresAt(e.target.value)}
             disabled={submitting}
-            className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
+            className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
 
@@ -482,7 +556,7 @@ export function CreateRequestForm({
             onChange={(e) => setNote(e.target.value)}
             disabled={submitting}
             placeholder="VD: Trùng lịch thực tập buổi sáng..."
-            className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
+            className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
       </div>
@@ -493,7 +567,7 @@ export function CreateRequestForm({
             type="button"
             onClick={onCancel}
             disabled={submitting}
-            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50"
+            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-300 hover:bg-slate-50"
           >
             Đóng
           </button>

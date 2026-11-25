@@ -246,7 +246,7 @@ def ensure_default_classes(
     existing_codes = {c.code for c in existing}
     try:
         for suffix, day, slot in slot_templates:
-            code = f"{course.code}_{campus.code}_{suffix}"
+            code = f"Lớp {suffix}"
             if code in existing_codes:
                 continue
             cls = AcademicClass(

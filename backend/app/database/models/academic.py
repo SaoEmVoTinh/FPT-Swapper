@@ -45,7 +45,7 @@ class Course(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 class AcademicClass(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "classes"
     __table_args__ = (
-        UniqueConstraint("code", "semester_id", "campus_id", name="uq_classes_code_sem_campus"),
+        UniqueConstraint("code", "course_id", "semester_id", "campus_id", name="uq_classes_code_course_sem_campus"),
     )
 
     code: Mapped[str] = mapped_column(String(64), nullable=False, index=True)

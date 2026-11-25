@@ -65,6 +65,7 @@ export interface StudentProfile {
   campusId: string;
   campusName: string;
   major: string;
+  className?: string;
   role: UserRole;
   avatarUrl?: string;
   bio?: string;
@@ -85,9 +86,13 @@ export interface SwapRequest {
   currentClassId: string;
   currentClassCode: string;
   currentScheduleText: string;
+  currentDayOfWeek?: string;
+  currentSlot?: string;
   targetClassId: string;
   targetClassCode: string;
   targetScheduleText: string;
+  targetDayOfWeek?: string;
+  targetSlot?: string;
   alternativeClassCode?: string;
   note?: string;
   expiresAt: string;
@@ -110,6 +115,7 @@ export interface DiscoverCard {
   targetClassId?: string;
   studentDisplayName: string;
   studentCodeMasked: string;
+  studentClassName?: string;
   campusName: string;
   major: string;
   semesterName: string;
@@ -119,7 +125,7 @@ export interface DiscoverCard {
   currentScheduleText: string;
   targetClassCode: string;
   targetScheduleText: string;
-  lecturerCurrent: string;
+  lecturerCurrent?: string;
   note?: string;
   isReciprocalReady: boolean;
   scheduleConflictWarning?: string;

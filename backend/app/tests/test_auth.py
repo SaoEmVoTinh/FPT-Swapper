@@ -205,12 +205,26 @@ def test_register_by_campus_code(test_client: TestClient) -> None:
             "student_code": "SE180888",
             "full_name": "Second User",
             "major": "AI",
+            "class_name": "ai21a01",
             "campus_id": "HL",
             "password": TEST_PASSWORD,
         },
     )
     assert res.status_code == 201, res.json()
-    assert res.json()["campus_code"] == "HL"
+    body = res.json()
+    assert body["campus_code"] == "HL"
+    assert body["class_name"] == "AI21A01"
+
+    me = test_client.get("/api/v1/auth/me")
+    assert me.status_code == 200
+    assert me.json()["class_name"] == "AI21A01"
+
+    upd = test_client.put(
+        "/api/v1/students/me",
+        json={"class_name": "ai21a02"},
+    )
+    assert upd.status_code == 200
+    assert upd.json()["class_name"] == "AI21A02"
 
 
 def test_logout(test_client: TestClient) -> None:

@@ -52,6 +52,7 @@ export interface AuthMeResponse {
   role: StudentProfile["role"];
   full_name?: string | null;
   major?: string | null;
+  class_name?: string | null;
   campus_id?: string | null;
   campus_code?: string | null;
   campus_name?: string | null;
@@ -100,6 +101,7 @@ interface ApiDiscover {
   note?: string | null;
   student_display_name?: string | null;
   student_code_masked?: string | null;
+  student_class_name?: string | null;
   major?: string | null;
   campus_name?: string | null;
   semester_name?: string | null;
@@ -228,6 +230,7 @@ function mapDiscover(d: ApiDiscover): DiscoverCard {
     targetClassId: d.target_class_id,
     studentDisplayName: d.student_display_name || "Sinh viên",
     studentCodeMasked: d.student_code_masked || "****",
+    studentClassName: d.student_class_name || undefined,
     campusName: normalizeCampusName(d.campus_name),
     major: d.major || "—",
     semesterName: d.semester_name || "—",
@@ -483,6 +486,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         role: me.role,
         fullName: me.full_name?.trim() || fallbackName,
         major: me.major?.trim() || "Software Engineering",
+        className: me.class_name?.trim().toUpperCase() || undefined,
         campusId: me.campus_id || matchedCampus?.id || campusList[0]?.id || "campus-hl",
         campusName: normalizeCampusName(me.campus_name || matchedCampus?.name || "Hà Nội"),
         avatarUrl: me.avatar_url || undefined,
@@ -838,6 +842,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({
           full_name: cleanedPatch.fullName,
           major: cleanedPatch.major,
+          class_name: cleanedPatch.className,
           campus_id: cleanedPatch.campusId,
           avatar_url: cleanedPatch.avatarUrl,
           bio: cleanedPatch.bio,
@@ -866,13 +871,27 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     req: Omit<SwapRequest, "id" | "studentId" | "status" | "createdAt">
   ) => {
     if (backendAuthed) {
+      const uuidRe =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       await apiFetch("/class-swap/requests", {
         method: "POST",
         body: JSON.stringify({
           semester_id: req.semesterId,
           course_id: req.courseId,
-          current_class_id: req.currentClassId,
-          target_class_id: req.targetClassId,
+          ...(uuidRe.test(req.currentClassId)
+            ? { current_class_id: req.currentClassId }
+            : {
+                current_class_code: req.currentClassCode,
+                current_day_of_week: req.currentDayOfWeek ?? null,
+                current_slot: req.currentSlot ?? null,
+              }),
+          ...(uuidRe.test(req.targetClassId)
+            ? { target_class_id: req.targetClassId }
+            : {
+                target_class_code: req.targetClassCode,
+                target_day_of_week: req.targetDayOfWeek ?? null,
+                target_slot: req.targetSlot ?? null,
+              }),
           note: req.note ?? null,
           expires_at: req.expiresAt ? `${req.expiresAt}T23:59:59Z` : null,
         }),

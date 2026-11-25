@@ -76,6 +76,7 @@ function ProfileForm({
 }) {
   const [fullName, setFullName] = useState(student.fullName);
   const [major, setMajor] = useState(student.major);
+  const [className, setClassName] = useState(student.className || "");
   const [campusId, setCampusId] = useState(student.campusId);
   const [avatarUrl, setAvatarUrl] = useState(student.avatarUrl || "");
   const [bio, setBio] = useState(initialBio);
@@ -99,6 +100,7 @@ function ProfileForm({
       await updateStudent({
         fullName: fullName.trim() || student.fullName,
         major: major.trim() || student.major,
+        className: className.trim().toUpperCase() || undefined,
         campusId: selectedCampusId,
         campusName: campus?.name || student.campusName,
         avatarUrl: avatarUrl.trim(),
@@ -171,11 +173,30 @@ function ProfileForm({
         </div>
       </div>
 
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-          Ngành &amp; Chuyên ngành
-        </label>
-        <MajorSelect value={major} onChange={setMajor} disabled={saving} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Ngành &amp; Chuyên ngành
+          </label>
+          <MajorSelect value={major} onChange={setMajor} disabled={saving} />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Lớp (VD: AI21A01)
+          </label>
+          <input
+            type="text"
+            minLength={2}
+            maxLength={32}
+            value={className}
+            autoCapitalize="characters"
+            onChange={(e) => setClassName(e.target.value.toUpperCase())}
+            disabled={saving}
+            placeholder="AI21A01"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm uppercase placeholder:normal-case outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          />
+        </div>
       </div>
 
       <div>

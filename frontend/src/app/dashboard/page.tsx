@@ -62,7 +62,8 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-100/80 px-2.5 py-1 text-[11px] font-semibold text-orange-700 dark:bg-orange-500/20 dark:text-orange-300">
-                {student.campusName} • {student.major}
+                {student.campusName}
+                {student.className ? ` • Lớp ${student.className}` : ""} • {student.major}
               </span>
               <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
                 Xin chào, {student.fullName}
@@ -272,11 +273,11 @@ export default function DashboardPage() {
                       </div>
                       <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
                         <span className="font-medium">
-                          {req.currentClassCode}
+                          {req.courseCode} - {req.currentClassCode}
                         </span>{" "}
                         →{" "}
                         <span className="font-semibold text-orange-600 dark:text-orange-400">
-                          {req.targetClassCode}
+                          {req.courseCode} - {req.targetClassCode}
                         </span>
                       </p>
                     </div>
@@ -316,7 +317,7 @@ export default function DashboardPage() {
                         {m.partnerName} • {m.courseCode}
                       </p>
                       <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                        {m.myClassCode} ⇄ {m.partnerClassCode}
+                        {m.courseCode} - {m.myClassCode} ⇄ {m.courseCode} - {m.partnerClassCode}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">

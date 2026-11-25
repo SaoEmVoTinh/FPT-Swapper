@@ -18,6 +18,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [campusId, setCampusId] = useState("");
   const [major, setMajor] = useState("Kỹ thuật phần mềm");
+  const [className, setClassName] = useState("");
   const [password, setPassword] = useState("");
   const [agreePrivacyTerms, setAgreePrivacyTerms] = useState(false);
   const [confirmStep, setConfirmStep] = useState(false);
@@ -31,8 +32,14 @@ export default function RegisterPage() {
 
   const handleReviewStep = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim() || !studentCode.trim() || !email.trim() || password.length < 8) {
-      setError("Vui lòng điền đầy đủ thông tin và mật khẩu tối thiểu 8 ký tự.");
+    if (
+      !fullName.trim() ||
+      !studentCode.trim() ||
+      !email.trim() ||
+      className.trim().length < 2 ||
+      password.length < 8
+    ) {
+      setError("Vui lòng điền đầy đủ thông tin (bao gồm Lớp) và mật khẩu tối thiểu 8 ký tự.");
       return;
     }
     if (!agreePrivacyTerms) {
@@ -57,6 +64,7 @@ export default function RegisterPage() {
           email: email.trim().toLowerCase(),
           campus_id: selectedCampusId,
           major: major.trim(),
+          class_name: className.trim().toUpperCase(),
           password,
           agree_privacy_terms: agreePrivacyTerms,
         }),
@@ -185,6 +193,21 @@ export default function RegisterPage() {
 
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Lớp (VD: AI21A01, SE1801)
+              </label>
+              <input
+                type="text"
+                value={className}
+                autoCapitalize="characters"
+                onChange={(e) => setClassName(e.target.value.toUpperCase())}
+                placeholder="AI21A01"
+                disabled={submitting}
+                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm uppercase placeholder:normal-case outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Mật khẩu (tối thiểu 8 ký tự)
               </label>
               <input
@@ -268,9 +291,15 @@ export default function RegisterPage() {
                   {selectedCampusObj ? `${selectedCampusObj.name} (${selectedCampusObj.code})` : "—"}
                 </span>
               </div>
-              <div className="flex justify-between gap-3">
+              <div className="flex justify-between gap-3 border-b border-slate-200/70 pb-2 dark:border-slate-700">
                 <span className="text-slate-500 dark:text-slate-400">Ngành học</span>
                 <span className="text-right font-semibold text-slate-900 dark:text-slate-100">{major.trim()}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500 dark:text-slate-400">Lớp</span>
+                <span className="font-bold uppercase text-slate-900 dark:text-slate-100">
+                  {className.trim().toUpperCase()}
+                </span>
               </div>
             </div>
 

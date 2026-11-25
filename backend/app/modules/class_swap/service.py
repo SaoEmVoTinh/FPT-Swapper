@@ -1,10 +1,12 @@
 import uuid
 
 from fastapi import HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.common.enums import SwapRequestStatus
-from app.database.models.academic import AcademicClass
+from app.database.models.academic import AcademicClass, ClassSchedule, Course, Semester
+from app.database.models.identity import Student
 from app.database.models.matching import MatchingRequest
 from app.modules.class_swap.schemas import CreateRequestSchema, UpdateRequestSchema
 
@@ -45,13 +47,105 @@ class ClassSwapService:
             )
 
     @staticmethod
-    def _validate_classes(db: Session, data: CreateRequestSchema) -> None:
-        current = db.get(AcademicClass, data.current_class_id)
-        target = db.get(AcademicClass, data.target_class_id)
+    def _resolve_or_create_class(
+        db: Session,
+        course_id: uuid.UUID,
+        semester_id: uuid.UUID,
+        campus_id: uuid.UUID,
+        code: str,
+        day_of_week: str | None = None,
+        slot: str | None = None,
+    ) -> AcademicClass:
+        cleaned_code = code.strip().upper()
+        cls = (
+            db.query(AcademicClass)
+            .filter(
+                func.upper(AcademicClass.code) == cleaned_code,
+                AcademicClass.course_id == course_id,
+                AcademicClass.semester_id == semester_id,
+                AcademicClass.campus_id == campus_id,
+            )
+            .first()
+        )
+        if cls is None:
+            cls = AcademicClass(
+                code=cleaned_code,
+                course_id=course_id,
+                semester_id=semester_id,
+                campus_id=campus_id,
+                is_swappable=True,
+            )
+            db.add(cls)
+            db.flush()
+            if slot and slot.strip():
+                db.add(
+                    ClassSchedule(
+                        class_id=cls.id,
+                        day_of_week=(day_of_week or "Theo lịch học").strip(),
+                        slot=slot.strip(),
+                    )
+                )
+                db.flush()
+        elif slot and slot.strip() and not cls.schedules:
+            db.add(
+                ClassSchedule(
+                    class_id=cls.id,
+                    day_of_week=(day_of_week or "Theo lịch học").strip(),
+                    slot=slot.strip(),
+                )
+            )
+            db.flush()
+        return cls
+
+    @staticmethod
+    def _validate_classes(
+        db: Session,
+        student: Student,
+        data: CreateRequestSchema,
+    ) -> tuple[AcademicClass, AcademicClass]:
+        course = db.get(Course, data.course_id)
+        semester = db.get(Semester, data.semester_id)
+        if course is None or semester is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Môn học hoặc học kỳ không tồn tại.",
+            )
+
+        if data.current_class_id is not None:
+            current = db.get(AcademicClass, data.current_class_id)
+        else:
+            current = ClassSwapService._resolve_or_create_class(
+                db,
+                course_id=data.course_id,
+                semester_id=data.semester_id,
+                campus_id=student.campus_id,
+                code=data.current_class_code or "",
+                day_of_week=data.current_day_of_week,
+                slot=data.current_slot,
+            )
+
+        if data.target_class_id is not None:
+            target = db.get(AcademicClass, data.target_class_id)
+        else:
+            target = ClassSwapService._resolve_or_create_class(
+                db,
+                course_id=data.course_id,
+                semester_id=data.semester_id,
+                campus_id=student.campus_id,
+                code=data.target_class_code or "",
+                day_of_week=data.target_day_of_week,
+                slot=data.target_slot,
+            )
+
         if current is None or target is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Lớp hiện tại hoặc lớp mong muốn không tồn tại trong danh mục.",
+            )
+        if current.id == target.id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Lớp hiện tại và lớp mong muốn không được trùng nhau.",
             )
         for cls in (current, target):
             if cls.course_id != data.course_id or cls.semester_id != data.semester_id:
@@ -69,16 +163,30 @@ class ClassSwapService:
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Hai lớp phải cùng một cơ sở.",
             )
+        if current.campus_id != student.campus_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Chỉ có thể tạo yêu cầu đổi lớp trong cơ sở (campus) của bạn.",
+            )
+        return current, target
 
     @staticmethod
     def create(db: Session, student_id: uuid.UUID, data: CreateRequestSchema) -> MatchingRequest:
-        ClassSwapService._validate_classes(db, data)
+        student = db.get(Student, student_id)
+        if student is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Student not found")
+        current, target = ClassSwapService._validate_classes(db, student, data)
         ClassSwapService._check_no_conflicting_active(
             db, student_id, data.course_id, data.semester_id
         )
         req = MatchingRequest(
             student_id=student_id,
-            **data.model_dump(),
+            semester_id=data.semester_id,
+            course_id=data.course_id,
+            current_class_id=current.id,
+            target_class_id=target.id,
+            note=data.note,
+            expires_at=data.expires_at,
         )
         db.add(req)
         db.commit()

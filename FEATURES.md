@@ -7,7 +7,7 @@
 ## 1. Tài khoản, Xác thực & Bảo mật (`/login`, `/register`)
 
 - **Đăng ký tài khoản sinh viên (`POST /api/v1/auth/register`):**
-  - Nhập họ tên, mã sinh viên (tự chuẩn hóa chữ hoa), email, mật khẩu (**tối thiểu 8 ký tự**), chọn **Campus** (HN, ĐN, HCM, QN, CT) và **Ngành / Chuyên ngành** qua bộ chọn 2 cấp (`MajorSelect` — khối ngành màu cam phía trên, chuyên ngành cụ thể phía dưới).
+  - Nhập họ tên, mã sinh viên (tự chuẩn hóa chữ hoa), email, mật khẩu (**tối thiểu 8 ký tự**), chọn **Campus** (HN, ĐN, HCM, QN, CT), **Ngành / Chuyên ngành** (`MajorSelect`) và **Lớp** (VD: `AI21A01`, `SE1801`), kèm bước xem lại & xác nhận thông tin trước khi gửi.
 - **Đăng nhập linh hoạt & chống Brute-force (`POST /api/v1/auth/login`):**
   - Hỗ trợ đăng nhập bằng **Email** hoặc **Mã sinh viên** (`AuthService.get_by_identifier`).
   - **Rate limit & khóa tạm:** Giới hạn tần suất đăng nhập theo IP/tài khoản (HTTP `429`), và tự động **khóa tạm 15 phút** sau **5 lần** nhập sai mật khẩu liên tiếp.
@@ -44,8 +44,8 @@ Giao diện gồm thẻ tổng quan cá nhân (avatar, mã sinh viên, email, va
 
 - **Quản lý & Tạo mới trên cùng một trang (`/requests`):**
   - Mở form tạo trực tiếp trên `/requests` (tự mở khi chưa có yêu cầu hoặc truy cập qua `/requests?create=1`; đường dẫn cũ `/requests/new` tự động redirect sang `/requests?create=1`).
-  - Tìm kiếm môn học theo mã môn hoặc tên môn trong danh mục chuẩn, tự động đồng bộ danh sách lớp mở theo môn/học kỳ/campus (`POST /api/v1/academic/classes/ensure`).
-  - Chọn lớp hiện tại, lớp mong muốn, hạn yêu cầu và ghi chú.
+  - Tìm kiếm môn học theo mã môn hoặc tên môn trong danh mục chuẩn, tự động đồng bộ danh sách lớp mở theo môn/học kỳ/campus (`POST /api/v1/academic/classes/ensure`, hiển thị dạng `MÃ_MÔN - TÊN_LỚP`, không gắn mã cơ sở `HN`/`DN` vào tên lớp).
+  - Tự động gắn cơ sở (`campus_id`) của tài khoản để đảm bảo chỉ sinh viên trong cùng campus mới thấy bài đăng của nhau; cho phép nhập hoặc chọn nhanh tên lớp hiện tại/mong muốn (VD: `MAI391 - AI21A01`) và không yêu cầu phòng học hay giảng viên (web trường FAP sẽ hiển thị TKB chi tiết sau khi đổi thành công).
 - **Theo dõi, tự động hết hạn & thao tác nhanh (`GET/POST/PUT/DELETE /api/v1/class-swap/requests/*`):**
   - Bộ lọc theo trạng thái (`Tất cả`, `Đang mở`, `Tạm ẩn`, `Đã Match`) và tìm kiếm nhanh theo môn/lớp.
   - Tự động chuyển các yêu cầu quá `expires_at` sang trạng thái **`EXPIRED`** và ẩn khỏi Discover.

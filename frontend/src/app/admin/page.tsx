@@ -709,9 +709,9 @@ export default function AdminPage() {
 
   function handleDownloadSampleTkbCsv() {
     const sample =
-      "course_code,class_code,day_of_week,slot,room,lecturer,campus_code,semester_code\n" +
-      "PRJ301,SE1805,Thứ 2 & Thứ 4,Slot 1 (07:00 - 09:15),AL-201,Nguyen Van A,HN,FA2025\n" +
-      "VOV112,VOV112_HN_01,Thứ 3 & Thứ 5,Slot 2 (08:45 - 10:15),Sân Võ,Tran Van B,HN,FA2025\n";
+      "course_code,class_code,day_of_week,slot,campus_code,semester_code\n" +
+      "PRJ301,SE1805,Thứ 2 & Thứ 4,Slot 1 (07:00 - 09:15),HN,FA2025\n" +
+      "VOV112,Lớp 02,Thứ 3 & Thứ 5,Slot 2 (08:45 - 10:15),HN,FA2025\n";
     const blob = new Blob(["\ufeff" + sample], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1676,7 +1676,7 @@ export default function AdminPage() {
                           Import danh sách lớp &amp; lịch học từ Excel (.xlsx) / CSV
                         </h3>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                          Cột bắt buộc: <code>course_code, class_code, day_of_week, slot</code> (tùy chọn: <code>room, lecturer, campus_code, semester_code</code>).
+                          Cột bắt buộc: <code>course_code, class_code, day_of_week, slot</code> (tùy chọn: <code>campus_code, semester_code</code>).
                         </p>
                       </div>
                       <button
@@ -1873,14 +1873,11 @@ export default function AdminPage() {
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-slate-900 dark:text-slate-100">
-                              {cls.code}
-                            </span>
-                            <span className="rounded-lg bg-orange-50 px-2 py-0.5 text-xs font-semibold text-orange-700">
-                              {course?.code ?? cls.courseId}
+                              {course?.code ?? cls.courseId} - {cls.code}
                             </span>
                           </div>
                           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                            {campus?.name ?? "Campus"} · {cls.lecturer}
+                            {campus?.name ?? "Campus"}
                           </p>
                         </div>
                         <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">

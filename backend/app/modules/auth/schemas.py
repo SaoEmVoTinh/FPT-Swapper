@@ -8,6 +8,7 @@ class RegisterRequest(BaseModel):
     student_code: str = Field(min_length=4, max_length=32)
     full_name: str = Field(min_length=2, max_length=120)
     major: str = Field(min_length=2, max_length=120)
+    class_name: str | None = Field(default=None, max_length=32)
     campus_id: uuid.UUID | str
     password: str = Field(min_length=8, max_length=128)
     agree_privacy_terms: bool = True
@@ -30,6 +31,18 @@ class RegisterRequest(BaseModel):
     @classmethod
     def uppercase_code(cls, v: str) -> str:
         return v.strip().upper()
+
+    @field_validator("class_name")
+    @classmethod
+    def normalize_class_name(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        cleaned = v.strip().upper()
+        if not cleaned:
+            return None
+        if len(cleaned) < 2:
+            raise ValueError("Tên lớp phải có ít nhất 2 ký tự.")
+        return cleaned
 
 
 class LoginRequest(BaseModel):
@@ -70,6 +83,7 @@ class StudentPublicResponse(BaseModel):
     status: str
     full_name: str | None = None
     major: str | None = None
+    class_name: str | None = None
     campus_id: uuid.UUID
     campus_code: str | None = None
     campus_name: str | None = None

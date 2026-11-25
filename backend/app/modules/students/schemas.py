@@ -8,10 +8,23 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 class ProfileUpdateRequest(BaseModel):
     full_name: str | None = Field(default=None, min_length=2, max_length=120)
     major: str | None = Field(default=None, min_length=2, max_length=120)
+    class_name: str | None = Field(default=None, max_length=32)
     campus_id: uuid.UUID | str | None = None
     avatar_url: str | None = Field(default=None, max_length=512)
     bio: str | None = Field(default=None, max_length=1000)
     share_contact_after_match: bool | None = None
+
+    @field_validator("class_name")
+    @classmethod
+    def normalize_class_name(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        cleaned = v.strip().upper()
+        if not cleaned:
+            return None
+        if len(cleaned) < 2:
+            raise ValueError("Tên lớp phải có ít nhất 2 ký tự.")
+        return cleaned
 
 
 class ProfileResponse(BaseModel):
@@ -19,6 +32,7 @@ class ProfileResponse(BaseModel):
     student_id: uuid.UUID
     full_name: str
     major: str
+    class_name: str | None = None
     campus_id: uuid.UUID | None = None
     avatar_url: str | None = None
     bio: str | None = None
@@ -73,6 +87,7 @@ class AccountSummaryResponse(BaseModel):
     created_at: datetime
     full_name: str | None = None
     major: str | None = None
+    class_name: str | None = None
     campus_id: uuid.UUID
     campus_code: str | None = None
     campus_name: str | None = None

@@ -30,6 +30,7 @@ def _profile_to_response(profile, campus_id: uuid.UUID | None = None) -> Profile
         student_id=profile.student_id,
         full_name=profile.full_name,
         major=profile.major,
+        class_name=profile.class_name,
         campus_id=campus_id,
         avatar_url=profile.avatar_url,
         bio=profile.bio,
@@ -68,6 +69,8 @@ def update_my_profile(
             bio=payload.bio,
             campus_id=payload.campus_id,
             share_contact_after_match=payload.share_contact_after_match,
+            class_name=payload.class_name,
+            update_class_name="class_name" in payload.model_fields_set,
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

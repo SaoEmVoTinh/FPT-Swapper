@@ -22,12 +22,9 @@ from app.modules.matching.schemas import DiscoverItem, MatchResponse
 
 def schedule_text(cls: AcademicClass | None) -> str:
     if cls is None or not cls.schedules:
-        return "Chưa cập nhật lịch"
+        return "Theo TKB trường (FAP)"
     s = cls.schedules[0]
-    text = f"{s.day_of_week} • {s.slot}"
-    if s.room:
-        text += f" • {s.room}"
-    return text
+    return f"{s.day_of_week} • {s.slot}"
 
 
 def display_name(db: Session, student_id: uuid.UUID) -> str:
@@ -74,7 +71,7 @@ def request_view(db: Session, req: MatchingRequest) -> RequestResponse:
         current_schedule_text=schedule_text(current),
         target_class_code=target.code if target else None,
         target_schedule_text=schedule_text(target),
-        lecturer_current=(current.lecturer if current and current.lecturer else "Đang cập nhật"),
+        lecturer_current=None,
         schedule_conflict_warning=detect_schedule_conflict(
             db, req.student_id, target, exclude_request_id=req.id
         ),
@@ -123,6 +120,7 @@ def discover_view(
         campus_id=current.campus_id if current else None,
         student_display_name=display_name(db, candidate.student_id),
         student_code_masked=(code[:4] + "****") if code else "****",
+        student_class_name=profile.class_name if profile else None,
         major=profile.major if profile else None,
         campus_name=_campus_name(db, current.campus_id if current else None),
         semester_name=semester.name if semester else None,
@@ -132,7 +130,7 @@ def discover_view(
         current_schedule_text=schedule_text(current),
         target_class_code=target.code if target else None,
         target_schedule_text=schedule_text(target),
-        lecturer_current=(current.lecturer if current and current.lecturer else "Đang cập nhật"),
+        lecturer_current=None,
         is_reciprocal_ready=reciprocal_ready,
         schedule_conflict_warning=sched_warning,
         student_trust_score=float(profile.trust_score) if profile else 5.0,

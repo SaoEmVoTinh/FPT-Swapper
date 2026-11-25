@@ -40,6 +40,7 @@ def _student_to_response(student: Student, db: Session) -> StudentPublicResponse
         status=student.status.value,
         full_name=profile.full_name if profile else None,
         major=profile.major if profile else None,
+        class_name=profile.class_name if profile else None,
         campus_id=student.campus_id,
         campus_code=campus.code if campus else None,
         campus_name=campus.name if campus else None,
@@ -95,6 +96,7 @@ def register(
             major=payload.major,
             campus_id=payload.campus_id,
             password=payload.password,
+            class_name=payload.class_name,
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))

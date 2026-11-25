@@ -57,6 +57,7 @@ class StudentProfile(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     full_name: Mapped[str] = mapped_column(String(120), nullable=False)
     major: Mapped[str] = mapped_column(String(120), nullable=False)
+    class_name: Mapped[str | None] = mapped_column(String(32), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     share_contact_after_match: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

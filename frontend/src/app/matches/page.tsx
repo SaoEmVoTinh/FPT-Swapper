@@ -389,11 +389,11 @@ export default function MatchesPage() {
                       <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
                         Trao đổi:{" "}
                         <span className="rounded-md bg-orange-50 px-2 py-0.5 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300">
-                          {m.myClassCode}
+                          {m.courseCode} - {m.myClassCode}
                         </span>{" "}
                         ⇄{" "}
                         <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
-                          {m.partnerClassCode}
+                          {m.courseCode} - {m.partnerClassCode}
                         </span>
                       </p>
                       {m.scheduleConflictWarning && (

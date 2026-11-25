@@ -167,16 +167,27 @@ class MatchingService:
             )
         }
 
+        viewer = db.get(Student, student_id)
         now = datetime.now(timezone.utc)
-        q = db.query(MatchingRequest).filter(
-            MatchingRequest.status == SwapRequestStatus.ACTIVE,
-            MatchingRequest.student_id != student_id,
-            MatchingRequest.course_id == active_request.course_id,
-            MatchingRequest.semester_id == active_request.semester_id,
-            MatchingRequest.current_class_id == active_request.target_class_id,
-            MatchingRequest.target_class_id == active_request.current_class_id,
-            or_(MatchingRequest.expires_at.is_(None), MatchingRequest.expires_at > now),
+        q = (
+            db.query(MatchingRequest)
+            .join(Student, Student.id == MatchingRequest.student_id)
+            .join(AcademicClass, AcademicClass.id == MatchingRequest.current_class_id)
+            .filter(
+                MatchingRequest.status == SwapRequestStatus.ACTIVE,
+                MatchingRequest.student_id != student_id,
+                MatchingRequest.course_id == active_request.course_id,
+                MatchingRequest.semester_id == active_request.semester_id,
+                MatchingRequest.current_class_id == active_request.target_class_id,
+                MatchingRequest.target_class_id == active_request.current_class_id,
+                or_(MatchingRequest.expires_at.is_(None), MatchingRequest.expires_at > now),
+            )
         )
+        if viewer is not None:
+            q = q.filter(
+                Student.campus_id == viewer.campus_id,
+                AcademicClass.campus_id == viewer.campus_id,
+            )
         if swiped_ids:
             q = q.filter(MatchingRequest.id.notin_(swiped_ids))
         if blocked_ids:
@@ -202,10 +213,12 @@ class MatchingService:
         now = datetime.now(timezone.utc)
         q = (
             db.query(MatchingRequest)
+            .join(Student, Student.id == MatchingRequest.student_id)
             .join(AcademicClass, AcademicClass.id == MatchingRequest.current_class_id)
             .filter(
                 MatchingRequest.status == SwapRequestStatus.ACTIVE,
                 MatchingRequest.student_id != student_id,
+                Student.campus_id == campus_id,
                 AcademicClass.campus_id == campus_id,
                 or_(MatchingRequest.expires_at.is_(None), MatchingRequest.expires_at > now),
             )
@@ -288,6 +301,14 @@ class MatchingService:
             raise HTTPException(422, "Target request is no longer available")
         if not is_compatible(swiper_req, target_req):
             raise HTTPException(422, "Requests are not compatible")
+        swiper_student = db.get(Student, swiper_req.student_id)
+        target_student = db.get(Student, target_req.student_id)
+        if (
+            swiper_student is not None
+            and target_student is not None
+            and swiper_student.campus_id != target_student.campus_id
+        ):
+            raise HTTPException(422, "Chỉ có thể ghép đổi lớp trong cùng một campus.")
 
         existing_swipe = (
             db.query(Swipe)

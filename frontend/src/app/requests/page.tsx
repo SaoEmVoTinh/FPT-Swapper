@@ -191,7 +191,7 @@ export default function MyRequestsPage() {
                 Thời khóa biểu tuần hiện tại của bạn
               </h2>
               <span className="text-xs text-slate-500 dark:text-slate-400">
-                Dựa trên các lớp bạn đang giữ / đã khớp đổi
+                Phòng học &amp; giảng viên sẽ hiện đầy đủ trên web trường (FAP) sau khi đổi thành công
               </span>
             </div>
             {timetableSlots.length === 0 ? (
@@ -220,11 +220,10 @@ export default function MyRequestsPage() {
                               className="rounded-lg border border-orange-200 bg-white px-2.5 py-2 text-xs dark:border-orange-500/30 dark:bg-slate-900"
                             >
                               <p className="font-bold text-orange-600 dark:text-orange-400">
-                                {slot.course_code} · {slot.class_code}
+                                {slot.course_code} - {slot.class_code}
                               </p>
                               <p className="text-[11px] text-slate-600 dark:text-slate-300">
                                 {slot.slot_label}
-                                {slot.room ? ` · Phòng ${slot.room}` : ""}
                               </p>
                             </div>
                           ))}
@@ -320,11 +319,17 @@ export default function MyRequestsPage() {
                   </p>
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="rounded-lg bg-slate-100 px-2.5 py-1 font-medium text-slate-800 dark:bg-slate-800 dark:text-slate-200">
-                      Hiện tại: {req.currentClassCode} ({req.currentScheduleText})
+                      Hiện tại: {req.courseCode} - {req.currentClassCode}
+                      {req.currentScheduleText && !req.currentScheduleText.startsWith("Theo TKB")
+                        ? ` (${req.currentScheduleText})`
+                        : ""}
                     </span>
                     <span className="text-slate-400">→</span>
                     <span className="rounded-lg bg-orange-50 px-2.5 py-1 font-semibold text-orange-700 dark:bg-orange-500/15 dark:text-orange-300">
-                      Mong muốn: {req.targetClassCode} ({req.targetScheduleText})
+                      Mong muốn: {req.courseCode} - {req.targetClassCode}
+                      {req.targetScheduleText && !req.targetScheduleText.startsWith("Theo TKB")
+                        ? ` (${req.targetScheduleText})`
+                        : ""}
                     </span>
                   </div>
                   {req.scheduleConflictWarning && (

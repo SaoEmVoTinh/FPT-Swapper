@@ -53,6 +53,8 @@ class StudentService:
         bio: str | None,
         campus_id: uuid.UUID | str | None = None,
         share_contact_after_match: bool | None = None,
+        class_name: str | None = None,
+        update_class_name: bool = False,
     ) -> StudentProfile:
         profile = self.get_profile(student_id)
         if profile is None:
@@ -61,6 +63,10 @@ class StudentService:
             profile.full_name = full_name.strip()
         if major is not None:
             profile.major = major.strip()
+        if update_class_name:
+            profile.class_name = class_name.strip().upper() if class_name and class_name.strip() else None
+        elif class_name is not None:
+            profile.class_name = class_name.strip().upper() or None
         if avatar_url is not None:
             profile.avatar_url = avatar_url.strip() or None
         if bio is not None:
@@ -149,6 +155,7 @@ class StudentService:
             created_at=student.created_at,
             full_name=profile.full_name if profile else None,
             major=profile.major if profile else None,
+            class_name=profile.class_name if profile else None,
             campus_id=student.campus_id,
             campus_code=campus.code if campus else None,
             campus_name=campus.name if campus else None,
@@ -296,6 +303,7 @@ class StudentService:
                 "student_code": summary.student_code,
                 "full_name": summary.full_name,
                 "major": summary.major,
+                "class_name": summary.class_name,
                 "campus": summary.campus_name,
                 "bio": summary.bio,
                 "role": summary.role,
