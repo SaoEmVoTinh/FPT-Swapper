@@ -127,7 +127,7 @@ def test_out_of_app_dispatch(
         db,
         current_student.id,
         "Kiểm tra thông báo ngoài app",
-        "Đây là thông báo thử nghiệm qua Email / Web Push từ FPT ClassSwap.",
+        "Đây là thông báo thử nghiệm qua Email / Web Push từ FPT Swapper.",
         kind="SYSTEM",
     )
 

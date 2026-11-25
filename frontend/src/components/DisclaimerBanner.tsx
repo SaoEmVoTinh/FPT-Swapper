@@ -9,7 +9,7 @@ export function DisclaimerBanner({ compact = false }: { compact?: boolean }) {
     >
       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
       <p className="leading-relaxed">
-        <span className="font-semibold">Lưu ý quan trọng:</span> FPT ClassSwap là
+        <span className="font-semibold">Lưu ý quan trọng:</span> FPT Swapper là
         nền tảng hỗ trợ kết nối sinh viên,{" "}
         <span className="font-semibold">
           không phải hệ thống đăng ký tín chỉ chính thức của FPT

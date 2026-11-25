@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FPT ClassSwap — Kết nối đổi lớp sinh viên FPT",
+  title: "FPT Swapper — Kết nối đổi lớp sinh viên FPT",
   description:
     "Nền tảng kết nối sinh viên FPT để tìm người đổi lớp học tương thích theo cơ chế matching hai chiều.",
   manifest: "/manifest.webmanifest",

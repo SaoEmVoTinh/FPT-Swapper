@@ -32,9 +32,9 @@ def _send_smtp_email(to_email: str, subject: str, body: str) -> bool:
     msg = EmailMessage()
     msg["From"] = settings.SMTP_FROM
     msg["To"] = to_email
-    msg["Subject"] = f"[FPT ClassSwap] {subject}"
+    msg["Subject"] = f"[FPT Swapper] {subject}"
     msg.set_content(
-        f"{body}\n\n---\nFPT ClassSwap • Nền tảng hỗ trợ kết nối đổi lớp sinh viên FPT."
+        f"{body}\n\n---\nFPT Swapper • Nền tảng hỗ trợ kết nối đổi lớp sinh viên FPT."
     )
     try:
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=5) as server:

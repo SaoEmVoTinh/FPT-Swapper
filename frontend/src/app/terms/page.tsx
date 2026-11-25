@@ -24,7 +24,7 @@ export default function TermsOfUsePage() {
           <div>
             <h1 className="text-2xl font-bold">Điều khoản Sử dụng</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Áp dụng cho toàn bộ người dùng nền tảng FPT ClassSwap
+              Áp dụng cho toàn bộ người dùng nền tảng FPT Swapper
             </p>
           </div>
         </div>
@@ -34,7 +34,7 @@ export default function TermsOfUsePage() {
             1. Bản chất nền tảng
           </h2>
           <p>
-            FPT ClassSwap là nền tảng hỗ trợ kết nối sinh viên tìm người đổi lớp
+            FPT Swapper là nền tảng hỗ trợ kết nối sinh viên tìm người đổi lớp
             tương thích. Hệ thống <strong>không phải cổng đăng ký tín chỉ chính thức của Trường Đại học FPT</strong>{" "}
             và không tự động thay đổi lớp trên FAP. Mọi thủ tục chuyển lớp chính thức
             phải được hai bên tự thực hiện theo quy định của nhà trường.
@@ -67,7 +67,7 @@ export default function TermsOfUsePage() {
           <Link href="/privacy" className="font-semibold text-orange-600 hover:underline dark:text-orange-400">
             ← Xem Chính sách Bảo vệ Dữ liệu Cá nhân
           </Link>
-          <span className="text-slate-400">FPT ClassSwap</span>
+          <span className="text-slate-400">FPT Swapper</span>
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
-# FPT ClassSwap
+# FPT Swapper
 
-Nền tảng kết nối sinh viên FPT để hỗ trợ đổi lớp học theo cơ chế matching hai chiều (Tinder-style) và định hướng mở rộng thành hệ sinh thái kết nối học tập (**ClassSwap**, **StudyBuddy**, **TeamFinder**).
+Nền tảng kết nối sinh viên FPT để hỗ trợ đổi lớp học theo cơ chế matching hai chiều (Tinder-style) và định hướng mở rộng thành hệ sinh thái kết nối học tập (**FPT Swapper**, **StudyBuddy**, **TeamFinder**).
 
 > **Lưu ý quan trọng:** Đây là nền tảng hỗ trợ kết nối sinh viên, **không phải hệ thống đăng ký tín chỉ chính thức của FPT**. Match chỉ thể hiện sự đồng thuận ban đầu giữa hai sinh viên; sinh viên cần tự thực hiện thủ tục đổi lớp theo quy định của nhà trường.
 

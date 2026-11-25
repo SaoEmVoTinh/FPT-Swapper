@@ -1,6 +1,6 @@
-# FPT ClassSwap — Tổng hợp Tính năng Hệ thống & Lộ trình
+# FPT Swapper — Tổng hợp Tính năng Hệ thống & Lộ trình
 
-> **Lưu ý:** FPT ClassSwap là nền tảng hỗ trợ kết nối sinh viên tìm người đổi lớp tương thích hai chiều, **không phải hệ thống đăng ký tín chỉ chính thức của Trường Đại học FPT**. Sau khi Match và thống nhất lịch, hai bên tự thực hiện thủ tục đổi lớp theo quy định của nhà trường.
+> **Lưu ý:** FPT Swapper là nền tảng hỗ trợ kết nối sinh viên tìm người đổi lớp tương thích hai chiều, **không phải hệ thống đăng ký tín chỉ chính thức của Trường Đại học FPT**. Sau khi Match và thống nhất lịch, hai bên tự thực hiện thủ tục đổi lớp theo quy định của nhà trường.
 
 ---
 

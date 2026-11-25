@@ -134,7 +134,7 @@ class ChatService:
             dispatch_out_of_app(
                 db,
                 other_id,
-                "Tin nhắn mới trên FPT ClassSwap",
+                "Tin nhắn mới trên FPT Swapper",
                 cleaned_content[:160],
                 kind="MESSAGE",
             )

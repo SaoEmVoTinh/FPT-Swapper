@@ -36,7 +36,7 @@ export default function PrivacyPolicyPage() {
             1. Phạm vi &amp; Dữ liệu cá nhân được thu thập
           </h2>
           <p>
-            FPT ClassSwap chỉ thu thập dữ liệu tối thiểu để vận hành tính năng
+            FPT Swapper chỉ thu thập dữ liệu tối thiểu để vận hành tính năng
             kết nối đổi lớp giữa sinh viên FPT, bao gồm: họ tên, mã số sinh viên,
             địa chỉ email, cơ sở học tập (Campus), ngành học, thông tin yêu cầu
             đổi lớp, lịch sử ghép đôi (Match), tin nhắn trao đổi và nhật ký
@@ -93,7 +93,7 @@ export default function PrivacyPolicyPage() {
           <Link href="/terms" className="font-semibold text-orange-600 hover:underline dark:text-orange-400">
             Xem Điều khoản sử dụng →
           </Link>
-          <span className="text-slate-400">FPT ClassSwap • Bảo vệ dữ liệu cá nhân</span>
+          <span className="text-slate-400">FPT Swapper • Bảo vệ dữ liệu cá nhân</span>
         </div>
       </div>
     </div>

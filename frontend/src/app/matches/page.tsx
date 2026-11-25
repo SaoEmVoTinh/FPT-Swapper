@@ -47,7 +47,7 @@ const CAMPUS_GUIDES: Record<
       "Đối chiếu giảng viên & lịch học trên FAP để tránh trùng tiết.",
       "Liên hệ đối tác qua Chat để gửi mail/đơn chuyển lớp cùng thời điểm.",
       "Nộp đơn xin đổi lớp chéo tại Phòng Đào tạo theo thông báo đầu kỳ.",
-      "Xác nhận kết quả trên FAP rồi hoàn tất & chấm điểm uy tín trên FPT ClassSwap.",
+      "Xác nhận kết quả trên FAP rồi hoàn tất & chấm điểm uy tín trên FPT Swapper.",
     ],
   },
   "TP. Hồ Chí Minh": {
@@ -75,7 +75,7 @@ const CAMPUS_GUIDES: Record<
     steps: [
       "Xác nhận không trùng slot và đúng kỳ học hiện tại.",
       "Cùng đối tác nộp đơn chuyển lớp tại Phòng Đào tạo hoặc cổng FAP.",
-      "Hoàn tất quy trình trên FPT ClassSwap và đánh giá đối tác.",
+      "Hoàn tất quy trình trên FPT Swapper và đánh giá đối tác.",
     ],
   },
 };

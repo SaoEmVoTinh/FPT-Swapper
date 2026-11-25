@@ -22,13 +22,13 @@ export default function LandingPage() {
           <Link href="/" className="flex items-center gap-2.5">
             <Image
               src="/fpt-logo2.png"
-              alt="FPT ClassSwap"
+              alt="FPT Swapper"
               width={36}
               height={36}
               className="h-9 w-9 rounded-xl object-contain"
             />
             <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
-              FPT ClassSwap
+              FPT Swapper
             </span>
           </Link>
 
@@ -190,7 +190,7 @@ export default function LandingPage() {
                 Định hướng hệ sinh thái kết nối sinh viên
               </h2>
               <p className="mt-2 text-slate-600 dark:text-slate-300">
-                ClassSwap là mảnh ghép đầu tiên, dùng chung hồ sơ và hệ thống
+                FPT Swapper là mảnh ghép đầu tiên, dùng chung hồ sơ và hệ thống
                 chat cho toàn nền tảng.
               </p>
             </div>
@@ -202,7 +202,7 @@ export default function LandingPage() {
                 MVP Hiện tại
               </span>
               <h3 className="mt-4 text-lg font-bold text-slate-900 dark:text-slate-100">
-                ClassSwap
+                FPT Swapper
               </h3>
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                 Tìm người đổi lớp tương thích hai chiều, chat 1-1 và xác nhận
@@ -241,7 +241,7 @@ export default function LandingPage() {
 
       <footer className="border-t border-slate-200 bg-slate-50 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
         <div className="mx-auto max-w-6xl px-4">
-          FPT ClassSwap — Student Connection Platform (MVP). Không phải hệ
+          FPT Swapper — Student Connection Platform (MVP). Không phải hệ
           thống đăng ký tín chỉ chính thức của Trường Đại học FPT.
         </div>
       </footer>

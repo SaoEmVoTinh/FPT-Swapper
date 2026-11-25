@@ -116,7 +116,7 @@ export default function NotificationsPage() {
         { method: "POST" },
       );
       if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-        new Notification("FPT ClassSwap", {
+        new Notification("FPT Swapper", {
           body: "Thông báo thử nghiệm hoạt động bình thường!",
           icon: "/fpt-logo2.png",
         });

@@ -8,7 +8,7 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("push", (event) => {
   let payload = {
-    title: "FPT ClassSwap",
+    title: "FPT Swapper",
     body: "Bạn có cập nhật mới về đổi lớp hoặc tin nhắn.",
     url: "/notifications",
   };

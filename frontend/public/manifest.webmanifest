@@ -1,6 +1,6 @@
 {
-  "name": "FPT ClassSwap — Kết nối đổi lớp sinh viên FPT",
-  "short_name": "ClassSwap",
+  "name": "FPT Swapper — Kết nối đổi lớp sinh viên FPT",
+  "short_name": "FPT Swapper",
   "description": "Nền tảng hỗ trợ kết nối sinh viên FPT tìm người đổi lớp học tương thích theo cơ chế matching hai chiều.",
   "start_url": "/dashboard",
   "scope": "/",

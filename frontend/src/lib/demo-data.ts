@@ -255,8 +255,8 @@ export const DEMO_MESSAGES: MessageItem[] = [
 export const DEMO_NOTIFICATIONS: NotificationItem[] = [
   {
     id: "notif-1",
-    title: "Match mới cho môn MKT201!",
-    body: "Bạn và Đỗ Minh Quân đã cùng Like yêu cầu đổi lớp MKT201_01 ⇄ MKT201_02.",
+    title: "Match mới cho môn MAI391!",
+    body: "Bạn và Đỗ Minh Quân đã cùng Like yêu cầu đổi lớp MAI391 - AI21A01 ⇄ MAI391 - AI21A02.",
     type: "MATCH",
     isRead: false,
     createdAt: "2 giờ trước",
@@ -265,7 +265,7 @@ export const DEMO_NOTIFICATIONS: NotificationItem[] = [
   {
     id: "notif-2",
     title: "Tin nhắn mới từ Đỗ Minh Quân",
-    body: "Chào bạn, mình cũng đang cần đổi sang MKT201_01 trong tuần này!",
+    body: "Chào bạn, mình cũng đang cần đổi sang MAI391 - AI21A01 trong tuần này!",
     type: "MESSAGE",
     isRead: false,
     createdAt: "2 giờ trước",
@@ -274,7 +274,7 @@ export const DEMO_NOTIFICATIONS: NotificationItem[] = [
   {
     id: "notif-3",
     title: "Nhắc nhở quy định đổi lớp",
-    body: "FPT ClassSwap chỉ hỗ trợ kết nối. Sau khi Confirm, hai bạn hãy thực hiện thủ tục chính thức theo quy định của trường.",
+    body: "FPT Swapper chỉ hỗ trợ kết nối. Sau khi Confirm, hai bạn hãy thực hiện thủ tục chính thức theo quy định của trường.",
     type: "SYSTEM",
     isRead: true,
     createdAt: "1 ngày trước",

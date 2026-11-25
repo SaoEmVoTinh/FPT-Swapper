@@ -104,13 +104,13 @@ export default function LoginPage() {
           <Link href="/" className="inline-flex items-center gap-2.5">
             <Image
               src="/fpt-logo2.png"
-              alt="FPT ClassSwap"
+              alt="FPT Swapper"
               width={40}
               height={40}
               className="h-10 w-10 rounded-xl object-contain"
             />
             <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
-              FPT ClassSwap
+              FPT Swapper
             </span>
           </Link>
           <h1 className="mt-4 text-2xl font-bold text-slate-900 dark:text-slate-100">

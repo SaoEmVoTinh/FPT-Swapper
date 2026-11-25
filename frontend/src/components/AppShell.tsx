@@ -93,14 +93,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Link href="/" className="flex items-center gap-2.5">
             <Image
               src="/fpt-logo2.png"
-              alt="FPT ClassSwap"
+              alt="FPT Swapper"
               width={36}
               height={36}
               className="h-9 w-9 rounded-xl object-contain"
             />
             <div>
               <span className="block font-bold leading-none tracking-tight text-slate-900 dark:text-slate-100">
-                FPT ClassSwap
+                FPT Swapper
               </span>
               <span className="mt-1 inline-block rounded-md bg-orange-50 px-1.5 py-0.5 text-[10px] font-semibold text-orange-600 dark:bg-orange-500/15 dark:text-orange-300">
                 {student.campusName}
@@ -250,13 +250,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Link href="/" className="flex items-center gap-2">
             <Image
               src="/fpt-logo2.png"
-              alt="FPT ClassSwap"
+              alt="FPT Swapper"
               width={32}
               height={32}
               className="h-8 w-8 rounded-lg object-contain"
             />
             <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-              FPT ClassSwap
+              FPT Swapper
             </span>
           </Link>
 
