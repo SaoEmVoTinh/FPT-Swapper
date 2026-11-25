@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeftRight,
   Calendar,
@@ -14,15 +15,20 @@ import {
   MapPin,
   MessageSquare,
   RefreshCw,
+  Search,
   Sparkles,
   User,
   X,
 } from "lucide-react";
+
 import { AppShell } from "@/components/AppShell";
 import { useAppState } from "@/lib/app-state";
 import { MatchItem } from "@/types";
 
-export default function DiscoverPage() {
+function DiscoverContent() {
+  const searchParams = useSearchParams();
+  const initialCourse = searchParams.get("course") || "";
+
   const {
     student,
     discoverCards,
@@ -32,21 +38,45 @@ export default function DiscoverPage() {
     actionError,
     clearActionError,
   } = useAppState();
+
   const [matchedModal, setMatchedModal] = useState<MatchItem | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [swiping, setSwiping] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [onlyCompatible, setOnlyCompatible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(initialCourse);
   const [likeFeedback, setLikeFeedback] = useState<string | null>(null);
 
-  const visibleCards = onlyCompatible
-    ? discoverCards.filter((c) => c.isCompatible)
-    : discoverCards;
+  const uniqueCourseCodes = useMemo(() => {
+    const seen = new Set<string>();
+    for (const card of discoverCards) {
+      if (card.courseCode) seen.add(card.courseCode);
+    }
+    return Array.from(seen).slice(0, 6);
+  }, [discoverCards]);
+
+  const visibleCards = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return discoverCards.filter((c) => {
+      if (onlyCompatible && !c.isCompatible) return false;
+      if (!q) return true;
+      return (
+        c.courseCode.toLowerCase().includes(q) ||
+        c.courseName.toLowerCase().includes(q) ||
+        c.currentClassCode.toLowerCase().includes(q) ||
+        c.targetClassCode.toLowerCase().includes(q) ||
+        c.major.toLowerCase().includes(q) ||
+        c.studentDisplayName.toLowerCase().includes(q)
+      );
+    });
+  }, [discoverCards, onlyCompatible, searchQuery]);
+
   const compatibleCount = discoverCards.filter((c) => c.isCompatible).length;
   const currentCard = visibleCards[0];
 
   const handleSwipe = async (action: "LIKE" | "PASS") => {
     if (!currentCard || swiping) return;
+    if (action === "LIKE" && currentCard.hasCourseConflict) return;
     clearActionError();
     setLikeFeedback(null);
     setShowDetails(false);
@@ -57,13 +87,32 @@ export default function DiscoverPage() {
         setMatchedModal(result.match);
       } else if (action === "LIKE") {
         setLikeFeedback(
-          `Đã gửi Like cho ${currentCard.studentDisplayName} (${currentCard.courseCode}). Khi họ Like lại bạn, hai bạn sẽ Match!`
+          `Đã gửi Like cho ${currentCard.studentDisplayName} (${currentCard.courseCode}). Khi họ Like lại bạn, hai bạn sẽ Match!`,
         );
       }
     } finally {
       setSwiping(false);
     }
   };
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (matchedModal || !currentCard || swiping) return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        void handleSwipe("PASS");
+      } else if (e.key === "ArrowRight" && !currentCard.hasCourseConflict) {
+        e.preventDefault();
+        void handleSwipe("LIKE");
+      } else if (e.key.toLowerCase() === "i") {
+        setShowDetails((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -75,7 +124,7 @@ export default function DiscoverPage() {
   };
 
   return (
-    <AppShell>
+    <>
       <div className="mx-auto max-w-xl space-y-5">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -106,33 +155,79 @@ export default function DiscoverPage() {
           )}
         </div>
 
-        {/* Filter bar: All campus posts vs compatible with my requests */}
-        {isAuthenticated && (
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setOnlyCompatible(false)}
-              className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors ${
-                !onlyCompatible
-                  ? "bg-orange-500 text-white shadow-sm"
-                  : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              Tất cả trong campus ({discoverCards.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setOnlyCompatible(true)}
-              className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors ${
-                onlyCompatible
-                  ? "bg-orange-500 text-white shadow-sm"
-                  : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              Khớp yêu cầu của tôi ({compatibleCount})
-            </button>
+        {/* Filter & Search Bar */}
+        <div className="space-y-2.5">
+          {isAuthenticated && (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setOnlyCompatible(false)}
+                className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors ${
+                  !onlyCompatible
+                    ? "bg-orange-500 text-white shadow-sm"
+                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Tất cả trong campus ({discoverCards.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setOnlyCompatible(true)}
+                className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors ${
+                  onlyCompatible
+                    ? "bg-orange-500 text-white shadow-sm"
+                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Khớp yêu cầu của tôi ({compatibleCount})
+              </button>
+            </div>
+          )}
+
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tìm theo mã môn, tên môn, lớp, ngành..."
+              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-8 text-xs outline-none focus:border-orange-500"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label="Xóa từ khóa tìm kiếm"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
-        )}
+
+          {uniqueCourseCodes.length > 1 && (
+            <div className="flex flex-wrap gap-1.5">
+              {uniqueCourseCodes.map((code) => {
+                const active =
+                  searchQuery.trim().toLowerCase() === code.toLowerCase();
+                return (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => setSearchQuery(active ? "" : code)}
+                    className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                      active
+                        ? "bg-slate-900 text-white"
+                        : "bg-white border border-slate-200 text-slate-600 hover:border-orange-200 hover:text-orange-600"
+                    }`}
+                  >
+                    {code}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {likeFeedback && (
           <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
@@ -166,16 +261,29 @@ export default function DiscoverPage() {
               <Sparkles className="h-7 w-7" />
             </div>
             <h2 className="mt-4 text-lg font-bold text-slate-900">
-              {onlyCompatible
-                ? "Chưa có tin nào khớp đúng 2 chiều với yêu cầu của bạn"
-                : `Chưa có tin đăng mới tại ${student.campusName}`}
+              {searchQuery.trim()
+                ? `Không tìm thấy tin đăng khớp "${searchQuery.trim()}"`
+                : onlyCompatible
+                  ? "Chưa có tin nào khớp đúng 2 chiều với yêu cầu của bạn"
+                  : `Chưa có tin đăng mới tại ${student.campusName}`}
             </h2>
             <p className="mt-2 text-sm text-slate-500">
-              {onlyCompatible
-                ? "Bạn có thể chuyển sang tab 'Tất cả trong campus' để xem toàn bộ tin đăng đổi lớp tại cơ sở của mình."
-                : "Hãy tạo yêu cầu đổi lớp mới hoặc quay lại sau để xem tin đăng từ các sinh viên cùng cơ sở."}
+              {searchQuery.trim()
+                ? "Hãy xóa bộ lọc hoặc thử tìm kiếm theo mã môn khác."
+                : onlyCompatible
+                  ? "Bạn có thể chuyển sang tab 'Tất cả trong campus' để xem toàn bộ tin đăng đổi lớp tại cơ sở của mình."
+                  : "Hãy tạo yêu cầu đổi lớp mới hoặc quay lại sau để xem tin đăng từ các sinh viên cùng cơ sở."}
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
+              {searchQuery.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Xóa tìm kiếm
+                </button>
+              )}
               {onlyCompatible && discoverCards.length > 0 && (
                 <button
                   type="button"
@@ -200,153 +308,185 @@ export default function DiscoverPage() {
             </div>
           </div>
         ) : (
-          <div className="rounded-3xl border border-slate-200 bg-white shadow-lg overflow-hidden">
-            {/* Card Header */}
-            <div className="bg-gradient-to-r from-orange-500 to-amber-500 p-6 text-white">
-              <div className="flex items-center justify-between gap-2">
-                <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur">
-                  {currentCard.semesterName}
-                </span>
-                <span className="text-xs font-medium text-white/90">
-                  {currentCard.campusName}
-                </span>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {currentCard.isReciprocalReady ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1 text-xs font-bold text-white shadow-sm">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Đã Like bạn — Like lại để Match ngay!
-                  </span>
-                ) : currentCard.isCompatible ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/25 px-3 py-1 text-xs font-semibold text-white">
-                    Khớp ngược chiều với yêu cầu của bạn
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-medium text-white">
-                    Tin đăng trong campus {currentCard.campusName}
-                  </span>
-                )}
-              </div>
-              <h2 className="mt-3 text-2xl font-extrabold tracking-tight">
-                {currentCard.courseCode}
-              </h2>
-              <p className="text-sm text-white/90">{currentCard.courseName}</p>
-            </div>
+          <div className="relative">
+            {visibleCards.length > 1 && (
+              <div className="pointer-events-none absolute inset-x-4 -bottom-2.5 h-6 rounded-b-3xl border border-slate-200 bg-slate-100/90" />
+            )}
 
-            {/* Swap Comparison */}
-            <div className="p-6 space-y-5">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Lớp họ đang học
+            <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg">
+              {/* Card Header */}
+              <div className="bg-gradient-to-r from-orange-500 to-amber-500 p-6 text-white">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur">
+                    {currentCard.semesterName}
                   </span>
-                  <p className="mt-1 text-lg font-bold text-slate-900">
-                    {currentCard.currentClassCode}
-                  </p>
-                  <p className="mt-1.5 flex items-start gap-1.5 text-xs text-slate-600">
-                    <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
-                    {currentCard.currentScheduleText}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-orange-200 bg-orange-50/70 p-4">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-orange-600">
-                    Lớp họ muốn sang
-                  </span>
-                  <p className="mt-1 text-lg font-bold text-orange-700">
-                    {currentCard.targetClassCode}
-                  </p>
-                  <p className="mt-1.5 flex items-start gap-1.5 text-xs text-orange-900/80">
-                    <ArrowLeftRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-orange-500" />
-                    {currentCard.targetScheduleText}
-                  </p>
-                </div>
-              </div>
-
-              {/* Minimal Profile (Privacy-safe: no email/phone) */}
-              <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-orange-100 font-bold text-orange-700">
-                    <User className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-900">
-                      {currentCard.studentDisplayName}{" "}
-                      <span className="font-normal text-slate-400">
-                        ({currentCard.studentCodeMasked})
-                      </span>
-                    </p>
-                    <p className="flex items-center gap-1.5 text-xs text-slate-500">
-                      <GraduationCap className="h-3.5 w-3.5" />
-                      {currentCard.major}
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-black/15 px-2.5 py-0.5 text-[11px] font-semibold">
+                      1 / {visibleCards.length}
+                    </span>
+                    <span className="text-xs font-medium text-white/90">
+                      {currentCard.campusName}
+                    </span>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowDetails((v) => !v)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
-                >
-                  <Info className="h-3.5 w-3.5" />
-                  {showDetails ? "Ẩn" : "Chi tiết"}
-                </button>
-              </div>
-
-              {showDetails && (
-                <div className="rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-600 space-y-1.5">
-                  <p>
-                    <span className="font-semibold text-slate-800">
-                      Giảng viên lớp hiện tại:
-                    </span>{" "}
-                    {currentCard.lecturerCurrent}
-                  </p>
-                  <p className="flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                    Thông tin liên hệ cá nhân (email, SĐT) được ẩn để bảo vệ
-                    quyền riêng tư.
-                  </p>
-                </div>
-              )}
-
-              {currentCard.note && (
-                <div className="rounded-xl bg-slate-50 p-3.5 text-sm italic text-slate-600">
-                  &ldquo;{currentCard.note}&rdquo;
-                </div>
-              )}
-
-              {/* Swipe Actions */}
-              <div className="flex items-center justify-center gap-4 pt-2">
-                <button
-                  type="button"
-                  disabled={swiping}
-                  onClick={() => handleSwipe("PASS")}
-                  className="flex h-14 w-32 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 transition-all active:scale-95 disabled:opacity-60"
-                >
-                  <X className="h-5 w-5" />
-                  Bỏ qua
-                </button>
-                <button
-                  type="button"
-                  disabled={swiping || Boolean(currentCard.hasCourseConflict)}
-                  onClick={() => handleSwipe("LIKE")}
-                  title={
-                    currentCard.hasCourseConflict
-                      ? "Bạn đang có yêu cầu khác cho môn này"
-                      : undefined
-                  }
-                  className="flex h-14 flex-1 max-w-xs items-center justify-center gap-2 rounded-2xl bg-orange-500 px-4 text-sm font-bold text-white shadow-md shadow-orange-500/25 hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-50"
-                >
-                  {swiping ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {currentCard.isReciprocalReady ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1 text-xs font-bold text-white shadow-sm">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Đã Like bạn — Like lại để Match ngay!
+                    </span>
+                  ) : currentCard.isCompatible ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/25 px-3 py-1 text-xs font-semibold text-white">
+                      Khớp ngược chiều với yêu cầu của bạn
+                    </span>
                   ) : (
-                    <Heart className="h-5 w-5 fill-current" />
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-medium text-white">
+                      Tin đăng trong campus {currentCard.campusName}
+                    </span>
                   )}
-                  {currentCard.hasCourseConflict
-                    ? "Đã có yêu cầu khác"
-                    : currentCard.isCompatible
-                      ? "Like để đổi"
-                      : "Nhận đổi & Like"}
-                </button>
+                </div>
+                <h2 className="mt-3 text-2xl font-extrabold tracking-tight">
+                  {currentCard.courseCode}
+                </h2>
+                <p className="text-sm text-white/90">
+                  {currentCard.courseName}
+                </p>
+              </div>
+
+              {/* Swap Comparison */}
+              <div className="space-y-5 p-6">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      Lớp họ đang học
+                    </span>
+                    <p className="mt-1 text-lg font-bold text-slate-900">
+                      {currentCard.currentClassCode}
+                    </p>
+                    <p className="mt-1.5 flex items-start gap-1.5 text-xs text-slate-600">
+                      <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                      {currentCard.currentScheduleText}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-orange-200 bg-orange-50/70 p-4">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-orange-600">
+                      Lớp họ muốn sang
+                    </span>
+                    <p className="mt-1 text-lg font-bold text-orange-700">
+                      {currentCard.targetClassCode}
+                    </p>
+                    <p className="mt-1.5 flex items-start gap-1.5 text-xs text-orange-900/80">
+                      <ArrowLeftRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-orange-500" />
+                      {currentCard.targetScheduleText}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Minimal Profile */}
+                <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-orange-100 font-bold text-orange-700">
+                      <User className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">
+                        {currentCard.studentDisplayName}{" "}
+                        <span className="font-normal text-slate-400">
+                          ({currentCard.studentCodeMasked})
+                        </span>
+                      </p>
+                      <p className="flex items-center gap-1.5 text-xs text-slate-500">
+                        <GraduationCap className="h-3.5 w-3.5" />
+                        {currentCard.major}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDetails((v) => !v)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    <Info className="h-3.5 w-3.5" />
+                    {showDetails ? "Ẩn" : "Chi tiết"}
+                  </button>
+                </div>
+
+                {showDetails && (
+                  <div className="space-y-1.5 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-600">
+                    <p>
+                      <span className="font-semibold text-slate-800">
+                        Giảng viên lớp hiện tại:
+                      </span>{" "}
+                      {currentCard.lecturerCurrent}
+                    </p>
+                    <p className="flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                      Thông tin liên hệ cá nhân (email, SĐT) được ẩn để bảo vệ
+                      quyền riêng tư.
+                    </p>
+                  </div>
+                )}
+
+                {currentCard.note && (
+                  <div className="rounded-xl bg-slate-50 p-3.5 text-sm italic text-slate-600">
+                    &ldquo;{currentCard.note}&rdquo;
+                  </div>
+                )}
+
+                {/* Swipe Actions */}
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-center gap-4">
+                    <button
+                      type="button"
+                      disabled={swiping}
+                      onClick={() => handleSwipe("PASS")}
+                      className="flex h-14 w-32 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm transition-all hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 active:scale-95 disabled:opacity-60"
+                    >
+                      <X className="h-5 w-5" />
+                      Bỏ qua
+                    </button>
+                    <button
+                      type="button"
+                      disabled={
+                        swiping || Boolean(currentCard.hasCourseConflict)
+                      }
+                      onClick={() => handleSwipe("LIKE")}
+                      title={
+                        currentCard.hasCourseConflict
+                          ? "Bạn đang có yêu cầu khác cho môn này"
+                          : undefined
+                      }
+                      className="flex h-14 max-w-xs flex-1 items-center justify-center gap-2 rounded-2xl bg-orange-500 px-4 text-sm font-bold text-white shadow-md shadow-orange-500/25 transition-all hover:bg-orange-600 active:scale-95 disabled:opacity-50"
+                    >
+                      {swiping ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Heart className="h-5 w-5 fill-current" />
+                      )}
+                      {currentCard.hasCourseConflict
+                        ? "Đã có yêu cầu khác"
+                        : currentCard.isCompatible
+                          ? "Like để đổi"
+                          : "Nhận đổi & Like"}
+                    </button>
+                  </div>
+                  <p className="hidden text-center text-[11px] text-slate-400 sm:block">
+                    Mẹo: Phím{" "}
+                    <kbd className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px]">
+                      ←
+                    </kbd>{" "}
+                    Bỏ qua •{" "}
+                    <kbd className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px]">
+                      →
+                    </kbd>{" "}
+                    Like •{" "}
+                    <kbd className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px]">
+                      I
+                    </kbd>{" "}
+                    Chi tiết
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -374,7 +514,11 @@ export default function DiscoverPage() {
             </p>
             <div className="mt-6 flex flex-col gap-2.5">
               <Link
-                href="/chat"
+                href={
+                  matchedModal.conversationId
+                    ? `/chat?conv=${encodeURIComponent(matchedModal.conversationId)}`
+                    : "/chat"
+                }
                 onClick={() => setMatchedModal(null)}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 py-3 text-sm font-semibold text-white hover:bg-orange-600"
               >
@@ -392,6 +536,16 @@ export default function DiscoverPage() {
           </div>
         </div>
       )}
+    </>
+  );
+}
+
+export default function DiscoverPage() {
+  return (
+    <AppShell>
+      <Suspense fallback={null}>
+        <DiscoverContent />
+      </Suspense>
     </AppShell>
   );
 }

@@ -49,22 +49,25 @@ export default function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-orange-50/70 via-white to-white py-16 sm:py-24">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <section className="relative overflow-hidden bg-gradient-to-b from-orange-50/80 via-white to-white py-16 sm:py-24">
+        <div className="pointer-events-none absolute -top-24 left-1/2 h-80 w-[42rem] -translate-x-1/2 rounded-full bg-orange-200/30 blur-3xl" />
+        <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mx-auto max-w-3xl text-center">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3.5 py-1.5 text-xs font-semibold text-orange-700">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-white/90 px-3.5 py-1.5 text-xs font-semibold text-orange-700 shadow-xs">
               <Sparkles className="h-3.5 w-3.5" />
-              Nền tảng kết nối sinh viên FPT — MVP ClassSwap
+              Nền tảng kết nối sinh viên FPTU — 5 Campus toàn quốc
             </div>
             <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
               Tìm người đổi lớp{" "}
-              <span className="text-orange-500">nhanh & chuẩn</span> theo lịch
-              học
+              <span className="bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
+                nhanh &amp; chuẩn
+              </span>{" "}
+              theo lịch học
             </h1>
             <p className="mt-6 text-lg leading-relaxed text-slate-600">
               Không còn phải lướt hàng trăm tin nhắn trong group chat. Tạo yêu
-              cầu đổi lớp, quẹt Like các yêu cầu tương thích hai chiều và trao
-              đổi trực tiếp ngay khi Match.
+              cầu đổi lớp, quẹt Like các yêu cầu trong campus và nhắn tin trực
+              tiếp ngay khi hai bên Match.
             </p>
 
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -80,8 +83,27 @@ export default function LandingPage() {
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3.5 text-base font-semibold text-slate-700 hover:bg-slate-50 transition-colors sm:w-auto"
               >
                 <Flame className="h-4 w-4 text-orange-500" />
-                Thử Discover kiểu Tinder
+                Mở Discover đổi lớp
               </Link>
+            </div>
+
+            <div className="mt-10 grid grid-cols-2 gap-3 text-left sm:grid-cols-4">
+              {[
+                { value: "5 Cơ sở", label: "HN • ĐN • HCM • QN • CT" },
+                { value: "100+ Môn", label: "Danh mục FPTU chuẩn" },
+                { value: "Match 2 chiều", label: "Cả 2 cùng Like mới ghép" },
+                { value: "Chat 1-1", label: "Thông báo realtime tức thì" },
+              ].map((stat) => (
+                <div
+                  key={stat.value}
+                  className="rounded-2xl border border-slate-200/80 bg-white/90 p-3.5 shadow-xs"
+                >
+                  <p className="text-sm font-bold text-slate-900">
+                    {stat.value}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">{stat.label}</p>
+                </div>
+              ))}
             </div>
           </div>
 

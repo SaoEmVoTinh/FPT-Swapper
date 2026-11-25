@@ -1,12 +1,30 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Flag, Send } from "lucide-react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { ArrowLeft, Flag, Search, Send, X } from "lucide-react";
+
 import { AppShell } from "@/components/AppShell";
 import { MatchStatusBadge } from "@/components/StatusBadge";
 import { useAppState } from "@/lib/app-state";
 
-export default function ChatPage() {
+const QUICK_REPLIES = [
+  "Chào bạn, lịch rảnh để mình cùng lên FAP / trao đổi là khi nào?",
+  "Mình đã kiểm tra kỹ lịch lớp mới rồi, rất phù hợp nhé!",
+  "Mình đã bấm xác nhận đổi lớp ở trang Matches rồi.",
+];
+
+const REPORT_REASONS = [
+  "Thông tin lớp không đúng thực tế",
+  "Không phản hồi / bỏ hẹn đổi lớp",
+  "Ngôn ngữ thiếu tôn trọng",
+  "Khác",
+];
+
+function ChatContent() {
+  const searchParams = useSearchParams();
+  const initialConv = searchParams.get("conv");
+
   const {
     student,
     conversations,
@@ -18,11 +36,26 @@ export default function ChatPage() {
   } = useAppState();
 
   const [selectedId, setSelectedId] = useState<string | null>(
-    conversations[0]?.id || null
+    initialConv || conversations[0]?.id || null,
   );
+  const [convSearch, setConvSearch] = useState("");
   const [draft, setDraft] = useState("");
-  const [reported, setReported] = useState(false);
+  const [reportedIds, setReportedIds] = useState<Record<string, boolean>>({});
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportReason, setReportReason] = useState(REPORT_REASONS[0]);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  const filteredConversations = useMemo(() => {
+    const q = convSearch.trim().toLowerCase();
+    if (!q) return conversations;
+    return conversations.filter(
+      (c) =>
+        c.partnerName.toLowerCase().includes(q) ||
+        c.courseCode.toLowerCase().includes(q) ||
+        c.myClassCode.toLowerCase().includes(q) ||
+        c.partnerClassCode.toLowerCase().includes(q),
+    );
+  }, [conversations, convSearch]);
 
   const activeConv =
     conversations.find((c) => c.id === selectedId) || conversations[0] || null;
@@ -48,8 +81,10 @@ export default function ChatPage() {
     setDraft("");
   };
 
+  const isReported = activeConv ? Boolean(reportedIds[activeConv.id]) : false;
+
   return (
-    <AppShell>
+    <>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -68,67 +103,94 @@ export default function ChatPage() {
             >
               <span
                 className={`h-2 w-2 rounded-full ${
-                  realtimeStatus === "connected" ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
+                  realtimeStatus === "connected"
+                    ? "bg-emerald-500"
+                    : "bg-amber-500 animate-pulse"
                 }`}
               />
-              {realtimeStatus === "connected" ? "Trực tuyến" : "Đang kết nối..."}
+              {realtimeStatus === "connected"
+                ? "Trực tuyến"
+                : "Đang kết nối..."}
             </span>
           )}
         </div>
 
-        <div className="grid h-[calc(100vh-14rem)] min-h-[480px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:grid-cols-3">
+        <div className="grid h-[calc(100vh-14rem)] min-h-[500px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:grid-cols-3">
           {/* Conversation List */}
           <div
-            className={`border-r border-slate-200 overflow-y-auto ${
-              selectedId ? "hidden md:block" : "block"
+            className={`flex flex-col border-r border-slate-200 ${
+              selectedId ? "hidden md:flex" : "flex"
             }`}
           >
-            <div className="border-b border-slate-100 p-4 text-xs font-bold uppercase tracking-wider text-slate-400">
-              Hội thoại ({conversations.length})
+            <div className="space-y-2.5 border-b border-slate-100 p-3.5">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Hội thoại ({conversations.length})
+              </div>
+              {conversations.length > 0 && (
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={convSearch}
+                    onChange={(e) => setConvSearch(e.target.value)}
+                    placeholder="Tìm tên hoặc mã môn..."
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-2.5 text-xs outline-none focus:border-orange-500 focus:bg-white"
+                  />
+                </div>
+              )}
             </div>
-            {conversations.length === 0 ? (
-              <p className="p-6 text-center text-sm text-slate-500">
-                Chưa có cuộc trò chuyện nào.
-              </p>
-            ) : (
-              conversations.map((conv) => {
-                const isSelected = activeConv?.id === conv.id;
-                return (
-                  <button
-                    key={conv.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedId(conv.id);
-                      setReported(false);
-                    }}
-                    className={`w-full border-b border-slate-100 p-4 text-left transition-colors ${
-                      isSelected ? "bg-orange-50/70" : "hover:bg-slate-50"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-sm text-slate-900">
-                        {conv.partnerName}
-                      </span>
-                      <span className="text-[11px] text-slate-400">
-                        {conv.lastMessageAt}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-xs font-medium text-orange-600">
-                      {conv.courseCode}: {conv.myClassCode} ⇄{" "}
-                      {conv.partnerClassCode}
-                    </p>
-                    <p className="mt-1 truncate text-xs text-slate-500">
-                      {conv.lastMessage}
-                    </p>
-                  </button>
-                );
-              })
-            )}
+
+            <div className="flex-1 overflow-y-auto">
+              {filteredConversations.length === 0 ? (
+                <p className="p-6 text-center text-sm text-slate-500">
+                  {conversations.length === 0
+                    ? "Chưa có cuộc trò chuyện nào."
+                    : "Không tìm thấy hội thoại phù hợp."}
+                </p>
+              ) : (
+                filteredConversations.map((conv) => {
+                  const isSelected = activeConv?.id === conv.id;
+                  return (
+                    <button
+                      key={conv.id}
+                      type="button"
+                      onClick={() => setSelectedId(conv.id)}
+                      className={`w-full border-b border-slate-100 p-4 text-left transition-colors ${
+                        isSelected ? "bg-orange-50/70" : "hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-sm font-semibold text-slate-900">
+                          {conv.partnerName}
+                        </span>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          {conv.unreadCount > 0 && (
+                            <span className="rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                              {conv.unreadCount}
+                            </span>
+                          )}
+                          <span className="text-[11px] text-slate-400">
+                            {conv.lastMessageAt}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="mt-0.5 text-xs font-medium text-orange-600">
+                        {conv.courseCode}: {conv.myClassCode} ⇄{" "}
+                        {conv.partnerClassCode}
+                      </p>
+                      <p className="mt-1 truncate text-xs text-slate-500">
+                        {conv.lastMessage}
+                      </p>
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </div>
 
           {/* Active Chat Pane */}
           <div
-            className={`md:col-span-2 flex flex-col h-full ${
+            className={`flex h-full flex-col md:col-span-2 ${
               !selectedId ? "hidden md:flex" : "flex"
             }`}
           >
@@ -150,7 +212,7 @@ export default function ChatPage() {
                     </button>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-slate-900">
+                        <span className="text-sm font-bold text-slate-900">
                           {activeConv.partnerName}
                         </span>
                         <MatchStatusBadge status={activeConv.matchStatus} />
@@ -176,17 +238,18 @@ export default function ChatPage() {
                     )}
                     <button
                       type="button"
-                      onClick={() => setReported(true)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                      disabled={isReported}
+                      onClick={() => setReportModalOpen(true)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-60"
                     >
                       <Flag className="h-3.5 w-3.5" />
-                      {reported ? "Đã báo cáo" : "Báo cáo"}
+                      {isReported ? "Đã báo cáo" : "Báo cáo"}
                     </button>
                   </div>
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white">
+                <div className="flex-1 space-y-3 overflow-y-auto bg-white p-4">
                   {activeMessages.map((msg) => {
                     const isMe = msg.senderId === student.id;
                     return (
@@ -195,10 +258,10 @@ export default function ChatPage() {
                         className={`flex ${isMe ? "justify-end" : "justify-start"}`}
                       >
                         <div
-                          className={`max-w-[78%] rounded-2xl px-4 py-2.5 text-sm ${
+                          className={`max-w-[78%] rounded-2xl px-4 py-2.5 text-sm shadow-xs ${
                             isMe
-                              ? "bg-orange-500 text-white rounded-br-sm"
-                              : "bg-slate-100 text-slate-800 rounded-bl-sm"
+                              ? "rounded-br-sm bg-orange-500 text-white"
+                              : "rounded-bl-sm bg-slate-100 text-slate-800"
                           }`}
                         >
                           <p className="leading-relaxed">{msg.content}</p>
@@ -218,10 +281,24 @@ export default function ChatPage() {
                   <div ref={messagesEndRef} />
                 </div>
 
+                {/* Quick Replies */}
+                <div className="flex gap-1.5 overflow-x-auto border-t border-slate-100 bg-white px-3 py-2">
+                  {QUICK_REPLIES.map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => setDraft(q)}
+                      className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-medium text-slate-600 hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+
                 {/* Input */}
                 <form
                   onSubmit={handleSend}
-                  className="flex items-center gap-2 border-t border-slate-200 p-3 bg-slate-50/50"
+                  className="flex items-center gap-2 border-t border-slate-200 bg-slate-50/50 p-3"
                 >
                   <input
                     type="text"
@@ -232,7 +309,7 @@ export default function ChatPage() {
                   />
                   <button
                     type="submit"
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500 text-white hover:bg-orange-600 transition-colors"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500 text-white transition-colors hover:bg-orange-600"
                     aria-label="Gửi tin nhắn"
                   >
                     <Send className="h-4 w-4" />
@@ -243,7 +320,75 @@ export default function ChatPage() {
           </div>
         </div>
       </div>
-    </AppShell>
+
+      {/* Report Modal */}
+      {reportModalOpen && activeConv && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold text-slate-900">
+                Báo cáo vi phạm ({activeConv.partnerName})
+              </h2>
+              <button
+                type="button"
+                onClick={() => setReportModalOpen(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {REPORT_REASONS.map((reason) => (
+                <label
+                  key={reason}
+                  className={`flex cursor-pointer items-center gap-2.5 rounded-xl border p-3 text-sm ${
+                    reportReason === reason
+                      ? "border-orange-300 bg-orange-50/60 text-slate-900"
+                      : "border-slate-200 text-slate-600"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="reportReason"
+                    checked={reportReason === reason}
+                    onChange={() => setReportReason(reason)}
+                  />
+                  {reason}
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setReportModalOpen(false)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setReportedIds((prev) => ({ ...prev, [activeConv.id]: true }));
+                  setReportModalOpen(false);
+                }}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700"
+              >
+                Gửi báo cáo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
+export default function ChatPage() {
+  return (
+    <AppShell>
+      <Suspense fallback={null}>
+        <ChatContent />
+      </Suspense>
+    </AppShell>
+  );
+}

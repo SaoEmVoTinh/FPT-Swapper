@@ -81,8 +81,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <span className="font-bold text-slate-900 tracking-tight block leading-none">
                 FPT ClassSwap
               </span>
-              <span className="text-[11px] font-medium text-orange-600">
-                MVP Preview
+              <span className="mt-1 inline-block rounded-md bg-orange-50 px-1.5 py-0.5 text-[10px] font-semibold text-orange-600">
+                {student.campusName}
               </span>
             </div>
           </Link>
@@ -97,10 +97,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors ${
+                className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all ${
                   active
-                    ? "bg-orange-50 text-orange-700"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ? "bg-orange-50 text-orange-700 shadow-xs ring-1 ring-orange-100"
+                    : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
                 }`}
               >
                 <span className="flex items-center gap-3">
@@ -123,19 +123,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="border-t border-slate-100 p-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-orange-700">
-                {student.fullName.charAt(0)}
-              </div>
+            <Link href="/profile" className="flex min-w-0 items-center gap-3 group">
+              {student.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={student.avatarUrl}
+                  alt={student.fullName}
+                  className="h-9 w-9 shrink-0 rounded-full border border-orange-100 object-cover"
+                />
+              ) : (
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-orange-700 group-hover:bg-orange-200 transition-colors">
+                  {student.fullName.charAt(0)}
+                </div>
+              )}
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-slate-900">
+                <p className="truncate text-sm font-semibold text-slate-900 group-hover:text-orange-600 transition-colors">
                   {student.fullName}
                 </p>
                 <p className="truncate text-xs text-slate-500">
                   {student.studentCode} • {student.campusName}
                 </p>
               </div>
-            </div>
+            </Link>
             <button
               type="button"
               onClick={toggleSound}
@@ -213,9 +222,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           <Link
             href="/profile"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-xs font-bold text-orange-700"
+            className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-orange-100 text-xs font-bold text-orange-700"
           >
-            {student.fullName.charAt(0)}
+            {student.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={student.avatarUrl}
+                alt={student.fullName}
+                className="h-8 w-8 object-cover"
+              />
+            ) : (
+              student.fullName.charAt(0)
+            )}
           </Link>
         </div>
       </header>

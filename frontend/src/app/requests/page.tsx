@@ -1,13 +1,17 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Pause, Play, PlusCircle, Trash2, X } from "lucide-react";
+import { Flame, Pause, Play, PlusCircle, Search, Trash2, X } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { CreateRequestForm } from "@/components/CreateRequestForm";
 import { RequestStatusBadge } from "@/components/StatusBadge";
 import { useAppState } from "@/lib/app-state";
+import { SwapRequestStatus } from "@/types";
+
+type StatusFilter = "ALL" | "ACTIVE" | "PAUSED" | "MATCHED";
 
 function RequestsContent() {
   const searchParams = useSearchParams();
@@ -17,8 +21,46 @@ function RequestsContent() {
     useAppState();
   const [showCreateForm, setShowCreateForm] = useState(initialOpen);
   const [createdBanner, setCreatedBanner] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const isFormOpen = showCreateForm || requests.length === 0;
+
+  const counts = useMemo(
+    () => ({
+      ALL: requests.length,
+      ACTIVE: requests.filter((r) => r.status === "ACTIVE").length,
+      PAUSED: requests.filter((r) => r.status === "PAUSED").length,
+      MATCHED: requests.filter((r) => r.status === "MATCHED").length,
+    }),
+    [requests],
+  );
+
+  const filteredRequests = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return requests.filter((req) => {
+      if (
+        statusFilter !== "ALL" &&
+        req.status !== (statusFilter as SwapRequestStatus)
+      ) {
+        return false;
+      }
+      if (!q) return true;
+      return (
+        req.courseCode.toLowerCase().includes(q) ||
+        req.courseName.toLowerCase().includes(q) ||
+        req.currentClassCode.toLowerCase().includes(q) ||
+        req.targetClassCode.toLowerCase().includes(q)
+      );
+    });
+  }, [requests, statusFilter, searchQuery]);
+
+  const filterTabs: Array<{ key: StatusFilter; label: string }> = [
+    { key: "ALL", label: `Tất cả (${counts.ALL})` },
+    { key: "ACTIVE", label: `Đang mở (${counts.ACTIVE})` },
+    { key: "PAUSED", label: `Tạm ẩn (${counts.PAUSED})` },
+    { key: "MATCHED", label: `Đã Match (${counts.MATCHED})` },
+  ];
 
   return (
     <div className="space-y-6">
@@ -99,6 +141,38 @@ function RequestsContent() {
         />
       )}
 
+      {requests.length > 0 && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {filterTabs.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setStatusFilter(item.key)}
+                className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors ${
+                  statusFilter === item.key
+                    ? "bg-slate-900 text-white"
+                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative w-full sm:w-64">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Lọc theo môn hoặc lớp..."
+              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs outline-none focus:border-orange-500"
+            />
+          </div>
+        </div>
+      )}
+
       {requests.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
           <p className="text-sm text-slate-500">
@@ -106,12 +180,18 @@ function RequestsContent() {
             trên để đăng yêu cầu đầu tiên.
           </p>
         </div>
+      ) : filteredRequests.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
+          <p className="text-sm text-slate-500">
+            Không có yêu cầu nào khớp bộ lọc hiện tại.
+          </p>
+        </div>
       ) : (
         <div className="grid gap-4">
-          {requests.map((req) => (
+          {filteredRequests.map((req) => (
             <div
               key={req.id}
-              className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2.5">
@@ -148,14 +228,23 @@ function RequestsContent() {
 
               <div className="flex flex-wrap items-center gap-2">
                 {req.status === "ACTIVE" && (
-                  <button
-                    type="button"
-                    onClick={() => updateRequestStatus(req.id, "PAUSED")}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    <Pause className="h-3.5 w-3.5" />
-                    Tạm ẩn
-                  </button>
+                  <>
+                    <Link
+                      href={`/discover?course=${encodeURIComponent(req.courseCode)}`}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-semibold text-orange-700 hover:bg-orange-100"
+                    >
+                      <Flame className="h-3.5 w-3.5" />
+                      Tìm đối tác
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => updateRequestStatus(req.id, "PAUSED")}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      <Pause className="h-3.5 w-3.5" />
+                      Tạm ẩn
+                    </button>
+                  </>
                 )}
                 {req.status === "PAUSED" && (
                   <button
