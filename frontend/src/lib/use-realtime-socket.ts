@@ -27,7 +27,11 @@ function resolveWsUrl(): string {
     return apiBase.replace(/^http/, "ws").replace(/\/+$/, "") + "/ws";
   }
   if (typeof window !== "undefined") {
-    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+    if (
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.port === "3000"
+    ) {
       return `ws://${window.location.hostname}:8001/api/v1/ws`;
     }
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";

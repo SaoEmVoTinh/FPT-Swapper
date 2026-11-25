@@ -110,23 +110,24 @@ export default function RegisterPage() {
               <input
                 type="text"
                 value={studentCode}
+                autoCapitalize="characters"
                 onChange={(e) => setStudentCode(e.target.value.toUpperCase())}
                 placeholder="HE180123"
                 disabled={submitting}
-                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100"
+                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm uppercase placeholder:normal-case outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100"
               />
             </div>
           </div>
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
-              Email trường (@fpt.edu.vn hoặc @fe.edu.vn)
+              Email
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="annvhe180123@fpt.edu.vn"
+              placeholder="ban@gmail.com hoặc annvhe180123@fpt.edu.vn"
               disabled={submitting}
               className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100"
             />

@@ -81,7 +81,7 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
-              Email FPT hoặc Mã sinh viên
+              Email hoặc Mã sinh viên
             </label>
             <div className="relative">
               <Mail className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
@@ -89,7 +89,7 @@ export default function LoginPage() {
                 type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="annvhe180123@fpt.edu.vn hoặc HE180123"
+                placeholder="ban@gmail.com hoặc HE180123"
                 disabled={submitting}
                 className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-3.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100"
               />

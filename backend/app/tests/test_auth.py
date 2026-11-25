@@ -93,12 +93,28 @@ def test_register_duplicate_email(test_client: TestClient) -> None:
     assert res.status_code == 409
 
 
-def test_register_non_fpt_email(test_client: TestClient) -> None:
+def test_register_any_valid_email(test_client: TestClient) -> None:
     res = test_client.post(
         "/api/v1/auth/register",
         json={
             "email": "user@gmail.com",
             "student_code": "HE180997",
+            "full_name": "Gmail User",
+            "major": "SE",
+            "campus_id": CAMPUS_ID,
+            "password": TEST_PASSWORD,
+        },
+    )
+    assert res.status_code == 201
+    assert res.json()["email"] == "user@gmail.com"
+
+
+def test_register_invalid_email_format(test_client: TestClient) -> None:
+    res = test_client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "not-an-email",
+            "student_code": "HE180996",
             "full_name": "Bad Email",
             "major": "SE",
             "campus_id": CAMPUS_ID,

@@ -13,10 +13,8 @@ class RegisterRequest(BaseModel):
 
     @field_validator("email")
     @classmethod
-    def fpt_email_only(cls, v: str) -> str:
-        if not v.lower().endswith(("@fpt.edu.vn", "@fe.edu.vn")):
-            raise ValueError("Chỉ chấp nhận email FPT (@fpt.edu.vn hoặc @fe.edu.vn).")
-        return v.lower()
+    def normalize_email(cls, v: str) -> str:
+        return v.strip().lower()
 
     @field_validator("student_code")
     @classmethod
