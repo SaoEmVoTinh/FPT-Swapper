@@ -1,8 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import {
   ArrowLeftRight,
   Calendar,
@@ -25,10 +24,7 @@ import { AppShell } from "@/components/AppShell";
 import { useAppState } from "@/lib/app-state";
 import { MatchItem } from "@/types";
 
-function DiscoverContent() {
-  const searchParams = useSearchParams();
-  const initialCourse = searchParams.get("course") || "";
-
+export default function DiscoverPage() {
   const {
     student,
     discoverCards,
@@ -44,8 +40,15 @@ function DiscoverContent() {
   const [swiping, setSwiping] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [onlyCompatible, setOnlyCompatible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(initialCourse);
+  const [searchQuery, setSearchQuery] = useState("");
   const [likeFeedback, setLikeFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    const courseParam = new URLSearchParams(window.location.search).get("course");
+    if (courseParam) {
+      queueMicrotask(() => setSearchQuery(courseParam));
+    }
+  }, []);
 
   const uniqueCourseCodes = useMemo(() => {
     const seen = new Set<string>();
@@ -124,7 +127,7 @@ function DiscoverContent() {
   };
 
   return (
-    <>
+    <AppShell>
       <div className="mx-auto max-w-xl space-y-5">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -536,16 +539,6 @@ function DiscoverContent() {
           </div>
         </div>
       )}
-    </>
-  );
-}
-
-export default function DiscoverPage() {
-  return (
-    <AppShell>
-      <Suspense fallback={null}>
-        <DiscoverContent />
-      </Suspense>
     </AppShell>
   );
 }

@@ -1,8 +1,7 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { Flame, Pause, Play, PlusCircle, Search, Trash2, X } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
@@ -13,16 +12,19 @@ import { SwapRequestStatus } from "@/types";
 
 type StatusFilter = "ALL" | "ACTIVE" | "PAUSED" | "MATCHED";
 
-function RequestsContent() {
-  const searchParams = useSearchParams();
-  const initialOpen = searchParams.get("create") === "1";
-
+export default function MyRequestsPage() {
   const { requests, updateRequestStatus, actionError, clearActionError } =
     useAppState();
-  const [showCreateForm, setShowCreateForm] = useState(initialOpen);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [createdBanner, setCreatedBanner] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("create") === "1") {
+      queueMicrotask(() => setShowCreateForm(true));
+    }
+  }, []);
 
   const isFormOpen = showCreateForm || requests.length === 0;
 
@@ -63,7 +65,8 @@ function RequestsContent() {
   ];
 
   return (
-    <div className="space-y-6">
+    <AppShell>
+      <div className="space-y-6">
       {actionError && (
         <div className="flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           <span>{actionError}</span>
@@ -271,16 +274,7 @@ function RequestsContent() {
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-export default function MyRequestsPage() {
-  return (
-    <AppShell>
-      <Suspense fallback={null}>
-        <RequestsContent />
-      </Suspense>
+      </div>
     </AppShell>
   );
 }

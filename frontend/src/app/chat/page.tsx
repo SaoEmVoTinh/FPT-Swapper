@@ -1,7 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Flag, Search, Send, X } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
@@ -21,10 +20,7 @@ const REPORT_REASONS = [
   "Khác",
 ];
 
-function ChatContent() {
-  const searchParams = useSearchParams();
-  const initialConv = searchParams.get("conv");
-
+export default function ChatPage() {
   const {
     student,
     conversations,
@@ -36,8 +32,15 @@ function ChatContent() {
   } = useAppState();
 
   const [selectedId, setSelectedId] = useState<string | null>(
-    initialConv || conversations[0]?.id || null,
+    conversations[0]?.id || null,
   );
+
+  useEffect(() => {
+    const convParam = new URLSearchParams(window.location.search).get("conv");
+    if (convParam) {
+      queueMicrotask(() => setSelectedId(convParam));
+    }
+  }, []);
   const [convSearch, setConvSearch] = useState("");
   const [draft, setDraft] = useState("");
   const [reportedIds, setReportedIds] = useState<Record<string, boolean>>({});
@@ -84,7 +87,7 @@ function ChatContent() {
   const isReported = activeConv ? Boolean(reportedIds[activeConv.id]) : false;
 
   return (
-    <>
+    <AppShell>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -379,16 +382,6 @@ function ChatContent() {
           </div>
         </div>
       )}
-    </>
-  );
-}
-
-export default function ChatPage() {
-  return (
-    <AppShell>
-      <Suspense fallback={null}>
-        <ChatContent />
-      </Suspense>
     </AppShell>
   );
 }

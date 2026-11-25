@@ -518,31 +518,32 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    /* eslint-disable react-hooks/set-state-in-effect */
     initSoundUnlock();
-    setSoundEnabled(isSoundEnabled());
-    // Hydrate the cached account immediately to avoid flashing guest/demo data on reload.
-    if (typeof window !== "undefined") {
-      try {
-        const cached = window.localStorage.getItem(STORAGE_STUDENT_KEY);
-        if (cached) {
-          const parsed = JSON.parse(cached) as StudentProfile;
-          parsed.campusName = normalizeCampusName(parsed.campusName);
-          setStudent(parsed);
-          setBackendAuthed(true);
-          workspaceOwnerRef.current = parsed.id;
-          setRequests([]);
-          setDiscoverCards([]);
-          setMatches([]);
-          setConversations([]);
-          setMessages([]);
-          setNotifications([]);
+    queueMicrotask(() => {
+      if (!active) return;
+      setSoundEnabled(isSoundEnabled());
+      // Hydrate cached account right after initial hydration pass to avoid SSR mismatch.
+      if (typeof window !== "undefined") {
+        try {
+          const cached = window.localStorage.getItem(STORAGE_STUDENT_KEY);
+          if (cached) {
+            const parsed = JSON.parse(cached) as StudentProfile;
+            parsed.campusName = normalizeCampusName(parsed.campusName);
+            setStudent(parsed);
+            setBackendAuthed(true);
+            workspaceOwnerRef.current = parsed.id;
+            setRequests([]);
+            setDiscoverCards([]);
+            setMatches([]);
+            setConversations([]);
+            setMessages([]);
+            setNotifications([]);
+          }
+        } catch {
+          // ignore parse error
         }
-      } catch {
-        // ignore parse error
       }
-    }
-    /* eslint-enable react-hooks/set-state-in-effect */
+    });
 
     (async () => {
       let loadedCampuses = DEMO_CAMPUSES;
