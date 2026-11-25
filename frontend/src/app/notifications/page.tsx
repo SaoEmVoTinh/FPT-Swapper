@@ -1,21 +1,51 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, Check } from "lucide-react";
+import { Bell, Check, Volume2, VolumeX } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { useAppState } from "@/lib/app-state";
+import { playNotificationBell } from "@/lib/sound";
 
 export default function NotificationsPage() {
-  const { notifications, markNotificationRead } = useAppState();
+  const { notifications, markNotificationRead, soundEnabled, toggleSound } =
+    useAppState();
 
   return (
     <AppShell>
       <div className="mx-auto max-w-3xl space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Thông báo</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Cập nhật về Match mới, tin nhắn và thông báo hệ thống
-          </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Thông báo</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Cập nhật về Match mới, tin nhắn và thông báo hệ thống
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => playNotificationBell("notification", true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              <Bell className="h-3.5 w-3.5 text-orange-500" />
+              Nghe thử chuông
+            </button>
+            <button
+              type="button"
+              onClick={toggleSound}
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors ${
+                soundEnabled
+                  ? "border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
+                  : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              {soundEnabled ? (
+                <Volume2 className="h-3.5 w-3.5" />
+              ) : (
+                <VolumeX className="h-3.5 w-3.5" />
+              )}
+              {soundEnabled ? "Chuông: Bật" : "Chuông: Tắt"}
+            </button>
+          </div>
         </div>
 
         <div className="space-y-3">
@@ -72,4 +102,3 @@ export default function NotificationsPage() {
     </AppShell>
   );
 }
-

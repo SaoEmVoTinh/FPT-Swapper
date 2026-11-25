@@ -37,3 +37,4 @@ class ConversationResponse(BaseModel):
     match_status: str | None = None
     last_message: str | None = None
     last_message_at: datetime | None = None
+    last_message_sender_id: uuid.UUID | None = None

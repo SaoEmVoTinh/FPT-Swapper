@@ -15,6 +15,8 @@ import {
   ShieldCheck,
   Sparkles,
   User,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { useAppState } from "@/lib/app-state";
 
@@ -25,6 +27,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     student,
     isAuthenticated,
     logout,
+    soundEnabled,
+    toggleSound,
     unreadNotificationsCount,
     unreadMessagesCount,
   } = useAppState();
@@ -115,18 +119,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="border-t border-slate-100 p-4 space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-orange-700">
-              {student.fullName.charAt(0)}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-orange-700">
+                {student.fullName.charAt(0)}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900">
+                  {student.fullName}
+                </p>
+                <p className="truncate text-xs text-slate-500">
+                  {student.studentCode} • {student.campusName}
+                </p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-900">
-                {student.fullName}
-              </p>
-              <p className="truncate text-xs text-slate-500">
-                {student.studentCode} • {student.campusName}
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={toggleSound}
+              title={soundEnabled ? "Tắt tiếng chuông báo" : "Bật tiếng chuông báo"}
+              aria-label={soundEnabled ? "Tắt tiếng chuông báo" : "Bật tiếng chuông báo"}
+              className={`shrink-0 rounded-lg p-2 transition-colors ${
+                soundEnabled
+                  ? "bg-orange-50 text-orange-600 hover:bg-orange-100"
+                  : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+              }`}
+            >
+              {soundEnabled ? (
+                <Volume2 className="h-4 w-4" />
+              ) : (
+                <VolumeX className="h-4 w-4" />
+              )}
+            </button>
           </div>
 
           {isAuthenticated ? (
@@ -162,7 +185,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           />
           <span className="font-bold text-slate-900">FPT ClassSwap</span>
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={toggleSound}
+            aria-label={soundEnabled ? "Tắt tiếng chuông" : "Bật tiếng chuông"}
+            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"
+          >
+            {soundEnabled ? (
+              <Volume2 className="h-5 w-5 text-orange-500" />
+            ) : (
+              <VolumeX className="h-5 w-5 text-slate-400" />
+            )}
+          </button>
           <Link
             href="/notifications"
             className="relative rounded-lg p-2 text-slate-600 hover:bg-slate-100"

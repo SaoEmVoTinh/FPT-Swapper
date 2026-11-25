@@ -9,6 +9,12 @@ import React, {
   useState,
 } from "react";
 import { ApiError, apiFetch } from "@/lib/api";
+import {
+  initSoundUnlock,
+  isSoundEnabled,
+  playNotificationBell,
+  setSoundEnabledPref,
+} from "@/lib/sound";
 import { RealtimeEvent, RealtimeStatus, useRealtimeSocket } from "@/lib/use-realtime-socket";
 import {
   DEMO_CAMPUSES,
@@ -127,6 +133,7 @@ interface ApiConversation {
   match_status?: MatchStatus | null;
   last_message?: string | null;
   last_message_at?: string | null;
+  last_message_sender_id?: string | null;
 }
 
 interface ApiNotification {
@@ -300,6 +307,8 @@ interface AppStateContextValue {
   unreadNotificationsCount: number;
   unreadMessagesCount: number;
   refreshWorkspace: () => Promise<void>;
+  soundEnabled: boolean;
+  toggleSound: () => void;
   actionError: string | null;
   clearActionError: () => void;
 }
@@ -318,8 +327,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<MessageItem[]>(DEMO_MESSAGES);
   const [notifications, setNotifications] = useState<NotificationItem[]>(DEMO_NOTIFICATIONS);
   const [backendAuthed, setBackendAuthed] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
   const workspaceOwnerRef = useRef<string | null>(null);
+  const seenNotifIdsRef = useRef<Set<string>>(new Set());
+  const notifsInitializedRef = useRef(false);
+  const seenConvStampRef = useRef<Map<string, string>>(new Map());
+  const convsInitializedRef = useRef(false);
+  const seenWsMessageIdsRef = useRef<Set<string>>(new Set());
 
   const reportError = useCallback((err: unknown, fallback: string) => {
     setActionError(err instanceof ApiError ? err.message : fallback);
@@ -337,14 +352,55 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     if (reqs) setRequests(reqs.map(mapRequest));
     if (cards) setDiscoverCards(cards.map(mapDiscover));
     if (ms) setMatches(ms.map(mapMatch));
+
+    let ringMessage = false;
+    let ringNotification = false;
+
     if (convs) {
+      const nextStamps = new Map<string, string>();
+      const bumpedUnread = new Set<string>();
+      for (const c of convs) {
+        const stamp = c.last_message_at || "";
+        nextStamps.set(c.id, stamp);
+        const prevStamp = seenConvStampRef.current.get(c.id);
+        if (
+          convsInitializedRef.current &&
+          stamp &&
+          stamp !== prevStamp &&
+          c.last_message_sender_id &&
+          c.last_message_sender_id !== workspaceOwnerRef.current
+        ) {
+          ringMessage = true;
+          bumpedUnread.add(c.id);
+        }
+      }
+      seenConvStampRef.current = nextStamps;
+      convsInitializedRef.current = true;
+
       setConversations((prev) =>
-        convs.map((c) =>
-          mapConversation(c, prev.find((p) => p.id === c.id)?.unreadCount ?? 0)
-        )
+        convs.map((c) => {
+          const prevUnread = prev.find((p) => p.id === c.id)?.unreadCount ?? 0;
+          return mapConversation(c, bumpedUnread.has(c.id) ? prevUnread + 1 : prevUnread);
+        })
       );
     }
-    if (notifs) setNotifications(notifs.map(mapNotification));
+
+    if (notifs) {
+      for (const n of notifs) {
+        if (notifsInitializedRef.current && !n.is_read && !seenNotifIdsRef.current.has(n.id)) {
+          ringNotification = true;
+        }
+        seenNotifIdsRef.current.add(n.id);
+      }
+      notifsInitializedRef.current = true;
+      setNotifications(notifs.map(mapNotification));
+    }
+
+    if (ringMessage) {
+      playNotificationBell("message");
+    } else if (ringNotification) {
+      playNotificationBell("notification");
+    }
   }, []);
 
   const applyAuthMe = useCallback(
@@ -377,6 +433,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       // A different account logged in → drop everything the previous one saw.
       if (workspaceOwnerRef.current !== me.id) {
         workspaceOwnerRef.current = me.id;
+        seenNotifIdsRef.current = new Set();
+        notifsInitializedRef.current = false;
+        seenConvStampRef.current = new Map();
+        convsInitializedRef.current = false;
+        seenWsMessageIdsRef.current = new Set();
         setRequests([]);
         setDiscoverCards([]);
         setMatches([]);
@@ -398,6 +459,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   const clearAuthSession = useCallback(() => {
     workspaceOwnerRef.current = null;
+    seenNotifIdsRef.current = new Set();
+    notifsInitializedRef.current = false;
+    seenConvStampRef.current = new Map();
+    convsInitializedRef.current = false;
+    seenWsMessageIdsRef.current = new Set();
     setBackendAuthed(false);
     setStudent(GUEST_STUDENT);
     setRequests(DEMO_REQUESTS);
@@ -439,6 +505,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     let active = true;
 
     /* eslint-disable react-hooks/set-state-in-effect */
+    initSoundUnlock();
+    setSoundEnabled(isSoundEnabled());
     // Hydrate the cached account immediately to avoid flashing guest/demo data on reload.
     if (typeof window !== "undefined") {
       try {
@@ -542,6 +610,15 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           pending: false,
           failed: false,
         };
+
+        if (
+          incoming.senderId !== student.id &&
+          !seenWsMessageIdsRef.current.has(incoming.id)
+        ) {
+          seenWsMessageIdsRef.current.add(incoming.id);
+          seenConvStampRef.current.set(incoming.conversationId, raw.created_at);
+          playNotificationBell("message");
+        }
 
         setMessages((prev) => {
           const idx = prev.findIndex(
@@ -939,6 +1016,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const toggleSound = useCallback(() => {
+    setSoundEnabled((prev) => {
+      const next = !prev;
+      setSoundEnabledPref(next);
+      if (next) {
+        playNotificationBell("notification", true);
+      }
+      return next;
+    });
+  }, []);
+
   const clearActionError = useCallback(() => setActionError(null), []);
 
   const unreadNotificationsCount = notifications.filter((n) => !n.isRead).length;
@@ -973,6 +1061,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         unreadNotificationsCount,
         unreadMessagesCount,
         refreshWorkspace,
+        soundEnabled,
+        toggleSound,
         actionError,
         clearActionError,
       }}

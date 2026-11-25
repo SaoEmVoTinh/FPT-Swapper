@@ -194,6 +194,7 @@ def conversation_view(db: Session, conv: Conversation, viewer_id: uuid.UUID) -> 
     )
     base["last_message"] = last.content if last else None
     base["last_message_at"] = last.created_at if last else None
+    base["last_message_sender_id"] = last.sender_id if last else None
     base["partner_name"] = partner_name
 
     if conv.source_type == ConversationSourceType.CLASS_SWAP:
