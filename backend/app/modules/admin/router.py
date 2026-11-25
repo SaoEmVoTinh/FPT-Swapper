@@ -1,8 +1,9 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
+from app.common.enums import ReportStatus
 from app.core.dependencies import (
     get_current_admin,
     get_current_staff,
@@ -10,12 +11,26 @@ from app.core.dependencies import (
 )
 from app.database.models.identity import Student
 from app.database.session import get_db
+from app.modules.admin.operations_p2 import (
+    broadcast_system_announcement,
+    build_admin_analytics,
+    bulk_delete_requests,
+    bulk_update_user_status,
+    export_admin_csv,
+    import_timetable_rows,
+)
 from app.modules.admin.schemas import (
     AdminAuditLogItem,
+    AdminBroadcastRequest,
+    AdminBulkDeleteRequestsRequest,
+    AdminBulkUserStatusRequest,
     AdminCreateUserRequest,
+    AdminImportTimetableRequest,
     AdminOverviewResponse,
+    AdminReportItem,
     AdminRequestItem,
     AdminResetPasswordRequest,
+    AdminResolveReportRequest,
     AdminUpdateRoleRequest,
     AdminUpdateStatusRequest,
     AdminUserItem,
@@ -122,3 +137,91 @@ def list_audit_logs(
     db: Session = Depends(get_db),
 ) -> list[AdminAuditLogItem]:
     return AdminService.list_audit_logs(db, limit)
+
+
+@router.get("/reports", response_model=list[AdminReportItem])
+def list_reports(
+    report_status: ReportStatus | None = Query(default=None, alias="status"),
+    db: Session = Depends(get_db),
+) -> list[AdminReportItem]:
+    return AdminService.list_reports(db, report_status=report_status)
+
+
+@router.patch("/reports/{report_id}", response_model=AdminReportItem)
+def resolve_report(
+    report_id: uuid.UUID,
+    payload: AdminResolveReportRequest,
+    actor: Student = Depends(get_current_staff),
+    db: Session = Depends(get_db),
+) -> AdminReportItem:
+    return AdminService.resolve_report(db, actor, report_id, payload)
+
+
+@router.get("/analytics")
+def get_analytics(
+    days: int = Query(14, ge=3, le=60),
+    db: Session = Depends(get_db),
+) -> dict:
+    return build_admin_analytics(db, days=days)
+
+
+@router.get("/export/{resource}")
+def export_csv(
+    resource: str,
+    db: Session = Depends(get_db),
+) -> Response:
+    filename, csv_content = export_admin_csv(db, resource)
+    return Response(
+        content=csv_content.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/users/bulk-status")
+def bulk_user_status(
+    payload: AdminBulkUserStatusRequest,
+    actor: Student = Depends(get_current_staff),
+    db: Session = Depends(get_db),
+) -> dict:
+    return bulk_update_user_status(db, actor, payload.student_ids, payload.status)
+
+
+@router.post("/requests/bulk-delete")
+def bulk_requests_delete(
+    payload: AdminBulkDeleteRequestsRequest,
+    actor: Student = Depends(get_current_staff),
+    db: Session = Depends(get_db),
+) -> dict:
+    return bulk_delete_requests(db, actor, payload.request_ids)
+
+
+@router.post("/academic/import-timetable")
+def import_timetable(
+    payload: AdminImportTimetableRequest,
+    actor: Student = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    return import_timetable_rows(
+        db,
+        actor,
+        filename=payload.filename,
+        content_base64=payload.content_base64,
+        default_semester_id=payload.semester_id,
+        default_campus_id=payload.campus_id,
+    )
+
+
+@router.post("/broadcast")
+def admin_broadcast(
+    payload: AdminBroadcastRequest,
+    actor: Student = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    return broadcast_system_announcement(
+        db,
+        actor,
+        title=payload.title,
+        body=payload.body,
+        campus_id=payload.campus_id,
+    )

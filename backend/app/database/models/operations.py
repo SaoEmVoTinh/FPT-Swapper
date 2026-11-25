@@ -62,6 +62,7 @@ class Report(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         ForeignKey("students.id", ondelete="SET NULL"),
         nullable=True,
     )
+    resolution_note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class AuditLog(Base, UUIDPrimaryKeyMixin, TimestampMixin):

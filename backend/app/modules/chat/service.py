@@ -1,13 +1,17 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import HTTPException
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.common.enums import ConversationSourceType, ConversationStatus, MessageType
+from app.core.rate_limit import check_rate_limit
 from app.database.models.communication import Conversation, ConversationMember, Message
+from app.database.models.identity import StudentBlock
 from app.modules.chat.schemas import MessageCreate
+from app.modules.notifications.delivery import dispatch_out_of_app
 
 
 class ChatService:
@@ -67,6 +71,40 @@ class ChatService:
         if conv.status != ConversationStatus.ACTIVE:
             raise HTTPException(422, "Conversation is not active")
 
+        other_ids = [m.student_id for m in conv.members if m.student_id != sender_id]
+        if other_ids:
+            blocked = (
+                db.query(StudentBlock.id)
+                .filter(
+                    or_(
+                        (StudentBlock.blocker_id == sender_id)
+                        & (StudentBlock.blocked_student_id.in_(other_ids)),
+                        (StudentBlock.blocker_id.in_(other_ids))
+                        & (StudentBlock.blocked_student_id == sender_id),
+                    )
+                )
+                .first()
+            )
+            if blocked is not None:
+                raise HTTPException(
+                    403, "Không thể gửi tin nhắn vì người dùng đã bị chặn."
+                )
+
+        # Anti-spam rate limit: max 20 messages per 30 seconds per user
+        check_rate_limit(f"chat_msg:{sender_id}", max_requests=20, window_seconds=30)
+
+        cleaned_content = (data.content or "").strip()
+        attachment_url = (data.attachment_url or "").strip() or None
+        if not cleaned_content and not attachment_url:
+            raise HTTPException(422, "Tin nhắn không được để trống.")
+        msg_type = (
+            MessageType.IMAGE
+            if attachment_url is not None or data.message_type == MessageType.IMAGE
+            else data.message_type
+        )
+        if not cleaned_content and attachment_url:
+            cleaned_content = "[Ảnh thời khóa biểu]"
+
         # Idempotency
         if data.client_message_id:
             existing = (
@@ -83,14 +121,48 @@ class ChatService:
         msg = Message(
             conversation_id=conversation_id,
             sender_id=sender_id,
-            content=data.content,
-            message_type=MessageType.TEXT,
+            content=cleaned_content,
+            attachment_url=attachment_url,
+            message_type=msg_type,
             client_message_id=data.client_message_id or str(uuid.uuid4()),
         )
         db.add(msg)
         db.commit()
         db.refresh(msg)
+
+        for other_id in other_ids:
+            dispatch_out_of_app(
+                db,
+                other_id,
+                "Tin nhắn mới trên FPT ClassSwap",
+                cleaned_content[:160],
+                kind="MESSAGE",
+            )
         return msg
+
+    @staticmethod
+    def mark_read(
+        db: Session,
+        conversation_id: uuid.UUID,
+        student_id: uuid.UUID,
+    ) -> tuple[Conversation, datetime]:
+        conv = db.get(Conversation, conversation_id)
+        if not conv:
+            raise HTTPException(404, "Conversation not found")
+        member = (
+            db.query(ConversationMember)
+            .filter(
+                ConversationMember.conversation_id == conversation_id,
+                ConversationMember.student_id == student_id,
+            )
+            .first()
+        )
+        if member is None:
+            raise HTTPException(403, "Not a member of this conversation")
+        now = datetime.now(timezone.utc)
+        member.last_read_at = now
+        db.commit()
+        return conv, now
 
     @staticmethod
     def get_or_create_conversation(

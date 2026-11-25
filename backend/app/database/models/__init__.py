@@ -12,12 +12,20 @@ from app.database.models.communication import (
     ConversationMember,
     Message,
 )
-from app.database.models.identity import RefreshToken, Student, StudentProfile
+from app.database.models.identity import (
+    PushSubscription,
+    RefreshToken,
+    Student,
+    StudentBlock,
+    StudentProfile,
+)
 from app.database.models.matching import (
     ClassExchangePreference,
     Match,
+    MatchReview,
     MatchingRequest,
     Swipe,
+    ThreeWaySwapProposal,
 )
 from app.database.models.operations import AuditLog, Notification, Report
 
@@ -31,11 +39,15 @@ __all__ = [
     "StudentEnrollment",
     "Student",
     "StudentProfile",
+    "StudentBlock",
+    "PushSubscription",
     "RefreshToken",
     "MatchingRequest",
     "ClassExchangePreference",
     "Swipe",
     "Match",
+    "MatchReview",
+    "ThreeWaySwapProposal",
     "Conversation",
     "ConversationMember",
     "Message",

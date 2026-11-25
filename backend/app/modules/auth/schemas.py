@@ -10,6 +10,16 @@ class RegisterRequest(BaseModel):
     major: str = Field(min_length=2, max_length=120)
     campus_id: uuid.UUID | str
     password: str = Field(min_length=8, max_length=128)
+    agree_privacy_terms: bool = True
+
+    @field_validator("agree_privacy_terms")
+    @classmethod
+    def must_agree_privacy_terms(cls, v: bool) -> bool:
+        if not v:
+            raise ValueError(
+                "Bạn cần đồng ý với Chính sách Bảo vệ Dữ liệu Cá nhân (Nghị định 13/2023/NĐ-CP) và Điều khoản sử dụng."
+            )
+        return v
 
     @field_validator("email")
     @classmethod
@@ -66,6 +76,12 @@ class StudentPublicResponse(BaseModel):
     avatar_url: str | None = None
     bio: str | None = None
     totp_enabled: bool = False
+    share_contact_after_match: bool = False
+    notify_email: bool = True
+    notify_push: bool = True
+    trust_score: float = 5.0
+    completed_swaps_count: int = 0
+    no_show_count: int = 0
 
 
 class TokenResponse(BaseModel):

@@ -51,3 +51,20 @@ class RequestResponse(BaseModel):
     current_schedule_text: str | None = None
     target_class_code: str | None = None
     target_schedule_text: str | None = None
+    lecturer_current: str | None = None
+    schedule_conflict_warning: str | None = None
+
+
+class TimetableSlotItem(BaseModel):
+    request_id: uuid.UUID | None = None
+    course_code: str
+    course_name: str
+    class_code: str
+    semester_name: str
+    day_key: str
+    day_label: str
+    slot_key: str
+    slot_label: str
+    room: str | None = None
+    lecturer: str | None = None
+    status: str

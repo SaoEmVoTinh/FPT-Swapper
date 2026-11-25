@@ -8,6 +8,7 @@ from sqlalchemy import (
     Enum as SAEnum,
     ForeignKey,
     Integer,
+    String,
     Text,
     UniqueConstraint,
     Uuid,
@@ -164,4 +165,77 @@ class Match(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     confirm_deadline_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+class MatchReview(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "match_reviews"
+    __table_args__ = (
+        UniqueConstraint("match_id", "reviewer_id", name="uq_match_reviews_pair"),
+    )
+
+    match_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("matches.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    reviewer_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("students.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    reviewee_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("students.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)
+    outcome: Mapped[str] = mapped_column(String(24), default="SUCCESS", nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ThreeWaySwapProposal(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "three_way_swap_proposals"
+
+    course_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("courses.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    semester_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("semesters.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    req_a_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("matching_requests.id", ondelete="CASCADE"), nullable=False
+    )
+    req_b_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("matching_requests.id", ondelete="CASCADE"), nullable=False
+    )
+    req_c_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("matching_requests.id", ondelete="CASCADE"), nullable=False
+    )
+    student_a_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    student_b_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    student_c_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    a_accepted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    b_accepted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    c_accepted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[SAEnum] = mapped_column(
+        SAEnum(MatchStatus, name="match_status"),
+        default=MatchStatus.PENDING_CONFIRMATION,
+        nullable=False,
+    )
+
 

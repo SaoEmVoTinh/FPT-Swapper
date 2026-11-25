@@ -11,6 +11,7 @@ class ProfileUpdateRequest(BaseModel):
     campus_id: uuid.UUID | str | None = None
     avatar_url: str | None = Field(default=None, max_length=512)
     bio: str | None = Field(default=None, max_length=1000)
+    share_contact_after_match: bool | None = None
 
 
 class ProfileResponse(BaseModel):
@@ -21,6 +22,22 @@ class ProfileResponse(BaseModel):
     campus_id: uuid.UUID | None = None
     avatar_url: str | None = None
     bio: str | None = None
+    share_contact_after_match: bool = False
+    trust_score: float = 5.0
+    completed_swaps_count: int = 0
+    no_show_count: int = 0
+
+
+class BlockStudentRequest(BaseModel):
+    reason: str | None = Field(default=None, max_length=255)
+
+
+class BlockedStudentItem(BaseModel):
+    student_id: uuid.UUID
+    full_name: str | None = None
+    student_code_masked: str
+    reason: str | None = None
+    created_at: datetime
 
 
 class AccountUpdateRequest(BaseModel):
@@ -61,6 +78,10 @@ class AccountSummaryResponse(BaseModel):
     campus_name: str | None = None
     avatar_url: str | None = None
     bio: str | None = None
+    share_contact_after_match: bool = False
+    trust_score: float = 5.0
+    completed_swaps_count: int = 0
+    no_show_count: int = 0
     total_requests: int = 0
     active_requests: int = 0
     paused_requests: int = 0

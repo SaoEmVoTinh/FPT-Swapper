@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  AlertTriangle,
   ArrowLeftRight,
+  Ban,
   Calendar,
   CheckCircle2,
   Flame,
@@ -14,15 +16,19 @@ import {
   MapPin,
   MessageSquare,
   RefreshCw,
+  Repeat,
+  RotateCcw,
   Search,
   Sparkles,
+  Star,
   User,
   X,
 } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
+import { ApiError, apiFetch } from "@/lib/api";
 import { useAppState } from "@/lib/app-state";
-import { MatchItem } from "@/types";
+import { MatchItem, SwapInsights, ThreeWayCycle } from "@/types";
 
 export default function DiscoverPage() {
   const {
@@ -30,6 +36,8 @@ export default function DiscoverPage() {
     discoverCards,
     isAuthenticated,
     swipeCard,
+    undoLastSwipe,
+    blockStudent,
     refreshWorkspace,
     actionError,
     clearActionError,
@@ -38,7 +46,15 @@ export default function DiscoverPage() {
   const [matchedModal, setMatchedModal] = useState<MatchItem | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [swiping, setSwiping] = useState(false);
+  const [undoing, setUndoing] = useState(false);
+  const [blocking, setBlocking] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState<"cards" | "cycles" | "insights">("cards");
+  const [cycles, setCycles] = useState<ThreeWayCycle[]>([]);
+  const [cyclesLoading, setCyclesLoading] = useState(false);
+  const [insights, setInsights] = useState<SwapInsights | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [busyCycleKey, setBusyCycleKey] = useState<string | null>(null);
   const [onlyCompatible, setOnlyCompatible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [likeFeedback, setLikeFeedback] = useState<string | null>(null);
@@ -117,12 +133,147 @@ export default function DiscoverPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   });
 
+  const fetchCycles = async (): Promise<ThreeWayCycle[]> => {
+    if (!isAuthenticated) return [];
+    return apiFetch<ThreeWayCycle[]>("/class-swap/cycles");
+  };
+
+  const loadCycles = async () => {
+    if (!isAuthenticated) return;
+    setCyclesLoading(true);
+    try {
+      const list = await fetchCycles();
+      setCycles(list);
+    } catch {
+      // ignore cycle load error
+    } finally {
+      setCyclesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (viewMode !== "cycles" || !isAuthenticated) return;
+    let cancelled = false;
+    apiFetch<ThreeWayCycle[]>("/class-swap/cycles")
+      .then((list) => {
+        if (!cancelled) setCycles(list);
+      })
+      .catch(() => {
+        // ignore cycle load error
+      })
+      .finally(() => {
+        if (!cancelled) setCyclesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [viewMode, isAuthenticated]);
+
+  useEffect(() => {
+    if (viewMode !== "insights" || !isAuthenticated) return;
+    let cancelled = false;
+    apiFetch<SwapInsights>("/class-swap/insights")
+      .then((res) => {
+        if (!cancelled) setInsights(res);
+      })
+      .catch(() => {
+        // ignore insights error
+      })
+      .finally(() => {
+        if (!cancelled) setInsightsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [viewMode, isAuthenticated]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
       await refreshWorkspace();
+      if (viewMode === "cycles" && isAuthenticated) {
+        await loadCycles();
+      } else if (viewMode === "insights" && isAuthenticated) {
+        setInsightsLoading(true);
+        const res = await apiFetch<SwapInsights>("/class-swap/insights");
+        setInsights(res);
+        setInsightsLoading(false);
+      }
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleUndo = async () => {
+    if (undoing || !isAuthenticated) return;
+    clearActionError();
+    setLikeFeedback(null);
+    setUndoing(true);
+    try {
+      const ok = await undoLastSwipe();
+      if (ok) {
+        setLikeFeedback("Đã hoàn tác lượt vuốt gần nhất của bạn.");
+      }
+    } finally {
+      setUndoing(false);
+    }
+  };
+
+  const handleBlockCardOwner = async () => {
+    if (!currentCard?.studentId || blocking) return;
+    clearActionError();
+    setBlocking(true);
+    try {
+      await blockStudent(currentCard.studentId, "Chặn từ Discover");
+      setShowDetails(false);
+      setLikeFeedback(`Đã chặn ${currentCard.studentDisplayName}. Tin của họ sẽ không hiển thị nữa.`);
+    } catch {
+      // handled by actionError
+    } finally {
+      setBlocking(false);
+    }
+  };
+
+  const handleAcceptCycle = async (cycle: ThreeWayCycle) => {
+    const key = `${cycle.req_a_id}-${cycle.req_b_id}-${cycle.req_c_id}`;
+    setBusyCycleKey(key);
+    clearActionError();
+    try {
+      const updated = await apiFetch<ThreeWayCycle>("/class-swap/cycles/accept", {
+        method: "POST",
+        body: JSON.stringify({
+          req_a_id: cycle.req_a_id,
+          req_b_id: cycle.req_b_id,
+          req_c_id: cycle.req_c_id,
+        }),
+      });
+      setCycles((prev) =>
+        prev.map((c) =>
+          `${c.req_a_id}-${c.req_b_id}-${c.req_c_id}` === key ? updated : c
+        )
+      );
+      await refreshWorkspace();
+      setLikeFeedback(
+        updated.status === "CONFIRMED"
+          ? "Cả 3 sinh viên đã xác nhận vòng đổi lớp! Nhóm chat 3 bên đã được tạo."
+          : "Đã xác nhận tham gia vòng đổi 3 bên. Chờ 2 bạn còn lại đồng ý."
+      );
+    } catch (err) {
+      setLikeFeedback(
+        err instanceof ApiError ? err.message : "Không thể xác nhận vòng đổi 3 bên."
+      );
+    } finally {
+      setBusyCycleKey(null);
+    }
+  };
+
+  const handleDeclineCycle = async (proposalId: string) => {
+    setBusyCycleKey(proposalId);
+    try {
+      await apiFetch(`/class-swap/cycles/${proposalId}/decline`, { method: "POST" });
+      await Promise.all([loadCycles(), refreshWorkspace()]);
+    } finally {
+      setBusyCycleKey(null);
     }
   };
 
@@ -144,17 +295,29 @@ export default function DiscoverPage() {
             </p>
           </div>
           {isAuthenticated && (
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-            >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
-              />
-              Làm mới
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleUndo}
+                disabled={undoing}
+                title="Hoàn tác lượt vuốt gần nhất"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <RotateCcw className={`h-3.5 w-3.5 ${undoing ? "animate-spin" : ""}`} />
+                Hoàn tác
+              </button>
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+                />
+                Làm mới
+              </button>
+            </div>
           )}
         </div>
 
@@ -164,9 +327,12 @@ export default function DiscoverPage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => setOnlyCompatible(false)}
+                onClick={() => {
+                  setViewMode("cards");
+                  setOnlyCompatible(false);
+                }}
                 className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors ${
-                  !onlyCompatible
+                  viewMode === "cards" && !onlyCompatible
                     ? "bg-orange-500 text-white shadow-sm"
                     : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                 }`}
@@ -175,14 +341,47 @@ export default function DiscoverPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setOnlyCompatible(true)}
+                onClick={() => {
+                  setViewMode("cards");
+                  setOnlyCompatible(true);
+                }}
                 className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors ${
-                  onlyCompatible
+                  viewMode === "cards" && onlyCompatible
                     ? "bg-orange-500 text-white shadow-sm"
                     : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                 }`}
               >
                 Khớp yêu cầu của tôi ({compatibleCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCyclesLoading(true);
+                  setViewMode("cycles");
+                }}
+                className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors ${
+                  viewMode === "cycles"
+                    ? "bg-violet-600 text-white shadow-sm"
+                    : "border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-500/35 dark:bg-violet-500/15 dark:text-violet-300 dark:hover:bg-violet-500/25"
+                }`}
+              >
+                <Repeat className="h-3.5 w-3.5" />
+                Đổi vòng 3 bên (A→B→C→A)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setInsightsLoading(true);
+                  setViewMode("insights");
+                }}
+                className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors ${
+                  viewMode === "insights"
+                    ? "bg-emerald-600 text-white shadow-sm"
+                    : "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/35 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25"
+                }`}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Gợi ý &amp; Heatmap
               </button>
             </div>
           )}
@@ -258,7 +457,253 @@ export default function DiscoverPage() {
           </div>
         )}
 
-        {!currentCard ? (
+        {viewMode === "cycles" ? (
+          <div className="space-y-4">
+            {cyclesLoading ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+                <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin text-violet-500" />
+                Đang tìm chu trình đổi lớp 3 bên phù hợp...
+              </div>
+            ) : cycles.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center dark:border-slate-700 dark:bg-slate-900">
+                <Repeat className="mx-auto h-8 w-8 text-violet-500" />
+                <h2 className="mt-3 text-base font-bold text-slate-900 dark:text-slate-100">
+                  Chưa có vòng đổi 3 bên A→B→C→A khả dụng
+                </h2>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Hệ thống tự động phát hiện khi có 3 sinh viên cùng môn &amp; cùng cơ sở tạo thành vòng khép kín.
+                </p>
+              </div>
+            ) : (
+              cycles.map((cycle) => {
+                const key = `${cycle.req_a_id}-${cycle.req_b_id}-${cycle.req_c_id}`;
+                const busy = busyCycleKey === key || busyCycleKey === cycle.proposal_id;
+                return (
+                  <div
+                    key={cycle.proposal_id || key}
+                    className="space-y-3 rounded-2xl border border-violet-200 bg-white p-5 shadow-sm dark:border-violet-500/30 dark:bg-slate-900"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <span className="text-base font-bold text-slate-900 dark:text-slate-100">
+                          {cycle.course_code} — {cycle.course_name}
+                        </span>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Học kỳ: {cycle.semester_name}
+                        </p>
+                      </div>
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                          cycle.status === "CONFIRMED"
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
+                            : "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300"
+                        }`}
+                      >
+                        {cycle.status === "CONFIRMED"
+                          ? "Đã chốt 3 bên"
+                          : cycle.status === "PENDING_CONFIRMATION"
+                            ? "Đang chờ xác nhận"
+                            : "Gợi ý chu trình"}
+                      </span>
+                    </div>
+
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {cycle.participants.map((p, idx) => (
+                        <div
+                          key={p.request_id}
+                          className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs dark:border-slate-700 dark:bg-slate-800/70"
+                        >
+                          <div className="flex items-center justify-between font-bold text-slate-900 dark:text-slate-100">
+                            <span>
+                              {idx === 0 ? "Bạn" : p.student_name}
+                            </span>
+                            <span
+                              className={
+                                p.accepted
+                                  ? "text-emerald-600 dark:text-emerald-400"
+                                  : "text-amber-600 dark:text-amber-400"
+                              }
+                            >
+                              {p.accepted ? "✓ Đồng ý" : "Chờ"}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-slate-600 dark:text-slate-300">
+                            {p.current_class_code} →{" "}
+                            <span className="font-semibold text-violet-600 dark:text-violet-300">
+                              {p.target_class_code}
+                            </span>
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+                      {cycle.status === "CONFIRMED" && cycle.conversation_id && (
+                        <Link
+                          href={`/chat?conv=${encodeURIComponent(cycle.conversation_id)}`}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5" />
+                          Mở nhóm chat 3 bên
+                        </Link>
+                      )}
+                      {!cycle.my_accepted && cycle.status !== "CONFIRMED" && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => handleAcceptCycle(cycle)}
+                          className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
+                        >
+                          {busy ? "Đang gửi..." : "Đồng ý tham gia vòng 3 bên"}
+                        </button>
+                      )}
+                      {cycle.proposal_id && cycle.status === "PENDING_CONFIRMATION" && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => handleDeclineCycle(cycle.proposal_id!)}
+                          className="rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:border-rose-500/35 dark:text-rose-300 dark:hover:bg-rose-500/15"
+                        >
+                          Từ chối
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        ) : viewMode === "insights" ? (
+          <div className="space-y-5">
+            {insightsLoading ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+                <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin text-emerald-500" />
+                Đang phân tích gợi ý thông minh &amp; nhu cầu đổi lớp...
+              </div>
+            ) : (
+              <>
+                <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                  <div className="flex items-center justify-between">
+                    <h2 className="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-slate-100">
+                      <Sparkles className="h-4 w-4 text-emerald-500" />
+                      Gợi ý thông minh phù hợp nhất ({insights?.recommendations.length ?? 0})
+                    </h2>
+                  </div>
+                  {!insights || insights.recommendations.length === 0 ? (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Chưa có gợi ý nổi bật trong campus của bạn.
+                    </p>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {insights.recommendations.map((rec) => (
+                        <div
+                          key={rec.request_id}
+                          className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 dark:border-slate-700 dark:bg-slate-800/60 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[11px] font-bold text-white">
+                                {rec.score}% phù hợp
+                              </span>
+                              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                                {rec.course_code} · {rec.current_class_code} → {rec.target_class_code}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-600 dark:text-slate-300">
+                              {rec.partner_name} ({rec.trust_score.toFixed(1)}★) • {rec.current_schedule_text}
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {rec.reasons.map((rs) => (
+                                <span
+                                  key={rs}
+                                  className="rounded-md bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700"
+                                >
+                                  {rs}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearchQuery(rec.course_code);
+                              setViewMode("cards");
+                            }}
+                            className="shrink-0 rounded-xl bg-orange-500 px-3.5 py-2 text-xs font-semibold text-white hover:bg-orange-600"
+                          >
+                            Xem thẻ
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                  <h2 className="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-slate-100">
+                    <Flame className="h-4 w-4 text-orange-500" />
+                    Heatmap nhu cầu theo lớp / môn tại Campus
+                  </h2>
+                  {!insights || insights.heatmap.length === 0 ? (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Chưa đủ dữ liệu nhu cầu đang mở.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {insights.heatmap.map((h) => {
+                        const maxAct = Math.max(1, ...insights.heatmap.map((x) => x.total_activity));
+                        const pct = Math.max(12, Math.round((h.total_activity / maxAct) * 100));
+                        return (
+                          <div
+                            key={h.class_id}
+                            className="space-y-1.5 rounded-xl border border-slate-200 p-3 dark:border-slate-700"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                              <span className="font-bold text-slate-900 dark:text-slate-100">
+                                {h.course_code} • {h.class_code}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-emerald-600 dark:text-emerald-400">
+                                  Muốn vào: {h.entering_count}
+                                </span>
+                                <span className="text-rose-600 dark:text-rose-400">
+                                  Muốn ra: {h.leaving_count}
+                                </span>
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                    h.heat_level === "HIGH"
+                                      ? "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300"
+                                      : h.heat_level === "MEDIUM"
+                                        ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300"
+                                        : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                                  }`}
+                                >
+                                  {h.heat_level === "HIGH" ? "Rất hot" : h.heat_level === "MEDIUM" ? "Sôi động" : "Ổn định"}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                              <div
+                                className={`h-full rounded-full ${
+                                  h.heat_level === "HIGH"
+                                    ? "bg-rose-500"
+                                    : h.heat_level === "MEDIUM"
+                                      ? "bg-amber-500"
+                                      : "bg-emerald-500"
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        ) : !currentCard ? (
           <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-orange-50 text-orange-500 dark:bg-orange-500/15 dark:text-orange-400">
               <Sparkles className="h-7 w-7" />
@@ -393,12 +838,21 @@ export default function DiscoverPage() {
                       <User className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                        {currentCard.studentDisplayName}{" "}
-                        <span className="font-normal text-slate-400">
-                          ({currentCard.studentCodeMasked})
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                          {currentCard.studentDisplayName}{" "}
+                          <span className="font-normal text-slate-400">
+                            ({currentCard.studentCodeMasked})
+                          </span>
+                        </p>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                          <Star className="h-3 w-3 fill-current" />
+                          {(currentCard.studentTrustScore ?? 5).toFixed(1)}
+                          {(currentCard.studentCompletedSwaps ?? 0) > 0
+                            ? ` • ${currentCard.studentCompletedSwaps} lần đổi`
+                            : ""}
                         </span>
-                      </p>
+                      </div>
                       <p className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                         <GraduationCap className="h-3.5 w-3.5" />
                         {currentCard.major}
@@ -415,8 +869,15 @@ export default function DiscoverPage() {
                   </button>
                 </div>
 
+                {currentCard.scheduleConflictWarning && (
+                  <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs font-medium text-amber-800 dark:border-amber-500/35 dark:bg-amber-500/15 dark:text-amber-200">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{currentCard.scheduleConflictWarning}</span>
+                  </div>
+                )}
+
                 {showDetails && (
-                  <div className="space-y-1.5 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
+                  <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
                     <p>
                       <span className="font-semibold text-slate-800 dark:text-slate-100">
                         Giảng viên lớp hiện tại:
@@ -425,9 +886,22 @@ export default function DiscoverPage() {
                     </p>
                     <p className="flex items-center gap-1">
                       <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                      Thông tin liên hệ cá nhân (email, SĐT) được ẩn để bảo vệ
-                      quyền riêng tư.
+                      Thông tin liên hệ cá nhân (email, SĐT) được ẩn trừ khi bật
+                      tùy chọn chia sẻ sau Match.
                     </p>
+                    {isAuthenticated && currentCard.studentId && (
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          disabled={blocking}
+                          onClick={handleBlockCardOwner}
+                          className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-500/35 dark:bg-rose-500/15 dark:text-rose-300"
+                        >
+                          <Ban className="h-3.5 w-3.5" />
+                          {blocking ? "Đang chặn..." : "Chặn người dùng này"}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 

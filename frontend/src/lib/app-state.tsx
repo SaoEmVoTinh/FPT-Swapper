@@ -57,6 +57,10 @@ export interface AuthMeResponse {
   campus_name?: string | null;
   avatar_url?: string | null;
   bio?: string | null;
+  share_contact_after_match?: boolean;
+  trust_score?: number;
+  completed_swaps_count?: number;
+  no_show_count?: number;
 }
 
 // ───────────────────────── API payloads ─────────────────────────
@@ -79,10 +83,13 @@ interface ApiRequest {
   current_schedule_text?: string | null;
   target_class_code?: string | null;
   target_schedule_text?: string | null;
+  lecturer_current?: string | null;
+  schedule_conflict_warning?: string | null;
 }
 
 interface ApiDiscover {
   id: string;
+  student_id?: string;
   semester_id?: string;
   course_id?: string;
   current_class_id?: string;
@@ -104,6 +111,9 @@ interface ApiDiscover {
   target_schedule_text?: string | null;
   lecturer_current?: string | null;
   is_reciprocal_ready: boolean;
+  schedule_conflict_warning?: string | null;
+  student_trust_score?: number;
+  student_completed_swaps?: number;
 }
 
 interface ApiMatch {
@@ -122,6 +132,14 @@ interface ApiMatch {
   my_confirmed: boolean;
   partner_confirmed: boolean;
   conversation_id?: string | null;
+  confirm_deadline_at?: string | null;
+  partner_email?: string | null;
+  partner_student_code?: string | null;
+  partner_trust_score?: number;
+  partner_completed_swaps?: number;
+  partner_no_shows?: number;
+  my_review_submitted?: boolean;
+  schedule_conflict_warning?: string | null;
 }
 
 interface ApiSwipe {
@@ -133,6 +151,7 @@ interface ApiSwipe {
 interface ApiConversation {
   id: string;
   match_id?: string | null;
+  partner_id?: string | null;
   partner_name?: string | null;
   course_code?: string | null;
   my_class_code?: string | null;
@@ -141,6 +160,7 @@ interface ApiConversation {
   last_message?: string | null;
   last_message_at?: string | null;
   last_message_sender_id?: string | null;
+  partner_last_read_at?: string | null;
 }
 
 interface ApiNotification {
@@ -190,12 +210,15 @@ function mapRequest(r: ApiRequest): SwapRequest {
     expiresAt: r.expires_at ? r.expires_at.slice(0, 10) : "—",
     status: r.status,
     createdAt: r.created_at,
+    lecturerCurrent: r.lecturer_current || undefined,
+    scheduleConflictWarning: r.schedule_conflict_warning || undefined,
   };
 }
 
 function mapDiscover(d: ApiDiscover): DiscoverCard {
   return {
     requestId: d.id,
+    studentId: d.student_id,
     myRequestId: d.for_request_id || undefined,
     isCompatible: Boolean(d.is_compatible ?? d.for_request_id),
     hasCourseConflict: Boolean(d.has_course_conflict),
@@ -217,6 +240,9 @@ function mapDiscover(d: ApiDiscover): DiscoverCard {
     lecturerCurrent: d.lecturer_current || "Đang cập nhật",
     note: d.note || undefined,
     isReciprocalReady: d.is_reciprocal_ready,
+    scheduleConflictWarning: d.schedule_conflict_warning || undefined,
+    studentTrustScore: d.student_trust_score ?? 5.0,
+    studentCompletedSwaps: d.student_completed_swaps ?? 0,
   };
 }
 
@@ -237,6 +263,14 @@ function mapMatch(m: ApiMatch): MatchItem {
     partnerConfirmed: m.partner_confirmed,
     conversationId: m.conversation_id || "",
     createdAt: m.created_at,
+    confirmDeadlineAt: m.confirm_deadline_at || undefined,
+    partnerEmail: m.partner_email || undefined,
+    partnerStudentCode: m.partner_student_code || undefined,
+    partnerTrustScore: m.partner_trust_score ?? 5.0,
+    partnerCompletedSwaps: m.partner_completed_swaps ?? 0,
+    partnerNoShows: m.partner_no_shows ?? 0,
+    myReviewSubmitted: Boolean(m.my_review_submitted),
+    scheduleConflictWarning: m.schedule_conflict_warning || undefined,
   };
 }
 
@@ -244,6 +278,7 @@ function mapConversation(c: ApiConversation, unreadCount: number): ConversationI
   return {
     id: c.id,
     matchId: c.match_id || "",
+    partnerId: c.partner_id || undefined,
     partnerName: c.partner_name || "Sinh viên",
     courseCode: c.course_code || "—",
     myClassCode: c.my_class_code || "—",
@@ -251,6 +286,7 @@ function mapConversation(c: ApiConversation, unreadCount: number): ConversationI
     matchStatus: c.match_status || "PENDING_CONFIRMATION",
     lastMessage: c.last_message || "Hai bạn đã Match! Hãy bắt đầu trao đổi lịch đổi lớp.",
     lastMessageAt: c.last_message_at ? formatTime(c.last_message_at) : undefined,
+    partnerLastReadAt: c.partner_last_read_at || undefined,
     unreadCount,
   };
 }
@@ -305,6 +341,18 @@ interface AppStateContextValue {
     requestId: string,
     action: SwipeAction
   ) => Promise<{ matched: boolean; match?: MatchItem }>;
+  undoLastSwipe: () => Promise<boolean>;
+  blockStudent: (targetStudentId: string, reason?: string) => Promise<void>;
+  submitReport: (payload: {
+    conversationId?: string;
+    reportedStudentId?: string;
+    reason: string;
+    details?: string;
+  }) => Promise<void>;
+  reviewMatch: (
+    matchId: string,
+    payload: { rating: number; outcome: "SUCCESS" | "NO_SHOW"; comment?: string }
+  ) => Promise<void>;
   matches: MatchItem[];
   updateMatchStatus: (
     matchId: string,
@@ -312,7 +360,11 @@ interface AppStateContextValue {
   ) => Promise<void>;
   conversations: ConversationItem[];
   messages: MessageItem[];
-  sendMessage: (conversationId: string, content: string) => void;
+  typingByConv: Record<string, boolean>;
+  sendMessage: (conversationId: string, content: string, attachmentUrl?: string) => void;
+  sendImageMessage: (conversationId: string, dataUrl: string, caption?: string) => Promise<void>;
+  sendTyping: (conversationId: string, isTyping: boolean) => void;
+  markConversationRead: (conversationId: string) => void;
   loadConversationMessages: (conversationId: string) => Promise<void>;
   realtimeStatus: RealtimeStatus;
   notifications: NotificationItem[];
@@ -338,6 +390,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [matches, setMatches] = useState<MatchItem[]>(DEMO_MATCHES);
   const [conversations, setConversations] = useState<ConversationItem[]>(DEMO_CONVERSATIONS);
   const [messages, setMessages] = useState<MessageItem[]>(DEMO_MESSAGES);
+  const [typingByConv, setTypingByConv] = useState<Record<string, boolean>>({});
+  const typingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [notifications, setNotifications] = useState<NotificationItem[]>(DEMO_NOTIFICATIONS);
   const [backendAuthed, setBackendAuthed] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -433,6 +487,10 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         campusName: normalizeCampusName(me.campus_name || matchedCampus?.name || "Hà Nội"),
         avatarUrl: me.avatar_url || undefined,
         bio: me.bio || undefined,
+        shareContactAfterMatch: Boolean(me.share_contact_after_match),
+        trustScore: me.trust_score ?? 5.0,
+        completedSwapsCount: me.completed_swaps_count ?? 0,
+        noShowCount: me.no_show_count ?? 0,
       };
       setBackendAuthed(true);
       setStudent(nextProfile);
@@ -606,6 +664,42 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         void refreshWorkspace();
         return;
       }
+      if (event.type === "chat.typing" && event.data) {
+        const d = event.data as {
+          conversation_id?: string;
+          student_id?: string;
+          is_typing?: boolean;
+        };
+        if (d.conversation_id && d.student_id !== student.id) {
+          const cid = d.conversation_id;
+          const isTyping = Boolean(d.is_typing);
+          setTypingByConv((prev) => ({ ...prev, [cid]: isTyping }));
+          const existingTimer = typingTimersRef.current.get(cid);
+          if (existingTimer) clearTimeout(existingTimer);
+          if (isTyping) {
+            const t = setTimeout(() => {
+              setTypingByConv((prev) => ({ ...prev, [cid]: false }));
+            }, 3500);
+            typingTimersRef.current.set(cid, t);
+          }
+        }
+        return;
+      }
+      if (event.type === "chat.read" && event.data) {
+        const d = event.data as {
+          conversation_id?: string;
+          reader_id?: string;
+          read_at?: string;
+        };
+        if (d.conversation_id && d.read_at && d.reader_id !== student.id) {
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === d.conversation_id ? { ...c, partnerLastReadAt: d.read_at } : c
+            )
+          );
+        }
+        return;
+      }
       if (event.type === "chat.message.new" && event.data) {
         const raw = event.data as {
           id: string;
@@ -613,6 +707,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           sender_id: string;
           client_message_id?: string | null;
           content: string;
+          attachment_url?: string | null;
+          message_type?: "TEXT" | "IMAGE" | "SYSTEM";
           created_at: string;
         };
         const incoming: MessageItem = {
@@ -621,6 +717,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           senderId: raw.sender_id,
           clientMessageId: raw.client_message_id || raw.id,
           content: raw.content,
+          attachmentUrl: raw.attachment_url || undefined,
+          messageType: raw.message_type || "TEXT",
+          rawCreatedAt: raw.created_at,
           createdAt: formatTime(raw.created_at),
           pending: false,
           failed: false,
@@ -691,6 +790,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
             sender_id: string;
             client_message_id?: string | null;
             content: string;
+            attachment_url?: string | null;
+            message_type?: "TEXT" | "IMAGE" | "SYSTEM";
             created_at: string;
           }>
         >(`/conversations/${conversationId}/messages?limit=50`);
@@ -703,6 +804,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
             senderId: r.sender_id,
             clientMessageId: r.client_message_id || r.id,
             content: r.content,
+            attachmentUrl: r.attachment_url || undefined,
+            messageType: r.message_type || "TEXT",
+            rawCreatedAt: r.created_at,
             createdAt: formatTime(r.created_at),
           }));
 
@@ -712,6 +816,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         });
         setConversations((prev) =>
           prev.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c))
+        );
+        void apiFetch(`/conversations/${conversationId}/read`, { method: "POST" }).catch(
+          () => {}
         );
       } catch {
         // Ignore if conversation is local demo only
@@ -734,6 +841,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           campus_id: cleanedPatch.campusId,
           avatar_url: cleanedPatch.avatarUrl,
           bio: cleanedPatch.bio,
+          share_contact_after_match: cleanedPatch.shareContactAfterMatch,
         }),
       });
     }
@@ -996,9 +1104,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  const sendMessage = (conversationId: string, content: string) => {
-    const trimmed = content.trim();
-    if (!trimmed) return;
+  const sendMessage = (
+    conversationId: string,
+    content: string,
+    attachmentUrl?: string
+  ) => {
+    const trimmed = content.trim() || (attachmentUrl ? "[Ảnh thời khóa biểu]" : "");
+    if (!trimmed && !attachmentUrl) return;
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(
       now.getMinutes()
@@ -1014,6 +1126,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       senderId: student.id,
       clientMessageId,
       content: trimmed,
+      attachmentUrl,
+      messageType: attachmentUrl ? "IMAGE" : "TEXT",
+      rawCreatedAt: now.toISOString(),
       createdAt: timeStr,
       pending: backendAuthed,
     };
@@ -1033,6 +1148,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       type: "chat.message.send",
       conversation_id: conversationId,
       content: trimmed,
+      attachment_url: attachmentUrl,
       client_message_id: clientMessageId,
     });
 
@@ -1043,10 +1159,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         sender_id: string;
         client_message_id?: string | null;
         content: string;
+        attachment_url?: string | null;
+        message_type?: "TEXT" | "IMAGE" | "SYSTEM";
         created_at: string;
       }>(`/conversations/${conversationId}/messages`, {
         method: "POST",
-        body: JSON.stringify({ content: trimmed, client_message_id: clientMessageId }),
+        body: JSON.stringify({
+          content: trimmed,
+          attachment_url: attachmentUrl || null,
+          message_type: attachmentUrl ? "IMAGE" : "TEXT",
+          client_message_id: clientMessageId,
+        }),
       })
         .then((saved) => {
           setMessages((prev) =>
@@ -1058,6 +1181,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
                     senderId: saved.sender_id,
                     clientMessageId: saved.client_message_id || clientMessageId,
                     content: saved.content,
+                    attachmentUrl: saved.attachment_url || undefined,
+                    messageType: saved.message_type || "TEXT",
+                    rawCreatedAt: saved.created_at,
                     createdAt: formatTime(saved.created_at),
                     pending: false,
                   }
@@ -1065,7 +1191,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
             )
           );
         })
-        .catch(() => {
+        .catch((err) => {
+          reportError(err, "Không thể gửi tin nhắn.");
           setMessages((prev) =>
             prev.map((m) =>
               m.clientMessageId === clientMessageId ? { ...m, pending: false, failed: true } : m
@@ -1074,6 +1201,52 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         });
     }
   };
+
+  const sendImageMessage = async (
+    conversationId: string,
+    dataUrl: string,
+    caption?: string
+  ): Promise<void> => {
+    if (!backendAuthed) {
+      sendMessage(conversationId, caption || "[Ảnh thời khóa biểu]", dataUrl);
+      return;
+    }
+    try {
+      const res = await apiFetch<{ attachment_url: string }>(
+        `/conversations/${conversationId}/attachments`,
+        {
+          method: "POST",
+          body: JSON.stringify({ data_url: dataUrl }),
+        }
+      );
+      sendMessage(conversationId, caption || "[Ảnh thời khóa biểu]", res.attachment_url);
+    } catch (err) {
+      reportError(err, "Không thể tải ảnh TKB lên.");
+      throw err;
+    }
+  };
+
+  const sendTyping = useCallback(
+    (conversationId: string, isTyping: boolean) => {
+      if (!backendAuthed) return;
+      sendEvent({
+        type: "chat.typing",
+        conversation_id: conversationId,
+        is_typing: isTyping,
+      });
+    },
+    [backendAuthed, sendEvent]
+  );
+
+  const markConversationRead = useCallback(
+    (conversationId: string) => {
+      if (!backendAuthed) return;
+      void apiFetch(`/conversations/${conversationId}/read`, { method: "POST" }).catch(
+        () => {}
+      );
+    },
+    [backendAuthed]
+  );
 
   const markNotificationRead = (id: string) => {
     setNotifications((prev) =>
@@ -1097,6 +1270,72 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   const clearActionError = useCallback(() => setActionError(null), []);
 
+  const undoLastSwipe = async (): Promise<boolean> => {
+    if (!backendAuthed) return false;
+    try {
+      await apiFetch("/class-swap/swipes/undo", { method: "POST" });
+      await refreshWorkspace();
+      return true;
+    } catch (err) {
+      reportError(err, "Không thể hoàn tác lượt quẹt.");
+      return false;
+    }
+  };
+
+  const blockStudent = async (targetStudentId: string, reason?: string): Promise<void> => {
+    if (!backendAuthed) return;
+    try {
+      await apiFetch(`/students/me/blocks/${targetStudentId}`, {
+        method: "POST",
+        body: JSON.stringify({ reason: reason || null }),
+      });
+      await refreshWorkspace();
+    } catch (err) {
+      reportError(err, "Không thể chặn người dùng.");
+      throw err;
+    }
+  };
+
+  const submitReport = async (payload: {
+    conversationId?: string;
+    reportedStudentId?: string;
+    reason: string;
+    details?: string;
+  }): Promise<void> => {
+    if (!backendAuthed) return;
+    try {
+      await apiFetch("/reports", {
+        method: "POST",
+        body: JSON.stringify({
+          conversation_id: payload.conversationId ?? null,
+          reported_student_id: payload.reportedStudentId ?? null,
+          reason: payload.reason,
+          details: payload.details ?? null,
+        }),
+      });
+    } catch (err) {
+      reportError(err, "Không thể gửi báo cáo vi phạm.");
+      throw err;
+    }
+  };
+
+  const reviewMatch = async (
+    matchId: string,
+    payload: { rating: number; outcome: "SUCCESS" | "NO_SHOW"; comment?: string }
+  ): Promise<void> => {
+    if (!backendAuthed) return;
+    try {
+      await apiFetch(`/class-swap/matches/${matchId}/review`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      await refreshWorkspace();
+    } catch (err) {
+      reportError(err, "Không thể gửi đánh giá đổi lớp.");
+      throw err;
+    }
+  };
+
   const unreadNotificationsCount = notifications.filter((n) => !n.isRead).length;
   const unreadMessagesCount = conversations.reduce((acc, c) => acc + c.unreadCount, 0);
 
@@ -1117,11 +1356,19 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         updateRequestStatus,
         discoverCards,
         swipeCard,
+        undoLastSwipe,
+        blockStudent,
+        submitReport,
+        reviewMatch,
         matches,
         updateMatchStatus,
         conversations,
         messages,
+        typingByConv,
         sendMessage,
+        sendImageMessage,
+        sendTyping,
+        markConversationRead,
         loadConversationMessages,
         realtimeStatus,
         notifications,

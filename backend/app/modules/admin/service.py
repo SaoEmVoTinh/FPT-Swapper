@@ -9,6 +9,8 @@ from app.common.enums import (
     AccountStatus,
     ConversationSourceType,
     MatchStatus,
+    NotificationType,
+    ReportStatus,
     SwapRequestStatus,
     UserRole,
 )
@@ -23,7 +25,9 @@ from app.database.models import (
     Match,
     MatchingRequest,
     Message,
+    Notification,
     RefreshToken,
+    Report,
     Semester,
     Student,
     StudentProfile,
@@ -33,11 +37,13 @@ from app.modules.admin.schemas import (
     AdminAuditLogItem,
     AdminCreateUserRequest,
     AdminOverviewResponse,
+    AdminReportItem,
     AdminRequestItem,
+    AdminResolveReportRequest,
     AdminUserItem,
 )
 from app.modules.auth.service import resolve_campus
-from app.modules.students.cleanup import purge_student_account
+from app.modules.students.cleanup import cancel_student_matches_and_notify, purge_student_account
 
 
 def _is_super_admin_user(student: Student) -> bool:
@@ -103,6 +109,10 @@ class AdminService:
             total_messages=db.query(func.count(Message.id)).scalar() or 0,
             total_courses=db.query(func.count(Course.id)).scalar() or 0,
             total_campuses=db.query(func.count(Campus.id)).scalar() or 0,
+            open_reports=db.query(func.count(Report.id))
+            .filter(Report.status.in_([ReportStatus.OPEN, ReportStatus.UNDER_REVIEW]))
+            .scalar()
+            or 0,
         )
 
     @staticmethod
@@ -482,3 +492,156 @@ class AdminService:
                 )
             )
         return items
+
+    @staticmethod
+    def _report_to_item(db: Session, report: Report) -> AdminReportItem:
+        reporter = db.get(Student, report.reporter_id) if report.reporter_id else None
+        reported = db.get(Student, report.reported_student_id) if report.reported_student_id else None
+        resolver = db.get(Student, report.resolved_by_id) if report.resolved_by_id else None
+
+        def _label(stu: Student | None, anon_ref: str | None) -> str | None:
+            if stu is not None:
+                name = stu.profile.full_name if stu.profile and stu.profile.full_name else stu.student_code
+                return f"{name} ({stu.student_code})"
+            return anon_ref
+
+        return AdminReportItem(
+            id=report.id,
+            reporter_id=report.reporter_id,
+            reporter_email=reporter.email if reporter else None,
+            reporter_label=_label(reporter, report.anonymized_reporter_ref),
+            reported_student_id=report.reported_student_id,
+            reported_email=reported.email if reported else None,
+            reported_label=_label(reported, report.anonymized_reported_ref),
+            conversation_id=report.conversation_id,
+            reason=report.reason,
+            details=report.details,
+            status=report.status,
+            resolved_by_id=report.resolved_by_id,
+            resolved_by_email=resolver.email if resolver else None,
+            resolution_note=report.resolution_note,
+            created_at=report.created_at,
+            updated_at=report.updated_at,
+        )
+
+    @staticmethod
+    def list_reports(
+        db: Session, report_status: ReportStatus | None = None
+    ) -> list[AdminReportItem]:
+        q = db.query(Report)
+        if report_status is not None:
+            q = q.filter(Report.status == report_status)
+        rows = q.order_by(Report.created_at.desc()).limit(200).all()
+        return [AdminService._report_to_item(db, r) for r in rows]
+
+    @staticmethod
+    def resolve_report(
+        db: Session,
+        actor: Student,
+        report_id: uuid.UUID,
+        payload: AdminResolveReportRequest,
+    ) -> AdminReportItem:
+        report = db.get(Report, report_id)
+        if report is None:
+            raise HTTPException(status_code=404, detail="Không tìm thấy báo cáo.")
+
+        note = payload.resolution_note.strip() if payload.resolution_note else None
+        report.status = payload.status
+        report.resolved_by_id = actor.id
+        if note is not None:
+            report.resolution_note = note
+
+        reported = (
+            db.get(Student, report.reported_student_id)
+            if report.reported_student_id
+            else None
+        )
+
+        if payload.action == "WARN" and reported is not None:
+            db.add(
+                Notification(
+                    student_id=reported.id,
+                    notification_type=NotificationType.SYSTEM,
+                    title="Cảnh cáo vi phạm từ Ban quản trị",
+                    body=(
+                        f"Tài khoản của bạn nhận cảnh cáo liên quan đến báo cáo '{report.reason}'."
+                        + (f" Ghi chú: {note}" if note else "")
+                    ),
+                    is_read=False,
+                    reference_id=report.id,
+                )
+            )
+        elif payload.action == "SUSPEND" and reported is not None:
+            if reported.id == actor.id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Không thể tự khóa tài khoản của chính mình.",
+                )
+            if _is_super_admin_user(reported) and not _is_super_admin_user(actor):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Không thể khóa tài khoản Super Admin.",
+                )
+            reported.status = AccountStatus.SUSPENDED
+            _revoke_user_tokens(db, reported)
+            cancel_student_matches_and_notify(
+                db,
+                reported.id,
+                "Tài khoản đối tác đã bị tạm khóa bởi quản trị viên. Yêu cầu đổi lớp của bạn đã được mở lại.",
+            )
+            db.add(
+                Notification(
+                    student_id=reported.id,
+                    notification_type=NotificationType.SYSTEM,
+                    title="Tài khoản đã bị tạm khóa",
+                    body=(
+                        f"Tài khoản của bạn đã bị tạm khóa sau khi xử lý báo cáo '{report.reason}'."
+                        + (f" Lý do: {note}" if note else "")
+                    ),
+                    is_read=False,
+                    reference_id=report.id,
+                )
+            )
+
+        if report.reporter_id is not None:
+            status_text = (
+                "đã được xử lý"
+                if payload.status == ReportStatus.RESOLVED
+                else "đã được cập nhật"
+            )
+            action_text = (
+                " Tài khoản bị báo cáo đã bị tạm khóa."
+                if payload.action == "SUSPEND"
+                else (" Đã gửi cảnh cáo tới người dùng." if payload.action == "WARN" else "")
+            )
+            db.add(
+                Notification(
+                    student_id=report.reporter_id,
+                    notification_type=NotificationType.SYSTEM,
+                    title="Cập nhật kết quả báo cáo",
+                    body=(
+                        f"Báo cáo '{report.reason}' của bạn {status_text} ({payload.status.value})."
+                        f"{action_text}"
+                        + (f" Ghi chú: {note}" if note else "")
+                    ),
+                    is_read=False,
+                    reference_id=report.id,
+                )
+            )
+
+        db.add(
+            AuditLog(
+                actor_id=actor.id,
+                action="ADMIN_RESOLVE_REPORT",
+                entity_type="report",
+                entity_id=report.id,
+                details={
+                    "status": payload.status.value,
+                    "action": payload.action,
+                    "note": note,
+                },
+            )
+        )
+        db.commit()
+        db.refresh(report)
+        return AdminService._report_to_item(db, report)

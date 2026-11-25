@@ -13,6 +13,7 @@ from app.modules.matching.router import router as matching_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.realtime.hub import realtime_hub
 from app.modules.realtime.router import router as realtime_router
+from app.modules.reports.router import router as reports_router
 from app.modules.students.router import router as students_router
 
 
@@ -51,6 +52,7 @@ app.include_router(matching_router, prefix=v1_prefix)
 app.include_router(chat_router, prefix=v1_prefix)
 app.include_router(notifications_router, prefix=v1_prefix)
 app.include_router(realtime_router, prefix=v1_prefix)
+app.include_router(reports_router, prefix=v1_prefix)
 app.include_router(admin_router, prefix=v1_prefix)
 
 

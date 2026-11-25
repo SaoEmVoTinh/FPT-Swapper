@@ -441,6 +441,19 @@ COURSES = [
     {"code": "FGU301",    "name": "Food & Guest Upselling 301",                 "credits": 3},
     {"code": "GEM201",    "name": "Global E-Commerce Management 201",           "credits": 3},
     {"code": "IAM302t",   "name": "IT Architecture Management 302t",            "credits": 3},
+
+    # Physical Education / Vovinam
+    {"code": "VOV112",    "name": "Vovinam 1",                                  "credits": 1},
+    {"code": "VOV113",    "name": "Vovinam 1/3",                                "credits": 1},
+    {"code": "VOV114",    "name": "Vovinam 1/3",                                "credits": 2},
+    {"code": "VOV121",    "name": "Vovinam 2",                                  "credits": 2},
+    {"code": "VOV122",    "name": "Vovinam 3",                                  "credits": 1},
+    {"code": "VOV123",    "name": "Vovinam 2/3",                                "credits": 1},
+    {"code": "VOV124",    "name": "Vovinam 2/3",                                "credits": 2},
+    {"code": "VOV131",    "name": "Vovinam 5",                                  "credits": 1},
+    {"code": "VOV132",    "name": "Vovinam 5",                                  "credits": 1},
+    {"code": "VOV133",    "name": "Vovinam 6",                                  "credits": 1},
+    {"code": "VOV134",    "name": "Vovinam 3/3",                                "credits": 2},
 ]
 
 

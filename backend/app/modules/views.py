@@ -9,13 +9,14 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.common.enums import ConversationSourceType
+from app.common.enums import ConversationSourceType, ConversationType, MatchStatus
 from app.database.models.academic import AcademicClass, Campus, Course, Semester
 from app.database.models.communication import Conversation, Message
 from app.database.models.identity import Student
-from app.database.models.matching import Match, MatchingRequest
+from app.database.models.matching import Match, MatchReview, MatchingRequest, ThreeWaySwapProposal
 from app.modules.chat.schemas import ConversationResponse
 from app.modules.class_swap.schemas import RequestResponse
+from app.modules.matching.conflicts import detect_schedule_conflict
 from app.modules.matching.schemas import DiscoverItem, MatchResponse
 
 
@@ -73,6 +74,10 @@ def request_view(db: Session, req: MatchingRequest) -> RequestResponse:
         current_schedule_text=schedule_text(current),
         target_class_code=target.code if target else None,
         target_schedule_text=schedule_text(target),
+        lecturer_current=(current.lecturer if current and current.lecturer else "Đang cập nhật"),
+        schedule_conflict_warning=detect_schedule_conflict(
+            db, req.student_id, target, exclude_request_id=req.id
+        ),
     )
 
 
@@ -84,6 +89,7 @@ def discover_view(
     mine: MatchingRequest | None,
     reciprocal_ready: bool,
     has_course_conflict: bool = False,
+    viewer_id: uuid.UUID | None = None,
 ) -> DiscoverItem:
     student = db.get(Student, candidate.student_id)
     profile = student.profile if student else None
@@ -92,6 +98,16 @@ def discover_view(
     current = db.get(AcademicClass, candidate.current_class_id)
     target = db.get(AcademicClass, candidate.target_class_id)
     code = student.student_code if student else ""
+    sched_warning = (
+        detect_schedule_conflict(
+            db,
+            viewer_id,
+            current,
+            exclude_request_id=mine.id if mine else None,
+        )
+        if viewer_id is not None
+        else None
+    )
     return DiscoverItem(
         id=candidate.id,
         student_id=candidate.student_id,
@@ -118,6 +134,9 @@ def discover_view(
         target_schedule_text=schedule_text(target),
         lecturer_current=(current.lecturer if current and current.lecturer else "Đang cập nhật"),
         is_reciprocal_ready=reciprocal_ready,
+        schedule_conflict_warning=sched_warning,
+        student_trust_score=float(profile.trust_score) if profile else 5.0,
+        student_completed_swaps=int(profile.completed_swaps_count) if profile else 0,
     )
 
 
@@ -152,6 +171,33 @@ def match_view(db: Session, match: Match, viewer_id: uuid.UUID) -> MatchResponse
     partner_class = db.get(AcademicClass, partner.current_class_id) if partner else None
     conversation = find_match_conversation(db, match.id)
 
+    partner_student_id = partner.student_id if partner else (
+        match.student_b_id if viewer_is_a else match.student_a_id
+    )
+    partner_student = db.get(Student, partner_student_id) if partner_student_id else None
+    partner_profile = partner_student.profile if partner_student else None
+    reveal_contact = bool(
+        match.status in (MatchStatus.CONFIRMED, MatchStatus.COMPLETED)
+        and partner_profile is not None
+        and partner_profile.share_contact_after_match
+    )
+    my_review_submitted = (
+        db.query(MatchReview.id)
+        .filter(MatchReview.match_id == match.id, MatchReview.reviewer_id == viewer_id)
+        .first()
+        is not None
+    )
+    sched_warning = (
+        detect_schedule_conflict(
+            db,
+            viewer_id,
+            partner_class,
+            exclude_request_id=mine.id if mine else None,
+        )
+        if partner_class is not None
+        else None
+    )
+
     return MatchResponse(
         id=match.id,
         request_low_id=match.request_low_id,
@@ -175,6 +221,16 @@ def match_view(db: Session, match: Match, viewer_id: uuid.UUID) -> MatchResponse
         my_confirmed=my_confirmed,
         partner_confirmed=partner_confirmed,
         conversation_id=conversation.id if conversation else None,
+        confirm_deadline_at=match.confirm_deadline_at,
+        partner_email=(partner_student.email if reveal_contact and partner_student else None),
+        partner_student_code=(
+            partner_student.student_code if reveal_contact and partner_student else None
+        ),
+        partner_trust_score=float(partner_profile.trust_score) if partner_profile else 5.0,
+        partner_completed_swaps=int(partner_profile.completed_swaps_count) if partner_profile else 0,
+        partner_no_shows=int(partner_profile.no_show_count) if partner_profile else 0,
+        my_review_submitted=my_review_submitted,
+        schedule_conflict_warning=sched_warning,
     )
 
 
@@ -188,7 +244,12 @@ def conversation_view(db: Session, conv: Conversation, viewer_id: uuid.UUID) -> 
         "updated_at": conv.updated_at,
     }
 
-    partner_id = next((m.student_id for m in conv.members if m.student_id != viewer_id), None)
+    is_group = conv.conversation_type == ConversationType.GROUP
+    partner_id = (
+        None
+        if is_group
+        else next((m.student_id for m in conv.members if m.student_id != viewer_id), None)
+    )
     partner_name = display_name(db, partner_id) if partner_id else None
 
     last = (
@@ -200,6 +261,13 @@ def conversation_view(db: Session, conv: Conversation, viewer_id: uuid.UUID) -> 
     base["last_message"] = last.content if last else None
     base["last_message_at"] = last.created_at if last else None
     base["last_message_sender_id"] = last.sender_id if last else None
+    other_reads = [
+        m.last_read_at
+        for m in conv.members
+        if m.student_id != viewer_id and m.last_read_at is not None
+    ]
+    base["partner_last_read_at"] = max(other_reads) if other_reads else None
+    base["partner_id"] = partner_id
     base["partner_name"] = partner_name
 
     if conv.source_type == ConversationSourceType.CLASS_SWAP:
@@ -214,4 +282,16 @@ def conversation_view(db: Session, conv: Conversation, viewer_id: uuid.UUID) -> 
                 partner_class_code=mv.partner_class_code,
                 match_status=match.status.value,
             )
+        else:
+            proposal = db.get(ThreeWaySwapProposal, conv.source_id)
+            if proposal is not None:
+                course = db.get(Course, proposal.course_id)
+                base.update(
+                    match_id=proposal.id,
+                    partner_name="Nhóm đổi 3 bên (A→B→C→A)",
+                    course_code=course.code if course else None,
+                    my_class_code="Nhóm 3 bên",
+                    partner_class_code="A→B→C→A",
+                    match_status=proposal.status.value,
+                )
     return ConversationResponse(**base)

@@ -3,12 +3,18 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  AlertTriangle,
+  BookCheck,
   Check,
   CheckCheck,
+  ChevronDown,
+  ChevronUp,
   Loader2,
+  Mail,
   MessageSquare,
   RefreshCw,
   Search,
+  Star,
   X,
 } from "lucide-react";
 
@@ -20,11 +26,67 @@ import { MatchStatus } from "@/types";
 
 type MatchFilter = "ALL" | "PENDING_CONFIRMATION" | "CONFIRMED" | "COMPLETED";
 
+const CAMPUS_GUIDES: Record<
+  string,
+  { title: string; office: string; steps: string[] }
+> = {
+  "Hà Nội": {
+    title: "FPTU Hà Nội (Hòa Lạc)",
+    office: "Phòng Dịch vụ Sinh viên — Tòa Alpha, tầng 1",
+    steps: [
+      "Kiểm tra chắc chắn lớp mới không trùng slot với môn khác trên FAP.",
+      "Hai sinh viên nhắn tin thống nhất thời gian lên FAP / nộp đơn chuyển lớp chéo cùng lúc.",
+      "Gửi đơn qua FAP (Academic → Registration → Chuyển lớp) hoặc trực tiếp Phòng Dịch vụ Sinh viên trong tuần đầu học kỳ.",
+      "Sau khi FAP cập nhật lớp mới, bấm 'Đánh dấu hoàn tất' và đánh giá đối tác.",
+    ],
+  },
+  "Đà Nẵng": {
+    title: "FPTU Đà Nẵng",
+    office: "Phòng Đào tạo & CTSV — Khu đô thị FPT City",
+    steps: [
+      "Đối chiếu giảng viên & lịch học trên FAP để tránh trùng tiết.",
+      "Liên hệ đối tác qua Chat để gửi mail/đơn chuyển lớp cùng thời điểm.",
+      "Nộp đơn xin đổi lớp chéo tại Phòng Đào tạo theo thông báo đầu kỳ.",
+      "Xác nhận kết quả trên FAP rồi hoàn tất & chấm điểm uy tín trên FPT ClassSwap.",
+    ],
+  },
+  "TP. Hồ Chí Minh": {
+    title: "FPTU TP. Hồ Chí Minh",
+    office: "Phòng CTSV & Đào tạo — Khu Công nghệ cao Q.9",
+    steps: [
+      "Kiểm tra điều kiện mở đổi lớp đầu học kỳ và lịch không trùng slot.",
+      "Thống nhất giờ làm thủ tục với đối tác trong phần Chat.",
+      "Thực hiện chuyển lớp chéo trên cổng FAP / Phòng Đào tạo đúng hạn chót học kỳ.",
+      "Kiểm tra lại TKB mới trên FAP trước khi bấm 'Đánh dấu hoàn tất'.",
+    ],
+  },
+  "Quy Nhơn": {
+    title: "FPTU Quy Nhơn",
+    office: "Phòng Dịch vụ Sinh viên — Khu đô thị An Phú Thịnh",
+    steps: [
+      "Kiểm tra trùng lịch học và danh sách môn được phép chuyển.",
+      "Trao đổi với đối tác và nộp đơn chuyển lớp theo hướng dẫn Phòng Đào tạo.",
+      "Bấm 'Đánh dấu hoàn tất' khi FAP đã ghi nhận lớp mới.",
+    ],
+  },
+  "Cần Thơ": {
+    title: "FPTU Cần Thơ",
+    office: "Phòng Đào tạo & Dịch vụ Sinh viên — KDC Hoàng Quân",
+    steps: [
+      "Xác nhận không trùng slot và đúng kỳ học hiện tại.",
+      "Cùng đối tác nộp đơn chuyển lớp tại Phòng Đào tạo hoặc cổng FAP.",
+      "Hoàn tất quy trình trên FPT ClassSwap và đánh giá đối tác.",
+    ],
+  },
+};
+
 export default function MatchesPage() {
   const {
+    student,
     matches,
     isAuthenticated,
     updateMatchStatus,
+    reviewMatch,
     refreshWorkspace,
     actionError,
     clearActionError,
@@ -33,6 +95,16 @@ export default function MatchesPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState<MatchFilter>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [guideCampus, setGuideCampus] = useState<string>(
+    CAMPUS_GUIDES[student.campusName] ? student.campusName : "Hà Nội"
+  );
+  const [reviewTargetId, setReviewTargetId] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewOutcome, setReviewOutcome] = useState<"SUCCESS" | "NO_SHOW">("SUCCESS");
+  const [reviewComment, setReviewComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewSuccessMsg, setReviewSuccessMsg] = useState<string | null>(null);
 
   const counts = useMemo(
     () => ({
@@ -87,6 +159,31 @@ export default function MatchesPage() {
     }
   };
 
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewTargetId || submittingReview) return;
+    setSubmittingReview(true);
+    clearActionError();
+    try {
+      await reviewMatch(reviewTargetId, {
+        rating: reviewRating,
+        outcome: reviewOutcome,
+        comment: reviewComment.trim() || undefined,
+      });
+      setReviewSuccessMsg("Cảm ơn bạn đã gửi đánh giá! Điểm uy tín của đối tác đã được cập nhật.");
+      setReviewTargetId(null);
+      setReviewComment("");
+      setReviewRating(5);
+      setReviewOutcome("SUCCESS");
+    } catch {
+      // handled by actionError
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const selectedGuide = CAMPUS_GUIDES[guideCampus] || CAMPUS_GUIDES["Hà Nội"];
+
   const filterTabs: Array<{ key: MatchFilter; label: string }> = [
     { key: "ALL", label: `Tất cả (${counts.ALL})` },
     {
@@ -126,6 +223,66 @@ export default function MatchesPage() {
         </div>
 
         <DisclaimerBanner compact />
+
+        {/* Campus swap checklist guide */}
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <button
+            type="button"
+            onClick={() => setGuideOpen((v) => !v)}
+            className="flex w-full items-center justify-between px-4 py-3 text-left"
+          >
+            <span className="inline-flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-100">
+              <BookCheck className="h-4 w-4 text-orange-500" />
+              Checklist thủ tục đổi lớp chính thức tại Campus ({selectedGuide.title})
+            </span>
+            {guideOpen ? (
+              <ChevronUp className="h-4 w-4 text-slate-400" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-slate-400" />
+            )}
+          </button>
+          {guideOpen && (
+            <div className="space-y-3 border-t border-slate-100 px-4 py-3.5 text-xs dark:border-slate-800">
+              <div className="flex flex-wrap gap-1.5">
+                {Object.keys(CAMPUS_GUIDES).map((cname) => (
+                  <button
+                    key={cname}
+                    type="button"
+                    onClick={() => setGuideCampus(cname)}
+                    className={`rounded-lg px-2.5 py-1 font-semibold transition-colors ${
+                      guideCampus === cname
+                        ? "bg-orange-500 text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                    }`}
+                  >
+                    {cname}
+                  </button>
+                ))}
+              </div>
+              <p className="font-semibold text-slate-700 dark:text-slate-200">
+                Nơi tiếp nhận: <span className="text-orange-600 dark:text-orange-400">{selectedGuide.office}</span>
+              </p>
+              <ol className="list-inside list-decimal space-y-1 text-slate-600 dark:text-slate-300">
+                {selectedGuide.steps.map((st, idx) => (
+                  <li key={idx}>{st}</li>
+                ))}
+              </ol>
+            </div>
+          )}
+        </div>
+
+        {reviewSuccessMsg && (
+          <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/35 dark:bg-emerald-500/15 dark:text-emerald-200">
+            <span>{reviewSuccessMsg}</span>
+            <button
+              type="button"
+              onClick={() => setReviewSuccessMsg(null)}
+              className="text-xs font-semibold underline"
+            >
+              Đóng
+            </button>
+          </div>
+        )}
 
         {actionError && (
           <div className="flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/35 dark:bg-rose-500/15 dark:text-rose-200">
@@ -212,6 +369,18 @@ export default function MatchesPage() {
                         <span className="text-xs text-slate-400">
                           {m.partnerCampus}
                         </span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                          <Star className="h-3 w-3 fill-current" />
+                          {(m.partnerTrustScore ?? 5).toFixed(1)}
+                          {(m.partnerCompletedSwaps ?? 0) > 0
+                            ? ` • ${m.partnerCompletedSwaps} thành công`
+                            : ""}
+                        </span>
+                        {(m.partnerNoShows ?? 0) > 0 && (
+                          <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700 dark:bg-rose-500/20 dark:text-rose-300">
+                            {m.partnerNoShows} lần bỏ hẹn
+                          </span>
+                        )}
                         <MatchStatusBadge status={m.status} />
                       </div>
                       <p className="text-sm text-slate-600 dark:text-slate-300">
@@ -227,6 +396,27 @@ export default function MatchesPage() {
                           {m.partnerClassCode}
                         </span>
                       </p>
+                      {m.scheduleConflictWarning && (
+                        <div className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 dark:border-amber-500/35 dark:bg-amber-500/15 dark:text-amber-200">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                          {m.scheduleConflictWarning}
+                        </div>
+                      )}
+                      {(m.status === "CONFIRMED" || m.status === "COMPLETED") && (
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                          {m.partnerEmail ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-medium text-emerald-800 dark:border-emerald-500/35 dark:bg-emerald-500/15 dark:text-emerald-200">
+                              <Mail className="h-3.5 w-3.5" />
+                              Liên hệ: {m.partnerEmail}
+                              {m.partnerStudentCode ? ` (${m.partnerStudentCode})` : ""}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 dark:text-slate-500">
+                              Thông tin email/MSSV được ẩn theo cài đặt riêng tư của đối tác.
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
@@ -287,8 +477,114 @@ export default function MatchesPage() {
                           Từ chối
                         </button>
                       )}
+
+                      {isAuthenticated &&
+                        (m.status === "CONFIRMED" || m.status === "COMPLETED") &&
+                        (m.myReviewSubmitted ? (
+                          <span className="inline-flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 dark:border-emerald-500/35 dark:bg-emerald-500/15 dark:text-emerald-300">
+                            <Star className="h-3.5 w-3.5 fill-current" />
+                            Đã đánh giá
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReviewTargetId(reviewTargetId === m.id ? null : m.id);
+                              setReviewRating(5);
+                              setReviewOutcome("SUCCESS");
+                              setReviewComment("");
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 dark:border-amber-500/35 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/25"
+                          >
+                            <Star className="h-3.5 w-3.5" />
+                            Đánh giá / No-show
+                          </button>
+                        ))}
                     </div>
                   </div>
+
+                  {reviewTargetId === m.id && (
+                    <form
+                      onSubmit={handleSubmitReview}
+                      className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-500/30 dark:bg-slate-800/70"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                          Đánh giá đối tác {m.partnerName}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              type="button"
+                              onClick={() => setReviewRating(star)}
+                              className={`rounded-lg p-1 ${
+                                star <= reviewRating
+                                  ? "text-amber-500"
+                                  : "text-slate-300 dark:text-slate-600"
+                              }`}
+                            >
+                              <Star className="h-4 w-4 fill-current" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReviewOutcome("SUCCESS");
+                            setReviewRating(5);
+                          }}
+                          className={`rounded-lg px-3 py-1.5 font-semibold ${
+                            reviewOutcome === "SUCCESS"
+                              ? "bg-emerald-600 text-white"
+                              : "border border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                          }`}
+                        >
+                          Đã đổi thành công
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReviewOutcome("NO_SHOW");
+                            setReviewRating(1);
+                          }}
+                          className={`rounded-lg px-3 py-1.5 font-semibold ${
+                            reviewOutcome === "NO_SHOW"
+                              ? "bg-rose-600 text-white"
+                              : "border border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                          }`}
+                        >
+                          Báo bỏ hẹn (No-show)
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        maxLength={500}
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value)}
+                        placeholder="Nhận xét thêm (tùy chọn)..."
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                      />
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setReviewTargetId(null)}
+                          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300"
+                        >
+                          Hủy
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={submittingReview}
+                          className="rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
+                        >
+                          {submittingReview ? "Đang lưu..." : "Gửi đánh giá"}
+                        </button>
+                      </div>
+                    </form>
+                  )}
 
                   {/* Stepper progress bar */}
                   <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 text-[11px] dark:border-slate-800">

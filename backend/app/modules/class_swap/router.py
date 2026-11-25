@@ -9,9 +9,11 @@ from app.database.session import get_db
 from app.modules.class_swap.schemas import (
     CreateRequestSchema,
     RequestResponse,
+    TimetableSlotItem,
     UpdateRequestSchema,
 )
 from app.modules.class_swap.service import ClassSwapService
+from app.modules.matching.conflicts import build_weekly_timetable
 from app.modules.views import request_view
 
 router = APIRouter(prefix="/class-swap", tags=["Class Swap"])
@@ -70,3 +72,11 @@ def cancel_request(
 ):
     req = ClassSwapService.get_owned(db, request_id, current_student.id)
     ClassSwapService.cancel(db, req)
+
+
+@router.get("/timetable", response_model=list[TimetableSlotItem])
+def get_weekly_timetable(
+    current_student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+):
+    return build_weekly_timetable(db, current_student.id)

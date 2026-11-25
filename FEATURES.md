@@ -119,23 +119,23 @@ Giao diện gồm thẻ tổng quan cá nhân (avatar, mã sinh viên, email, va
 
 ### Đã hoàn thành (P0)
 - Mật khẩu tối thiểu 8 ký tự, rate limit & khóa tạm sau 5 lần đăng nhập sai, xoay vòng & thu hồi `refresh_token`.
-- RBAC (`SUPER_ADMIN`, `ADMIN`, `MODERATOR`), hỗ trợ nhiều admin và 2FA (TOTP) cho admin.
+- RBAC (`SUPER_ADMIN`, `ADMIN`, `MODERATOR`), hỗ trợ nhiều admin và 2FA (TOTP) cho admin (tùy chọn bật/tắt).
 - Tự động hủy Match chờ xung đột khi đã xác nhận, hết hạn xác nhận Match 48h (`EXPIRED`), tự chuyển request quá hạn sang `EXPIRED` & ẩn khỏi Discover.
 - Soft-delete 14 ngày kèm khôi phục tài khoản, thông báo đối tác & mở lại request khi xóa tài khoản đang có Match, và ẩn danh hóa bảng `reports` thay vì xóa cứng bằng chứng.
 
-### Kế hoạch P1 (Tăng giá trị cốt lõi)
-- Hiển thị chi tiết lịch học (thứ/ca/phòng/giảng viên), phát hiện trùng lịch với các môn khác của bạn và xem TKB tuần.
-- Đổi lớp vòng 3 bên (`A → B → C → A`) bằng thuật toán tìm chu trình trên đồ thị yêu cầu.
-- Hàng đợi xử lý báo cáo vi phạm (`reports`) ngay trên trang Admin (duyệt, cảnh cáo/khóa, ghi lý do, thông báo cho người báo cáo).
-- Chặn người dùng (`Block`) trong Discover/Chat và Hoàn tác swipe (`Undo`).
-- Đánh giá uy tín sau khi hoàn tất đổi lớp và ghi nhận bỏ hẹn (`no-show`).
-- Checklist hướng dẫn thủ tục đổi lớp theo từng Campus ngay trên trang Match.
-- Thông báo ngoài app (Email / Web Push) khi có Like/Match/tin nhắn và nhắc trước khi request hết hạn.
-- Tùy chọn ẩn/hiện thông tin liên hệ sau khi Match.
+### Đã hoàn thành (P1 — Giá trị cốt lõi)
+- **Lịch học, phát hiện trùng lịch & TKB tuần (`/requests`, `/discover`, `/matches`):** Hiển thị chi tiết thứ/ca/phòng/giảng viên, tự động cảnh báo trùng lịch giữa lớp muốn đổi sang với các môn/lớp hiện có của bạn, và xem thời khóa biểu tuần tại `GET /api/v1/class-swap/timetable`.
+- **Đổi lớp vòng 3 bên (`A → B → C → A`):** Thuật toán tìm chu trình 3 sinh viên cùng môn/học kỳ/cơ sở (`GET /api/v1/class-swap/cycles`), đồng ý/từ chối tham gia (`POST /api/v1/class-swap/cycles/accept`, `decline`), tự động chuyển cả 3 request sang `MATCHED` và mở nhóm chat 3 người khi đủ 3 bên xác nhận.
+- **Báo cáo vi phạm & Hàng đợi xử lý Admin (`POST /api/v1/reports`, `/admin`):** Modal báo cáo từ Chat gửi thật lên backend; trang Admin có tab **Báo cáo** với lọc trạng thái, ghi chú xử lý, thao tác Cảnh cáo / Khóa tài khoản / Bỏ qua, đồng thời thông báo kết quả cho người báo cáo và ghi `audit_logs`.
+- **Chặn người dùng (Block) & Hoàn tác swipe (Undo):** Chặn/bỏ chặn (`GET/POST/DELETE /api/v1/students/me/blocks/*`) từ Chat, Discover và Hồ sơ (ẩn khỏi Discover, chặn gửi tin nhắn `403`, chặn tương tác); nút **Hoàn tác (`POST /api/v1/class-swap/swipes/undo`)** thu hồi lượt vuốt gần nhất và hủy Match chờ chưa xác nhận.
+- **Đánh giá uy tín & Báo bỏ hẹn (No-show):** `POST /api/v1/class-swap/matches/{id}/review` chấm 1–5 sao, đánh dấu `SUCCESS` hoặc `NO_SHOW`, tự động cập nhật `trust_score`, `completed_swaps_count`, `no_show_count` hiển thị trên Discover, Matches và Hồ sơ.
+- **Checklist thủ tục đổi lớp theo Campus:** Hướng dẫn từng bước và nơi nộp đơn cho 5 cơ sở (HN, ĐN, HCM, QN, CT) ngay trên `/matches`.
+- **Quyền riêng tư liên hệ sau Match & Nhắc sắp hết hạn:** Tùy chọn `share_contact_after_match` trên `/profile` (chỉ hiển thị Email & MSSV đầy đủ cho đối tác khi hai bên đã `CONFIRMED`/`COMPLETED` và người đó cho phép), kèm thông báo nhắc tự động khi request sắp hết hạn trong vòng 48 giờ.
 
-### Kế hoạch P2 (Trải nghiệm & Vận hành)
-- Gợi ý thông minh & heatmap nhu cầu theo lớp/môn.
-- Chat: gửi ảnh TKB, trạng thái đã đọc / đang gõ, rate-limit chống spam tin nhắn.
-- Admin: biểu đồ theo thời gian, xuất CSV, thao tác hàng loạt, sửa/xóa môn học, import lớp từ file Excel TKB mỗi kỳ, gửi thông báo toàn hệ thống.
-- PWA cài lên màn hình điện thoại, đa ngôn ngữ Việt/Anh, tăng cường accessibility (`a11y`).
-- Trang Chính sách quyền riêng tư & Điều khoản sử dụng phù hợp Nghị định 13/2023/NĐ-CP kèm xác nhận đồng ý khi đăng ký.
+### Đã hoàn thành (P2 — Trải nghiệm & Vận hành)
+- **Thông báo ngoài app (`GET/PUT /api/v1/notifications/preferences`, `POST /api/v1/notifications/push-subscriptions`):** Cấu hình bật/tắt Email SMTP và Web Push, cấp quyền thông báo trình duyệt, kèm Service Worker (`/sw.js`) và thông báo khi có Like/Match/tin nhắn mới.
+- **Gợi ý thông minh & Heatmap nhu cầu (`/discover`, `GET /api/v1/class-swap/insights`):** Chấm điểm độ phù hợp 0–100% kèm lý do (đã Like trước, khớp 2 chiều, không trùng TKB, uy tín) và biểu đồ nhiệt lớp hot (số người muốn vào / muốn ra).
+- **Chat nâng cao (`/chat`):** Gửi ảnh thời khóa biểu (`POST /api/v1/conversations/{id}/attachments` + lightbox phóng to), trạng thái đã xem (`POST .../read`), chỉ báo đang gõ realtime (`chat.typing` qua WebSocket), và rate-limit chống spam (20 tin/30 giây).
+- **Quản trị nâng cao (`/admin`):** Biểu đồ xu hướng 14 ngày (`/api/v1/admin/analytics`), xuất CSV (`users`, `requests`, `reports`, `audit_logs`), thao tác hàng loạt khóa/mở khóa/xóa tin, sửa/xóa môn học, import lịch lớp từ Excel `.xlsx` / `.csv` (`POST /api/v1/admin/academic/import-timetable`), và phát thông báo toàn hệ thống (`POST /api/v1/admin/broadcast`).
+- **PWA, Đa ngôn ngữ & Accessibility (`a11y`):** Manifest (`/manifest.webmanifest`) + Service Worker cài đặt lên màn hình chính, chuyển đổi ngôn ngữ **Tiếng Việt / English** (`VI / EN`), skip-link bàn phím, focus-visible và `aria-modal`/`aria-label`.
+- **Pháp lý & Nghị định 13/2023/NĐ-CP (`/privacy`, `/terms`, `/register`):** Trang Chính sách Bảo vệ Dữ liệu Cá nhân & Điều khoản sử dụng, bắt buộc xác nhận đồng ý khi đăng ký và lưu dấu thời gian/phiên bản đồng ý (`consent_accepted_at`, `consent_version`).

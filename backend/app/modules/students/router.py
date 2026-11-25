@@ -11,6 +11,8 @@ from app.modules.students.schemas import (
     AccountDataExportResponse,
     AccountSummaryResponse,
     AccountUpdateRequest,
+    BlockedStudentItem,
+    BlockStudentRequest,
     BulkRequestsActionResponse,
     ChangePasswordRequest,
     DeleteAccountRequest,
@@ -31,6 +33,10 @@ def _profile_to_response(profile, campus_id: uuid.UUID | None = None) -> Profile
         campus_id=campus_id,
         avatar_url=profile.avatar_url,
         bio=profile.bio,
+        share_contact_after_match=bool(profile.share_contact_after_match),
+        trust_score=float(profile.trust_score),
+        completed_swaps_count=int(profile.completed_swaps_count),
+        no_show_count=int(profile.no_show_count),
     )
 
 
@@ -61,6 +67,7 @@ def update_my_profile(
             avatar_url=payload.avatar_url,
             bio=payload.bio,
             campus_id=payload.campus_id,
+            share_contact_after_match=payload.share_contact_after_match,
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -144,6 +151,33 @@ def delete_my_account(
     StudentService(db).delete_own_account(student=student, password=payload.password)
     response.delete_cookie("access_token", path="/")
     response.delete_cookie("refresh_token", path="/api/v1/auth/refresh")
+
+
+@router.get("/me/blocks", response_model=list[BlockedStudentItem])
+def list_my_blocks(
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+) -> list[BlockedStudentItem]:
+    return StudentService(db).list_blocks(student.id)
+
+
+@router.post("/me/blocks/{target_student_id}", response_model=BlockedStudentItem)
+def block_student(
+    target_student_id: uuid.UUID,
+    payload: BlockStudentRequest = Body(default_factory=BlockStudentRequest),
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+) -> BlockedStudentItem:
+    return StudentService(db).block_student(student.id, target_student_id, payload.reason)
+
+
+@router.delete("/me/blocks/{target_student_id}", status_code=status.HTTP_204_NO_CONTENT)
+def unblock_student(
+    target_student_id: uuid.UUID,
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+) -> None:
+    StudentService(db).unblock_student(student.id, target_student_id)
 
 
 @router.get("/{student_id}", response_model=ProfileResponse)

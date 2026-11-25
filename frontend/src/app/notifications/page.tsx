@@ -1,25 +1,133 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Bell,
+  BellRing,
   Check,
   CheckCheck,
+  Mail,
   MessageSquare,
+  Send,
   Sparkles,
   Volume2,
   VolumeX,
 } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
+import { apiFetch } from "@/lib/api";
 import { useAppState } from "@/lib/app-state";
 import { playNotificationBell } from "@/lib/sound";
 
+interface NotificationPrefs {
+  notify_email: boolean;
+  notify_push: boolean;
+  vapid_public_key?: string | null;
+  push_subscriptions_count: number;
+}
+
 export default function NotificationsPage() {
-  const { notifications, markNotificationRead, soundEnabled, toggleSound } =
-    useAppState();
+  const {
+    notifications,
+    isAuthenticated,
+    markNotificationRead,
+    soundEnabled,
+    toggleSound,
+  } = useAppState();
   const [onlyUnread, setOnlyUnread] = useState(false);
+  const [prefs, setPrefs] = useState<NotificationPrefs>({
+    notify_email: true,
+    notify_push: true,
+    push_subscriptions_count: 0,
+  });
+  const [prefNotice, setPrefNotice] = useState<string | null>(null);
+  const [savingPrefs, setSavingPrefs] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+    apiFetch<NotificationPrefs>("/notifications/preferences")
+      .then((data) => {
+        if (!cancelled) setPrefs(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
+
+  const updatePref = async (patch: Partial<Pick<NotificationPrefs, "notify_email" | "notify_push">>) => {
+    setSavingPrefs(true);
+    setPrefNotice(null);
+    try {
+      const updated = await apiFetch<NotificationPrefs>("/notifications/preferences", {
+        method: "PUT",
+        body: JSON.stringify(patch),
+      });
+      setPrefs(updated);
+      setPrefNotice("Đã lưu tùy chọn thông báo ngoài app.");
+    } finally {
+      setSavingPrefs(false);
+    }
+  };
+
+  const handleEnableBrowserPush = async () => {
+    setPrefNotice(null);
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setPrefNotice("Trình duyệt hiện tại không hỗ trợ Web Push.");
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") {
+      setPrefNotice("Bạn chưa cấp quyền thông báo cho trình duyệt.");
+      return;
+    }
+    try {
+      if ("serviceWorker" in navigator) {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          const json = sub.toJSON();
+          if (json.endpoint && json.keys?.p256dh && json.keys?.auth) {
+            await apiFetch("/notifications/push-subscriptions", {
+              method: "POST",
+              body: JSON.stringify({
+                endpoint: json.endpoint,
+                keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+                user_agent: navigator.userAgent.slice(0, 200),
+              }),
+            });
+          }
+        }
+      }
+      await updatePref({ notify_push: true });
+      setPrefNotice("Đã bật thông báo trình duyệt / Web Push thành công.");
+    } catch {
+      setPrefNotice("Đã cấp quyền thông báo trình duyệt.");
+    }
+  };
+
+  const handleTestDispatch = async () => {
+    setPrefNotice(null);
+    try {
+      const res = await apiFetch<{ email_sent: boolean; push_targets: number }>(
+        "/notifications/test-dispatch",
+        { method: "POST" },
+      );
+      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+        new Notification("FPT ClassSwap", {
+          body: "Thông báo thử nghiệm hoạt động bình thường!",
+          icon: "/fpt-logo2.png",
+        });
+      }
+      setPrefNotice(
+        `Đã kiểm tra kênh ngoài app (Email SMTP: ${res.email_sent ? "Đã gửi" : "Sẵn sàng khi cấu hình SMTP"} • Push endpoints: ${res.push_targets}).`,
+      );
+    } catch {
+      setPrefNotice("Không thể gửi kiểm tra thông báo.");
+    }
+  };
 
   const unreadList = useMemo(
     () => notifications.filter((n) => !n.isRead),
@@ -107,6 +215,65 @@ export default function NotificationsPage() {
             Chưa đọc ({unreadList.length})
           </button>
         </div>
+
+        {isAuthenticated && (
+          <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  Thông báo ngoài ứng dụng (Email &amp; Web Push)
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Nhận cảnh báo ngay khi có Like, Match mới hoặc tin nhắn khi bạn đóng tab.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleTestDispatch}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <Send className="h-3.5 w-3.5 text-orange-500" />
+                Kiểm tra gửi
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium dark:border-slate-700">
+                <input
+                  type="checkbox"
+                  checked={prefs.notify_email}
+                  disabled={savingPrefs}
+                  onChange={(e) => void updatePref({ notify_email: e.target.checked })}
+                  className="h-4 w-4 rounded border-slate-300 text-orange-500"
+                />
+                <Mail className="h-3.5 w-3.5 text-orange-500" />
+                Email thông báo
+              </label>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium dark:border-slate-700">
+                <input
+                  type="checkbox"
+                  checked={prefs.notify_push}
+                  disabled={savingPrefs}
+                  onChange={(e) => void updatePref({ notify_push: e.target.checked })}
+                  className="h-4 w-4 rounded border-slate-300 text-orange-500"
+                />
+                <BellRing className="h-3.5 w-3.5 text-orange-500" />
+                Web Push
+              </label>
+              <button
+                type="button"
+                onClick={handleEnableBrowserPush}
+                className="rounded-xl bg-orange-500 px-3 py-2 text-xs font-semibold text-white hover:bg-orange-600"
+              >
+                Cấp quyền Push trình duyệt
+              </button>
+            </div>
+            {prefNotice && (
+              <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                {prefNotice}
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="space-y-3">
           {visibleNotifications.length === 0 ? (

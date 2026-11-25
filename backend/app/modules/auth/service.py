@@ -104,6 +104,8 @@ class AuthService:
             role=role,
             status=AccountStatus.ACTIVE,
             campus_id=campus.id,
+            consent_accepted_at=_utcnow(),
+            consent_version="2026-ND13-v1",
         )
         self.db.add(student)
         self.db.flush()

@@ -16,13 +16,16 @@ from app.common.enums import (
 )
 from app.database.models.academic import AcademicClass
 from app.database.models.communication import Conversation, ConversationMember
-from app.database.models.matching import Match, MatchingRequest, Swipe
+from app.database.models.identity import Student, StudentBlock
+from app.database.models.matching import Match, MatchReview, MatchingRequest, Swipe
 from app.database.models.operations import Notification
 from app.modules.matching.engine import is_compatible
-from app.modules.matching.schemas import SwipeRequest, SwipeResponse
+from app.modules.matching.schemas import MatchReviewCreate, SwipeRequest, SwipeResponse
+from app.modules.notifications.delivery import dispatch_out_of_app
 from app.modules.views import display_name, match_view
 
 MATCH_CONFIRM_DEADLINE_HOURS = 48
+REQUEST_EXPIRING_REMINDER_HOURS = 48
 
 
 def _notify(
@@ -43,6 +46,7 @@ def _notify(
             reference_id=reference_id,
         )
     )
+    dispatch_out_of_app(db, student_id, title, body, kind=notification_type.value)
 
 
 class MatchingService:
@@ -91,8 +95,59 @@ class MatchingService:
                     notification_type=NotificationType.SYSTEM,
                 )
 
+        # Remind active requests within 48h of deadline (once per request)
+        reminder_cutoff = now + timedelta(hours=REQUEST_EXPIRING_REMINDER_HOURS)
+        expiring_soon = (
+            db.query(MatchingRequest)
+            .filter(
+                MatchingRequest.status == SwapRequestStatus.ACTIVE,
+                MatchingRequest.expires_at.isnot(None),
+                MatchingRequest.expires_at > now,
+                MatchingRequest.expires_at <= reminder_cutoff,
+            )
+            .all()
+        )
+        for req in expiring_soon:
+            already_reminded = (
+                db.query(Notification.id)
+                .filter(
+                    Notification.student_id == req.student_id,
+                    Notification.reference_id == req.id,
+                    Notification.title == "Yêu cầu đổi lớp sắp hết hạn",
+                )
+                .first()
+                is not None
+            )
+            if not already_reminded:
+                _notify(
+                    db,
+                    req.student_id,
+                    "Yêu cầu đổi lớp sắp hết hạn",
+                    "Yêu cầu đổi lớp của bạn sẽ hết hạn trong vòng 48 giờ tới. Hãy gia hạn nếu vẫn muốn tìm người đổi.",
+                    req.id,
+                    notification_type=NotificationType.SYSTEM,
+                )
+                changed = True
+
         if changed:
             db.commit()
+
+    @staticmethod
+    def _blocked_student_ids(db: Session, student_id: uuid.UUID) -> set[uuid.UUID]:
+        rows = (
+            db.query(StudentBlock.blocker_id, StudentBlock.blocked_student_id)
+            .filter(
+                or_(
+                    StudentBlock.blocker_id == student_id,
+                    StudentBlock.blocked_student_id == student_id,
+                )
+            )
+            .all()
+        )
+        blocked: set[uuid.UUID] = set()
+        for blocker_id, blocked_id in rows:
+            blocked.add(blocked_id if blocker_id == student_id else blocker_id)
+        return blocked
 
     # ── Discover ────────────────────────────────────────────────
 
@@ -104,6 +159,7 @@ class MatchingService:
         limit: int = 20,
     ) -> list[MatchingRequest]:
         MatchingService.expire_stale_records(db)
+        blocked_ids = MatchingService._blocked_student_ids(db, student_id)
         swiped_ids = {
             row[0]
             for row in db.query(Swipe.target_request_id).filter(
@@ -112,23 +168,20 @@ class MatchingService:
         }
 
         now = datetime.now(timezone.utc)
-        candidates = (
-            db.query(MatchingRequest)
-            .filter(
-                MatchingRequest.status == SwapRequestStatus.ACTIVE,
-                MatchingRequest.student_id != student_id,
-                MatchingRequest.course_id == active_request.course_id,
-                MatchingRequest.semester_id == active_request.semester_id,
-                MatchingRequest.current_class_id == active_request.target_class_id,
-                MatchingRequest.target_class_id == active_request.current_class_id,
-                or_(MatchingRequest.expires_at.is_(None), MatchingRequest.expires_at > now),
-            )
-            .order_by(MatchingRequest.created_at.asc())
-            .limit(limit + len(swiped_ids))
-            .all()
+        q = db.query(MatchingRequest).filter(
+            MatchingRequest.status == SwapRequestStatus.ACTIVE,
+            MatchingRequest.student_id != student_id,
+            MatchingRequest.course_id == active_request.course_id,
+            MatchingRequest.semester_id == active_request.semester_id,
+            MatchingRequest.current_class_id == active_request.target_class_id,
+            MatchingRequest.target_class_id == active_request.current_class_id,
+            or_(MatchingRequest.expires_at.is_(None), MatchingRequest.expires_at > now),
         )
-
-        return [c for c in candidates if c.id not in swiped_ids][:limit]
+        if swiped_ids:
+            q = q.filter(MatchingRequest.id.notin_(swiped_ids))
+        if blocked_ids:
+            q = q.filter(MatchingRequest.student_id.notin_(blocked_ids))
+        return q.order_by(MatchingRequest.created_at.asc()).limit(limit).all()
 
     @staticmethod
     def list_campus_discover_requests(
@@ -139,6 +192,7 @@ class MatchingService:
     ) -> list[MatchingRequest]:
         """Return all ACTIVE, non-expired swap requests posted within the student's campus."""
         MatchingService.expire_stale_records(db)
+        blocked_ids = MatchingService._blocked_student_ids(db, student_id)
         swiped_ids = {
             row[0]
             for row in db.query(Swipe.target_request_id).filter(
@@ -146,7 +200,7 @@ class MatchingService:
             )
         }
         now = datetime.now(timezone.utc)
-        rows = (
+        q = (
             db.query(MatchingRequest)
             .join(AcademicClass, AcademicClass.id == MatchingRequest.current_class_id)
             .filter(
@@ -155,11 +209,12 @@ class MatchingService:
                 AcademicClass.campus_id == campus_id,
                 or_(MatchingRequest.expires_at.is_(None), MatchingRequest.expires_at > now),
             )
-            .order_by(MatchingRequest.created_at.desc())
-            .limit(limit + len(swiped_ids))
-            .all()
         )
-        return [r for r in rows if r.id not in swiped_ids][:limit]
+        if swiped_ids:
+            q = q.filter(MatchingRequest.id.notin_(swiped_ids))
+        if blocked_ids:
+            q = q.filter(MatchingRequest.student_id.notin_(blocked_ids))
+        return q.order_by(MatchingRequest.created_at.desc()).limit(limit).all()
 
     @staticmethod
     def list_busy_course_semesters(
@@ -227,6 +282,8 @@ class MatchingService:
             raise HTTPException(404, "Target request not found")
         if target_req.student_id == student_id:
             raise HTTPException(422, "Cannot swipe on your own request")
+        if target_req.student_id in MatchingService._blocked_student_ids(db, student_id):
+            raise HTTPException(403, "Không thể tương tác vì người dùng đã bị chặn.")
         if target_req.status != SwapRequestStatus.ACTIVE:
             raise HTTPException(422, "Target request is no longer available")
         if not is_compatible(swiper_req, target_req):
@@ -266,6 +323,15 @@ class MatchingService:
         created = False
         if data.action == SwipeAction.LIKE:
             match, created = MatchingService._try_create_match(db, swiper_req, target_req)
+            if not created and match is None:
+                _notify(
+                    db,
+                    target_req.student_id,
+                    "Có sinh viên vừa Like yêu cầu của bạn!",
+                    f"{display_name(db, student_id)} đã thích yêu cầu đổi lớp của bạn. Vào Discover để xem và phản hồi.",
+                    target_req.id,
+                    notification_type=NotificationType.MATCH,
+                )
 
         db.commit()
         db.refresh(swipe)
@@ -306,6 +372,25 @@ class MatchingService:
 
         existing = MatchingService._find_match(db, req_a.id, req_b.id)
         if existing:
+            if existing.status == MatchStatus.CANCELLED:
+                existing.status = MatchStatus.PENDING_CONFIRMATION
+                existing.student_a_confirmed = False
+                existing.student_b_confirmed = False
+                existing.confirm_deadline_at = datetime.now(timezone.utc) + timedelta(
+                    hours=MATCH_CONFIRM_DEADLINE_HOURS
+                )
+                db.flush()
+                for me, partner in ((req_a, req_b), (req_b, req_a)):
+                    view = match_view(db, existing, me.student_id)
+                    _notify(
+                        db,
+                        me.student_id,
+                        f"Match mới cho môn {view.course_code or ''}!".strip(),
+                        f"Bạn và {display_name(db, partner.student_id)} đã cùng Like "
+                        f"({view.my_class_code} ⇄ {view.partner_class_code}). Vui lòng xác nhận trong vòng 48 giờ.",
+                        existing.id,
+                    )
+                return existing, True
             return existing, False
 
         low_id, high_id = sorted([req_a.id, req_b.id], key=lambda x: str(x))
@@ -513,3 +598,112 @@ class MatchingService:
         db.commit()
         db.refresh(match)
         return match
+
+    @staticmethod
+    def undo_last_swipe(db: Session, student_id: uuid.UUID) -> dict:
+        last_swipe = (
+            db.query(Swipe)
+            .filter(Swipe.swiper_student_id == student_id)
+            .order_by(Swipe.created_at.desc())
+            .first()
+        )
+        if last_swipe is None:
+            raise HTTPException(404, "Chưa có lượt vuốt nào để hoàn tác.")
+
+        cancelled_match_id: uuid.UUID | None = None
+        match = MatchingService._find_match(
+            db, last_swipe.swiper_request_id, last_swipe.target_request_id
+        )
+        if match is not None:
+            if match.status in (MatchStatus.CONFIRMED, MatchStatus.COMPLETED):
+                raise HTTPException(422, "Match đã được chốt, không thể hoàn tác lượt vuốt.")
+            if match.status == MatchStatus.PENDING_CONFIRMATION:
+                match.status = MatchStatus.CANCELLED
+                cancelled_match_id = match.id
+                partner_id = MatchingService.partner_id(match, student_id)
+                _notify(
+                    db,
+                    partner_id,
+                    "Match chờ đã bị hủy do hoàn tác",
+                    f"{display_name(db, student_id)} đã hoàn tác lượt vuốt trước đó.",
+                    match.id,
+                    notification_type=NotificationType.SYSTEM,
+                )
+
+        undone_id = last_swipe.id
+        target_req_id = last_swipe.target_request_id
+        db.delete(last_swipe)
+        db.commit()
+        return {
+            "undone_swipe_id": undone_id,
+            "target_request_id": target_req_id,
+            "cancelled_match_id": cancelled_match_id,
+        }
+
+    @staticmethod
+    def review_match(
+        db: Session,
+        match_id: uuid.UUID,
+        student_id: uuid.UUID,
+        data: MatchReviewCreate,
+    ) -> MatchReview:
+        match = MatchingService.get_match(db, match_id, student_id)
+        if match.status not in (MatchStatus.CONFIRMED, MatchStatus.COMPLETED):
+            raise HTTPException(
+                422, "Chỉ có thể đánh giá sau khi hai bên đã xác nhận hoặc hoàn tất đổi lớp."
+            )
+
+        already = (
+            db.query(MatchReview.id)
+            .filter(
+                MatchReview.match_id == match.id,
+                MatchReview.reviewer_id == student_id,
+            )
+            .first()
+        )
+        if already is not None:
+            raise HTTPException(409, "Bạn đã đánh giá đối tác cho Match này rồi.")
+
+        partner_id = MatchingService.partner_id(match, student_id)
+        review = MatchReview(
+            match_id=match.id,
+            reviewer_id=student_id,
+            reviewee_id=partner_id,
+            rating=data.rating,
+            outcome=data.outcome,
+            comment=data.comment.strip() if data.comment else None,
+        )
+        db.add(review)
+        db.flush()
+
+        # Recompute partner reputation metrics
+        all_reviews = (
+            db.query(MatchReview)
+            .filter(MatchReview.reviewee_id == partner_id)
+            .all()
+        )
+        partner = db.get(Student, partner_id)
+        if partner and partner.profile and all_reviews:
+            avg_rating = sum(r.rating for r in all_reviews) / len(all_reviews)
+            partner.profile.trust_score = round(max(1.0, min(5.0, avg_rating)), 2)
+            partner.profile.completed_swaps_count = sum(
+                1 for r in all_reviews if r.outcome == "SUCCESS"
+            )
+            partner.profile.no_show_count = sum(
+                1 for r in all_reviews if r.outcome == "NO_SHOW"
+            )
+
+        _notify(
+            db,
+            partner_id,
+            "Bạn nhận được đánh giá đổi lớp",
+            (
+                f"{display_name(db, student_id)} đã đánh giá {data.rating}★"
+                + (" (Báo bỏ hẹn)" if data.outcome == "NO_SHOW" else " (Đổi thành công)")
+            ),
+            match.id,
+            notification_type=NotificationType.SYSTEM,
+        )
+        db.commit()
+        db.refresh(review)
+        return review

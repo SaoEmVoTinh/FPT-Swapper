@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Flag, Search, Send, X } from "lucide-react";
+import { ArrowLeft, Ban, CheckCheck, Flag, ImagePlus, Loader2, Search, Send, X } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { MatchStatusBadge } from "@/components/StatusBadge";
@@ -23,12 +23,21 @@ const REPORT_REASONS = [
 export default function ChatPage() {
   const {
     student,
+    isAuthenticated,
     conversations,
     messages,
+    typingByConv,
     sendMessage,
+    sendImageMessage,
+    sendTyping,
+    markConversationRead,
     loadConversationMessages,
     realtimeStatus,
     updateMatchStatus,
+    submitReport,
+    blockStudent,
+    actionError,
+    clearActionError,
   } = useAppState();
 
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -47,7 +56,15 @@ export default function ChatPage() {
   const [reportedIds, setReportedIds] = useState<Record<string, boolean>>({});
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportReason, setReportReason] = useState(REPORT_REASONS[0]);
+  const [reportDetails, setReportDetails] = useState("");
+  const [submittingReport, setSubmittingReport] = useState(false);
+  const [blockingPartner, setBlockingPartner] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [chatNotice, setChatNotice] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const typingStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filteredConversations = useMemo(() => {
     const q = convSearch.trim().toLowerCase();
@@ -64,9 +81,10 @@ export default function ChatPage() {
   const activeConv =
     conversations.find((c) => c.id === selectedId) || conversations[0] || null;
 
-  const activeMessages = activeConv
-    ? messages.filter((m) => m.conversationId === activeConv.id)
-    : [];
+  const activeMessages = useMemo(
+    () => (activeConv ? messages.filter((m) => m.conversationId === activeConv.id) : []),
+    [activeConv, messages],
+  );
 
   useEffect(() => {
     if (activeConv?.id) {
@@ -78,18 +96,128 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [activeMessages.length]);
 
+  useEffect(() => {
+    if (!activeConv?.id || activeMessages.length === 0) return;
+    const latest = activeMessages[activeMessages.length - 1];
+    if (latest && latest.senderId !== student.id) {
+      markConversationRead(activeConv.id);
+    }
+  }, [activeConv?.id, activeMessages, student.id, markConversationRead]);
+
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeConv || !draft.trim()) return;
     sendMessage(activeConv.id, draft);
+    sendTyping(activeConv.id, false);
     setDraft("");
+  };
+
+  const handleDraftChange = (val: string) => {
+    setDraft(val);
+    if (!activeConv) return;
+    sendTyping(activeConv.id, Boolean(val.trim()));
+    if (typingStopRef.current) clearTimeout(typingStopRef.current);
+    if (val.trim()) {
+      typingStopRef.current = setTimeout(() => {
+        sendTyping(activeConv.id, false);
+      }, 2200);
+    }
+  };
+
+  const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !activeConv) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      setChatNotice("Chỉ hỗ trợ ảnh TKB định dạng PNG, JPG hoặc WEBP.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setChatNotice("Ảnh TKB tối đa 2MB.");
+      return;
+    }
+    setUploadingImage(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        if (typeof reader.result === "string") {
+          await sendImageMessage(activeConv.id, reader.result, draft.trim() || undefined);
+          if (draft.trim()) setDraft("");
+        }
+      } catch {
+        // handled by actionError
+      } finally {
+        setUploadingImage(false);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const isReported = activeConv ? Boolean(reportedIds[activeConv.id]) : false;
 
+  const handleBlockPartner = async () => {
+    if (!activeConv?.partnerId || blockingPartner) return;
+    setBlockingPartner(true);
+    clearActionError();
+    try {
+      await blockStudent(activeConv.partnerId, "Chặn từ màn hình Chat");
+      setChatNotice(`Đã chặn ${activeConv.partnerName}. Bạn có thể bỏ chặn trong Hồ sơ → Hoạt động & Dữ liệu.`);
+    } catch {
+      // handled by actionError
+    } finally {
+      setBlockingPartner(false);
+    }
+  };
+
+  const handleSubmitReport = async () => {
+    if (!activeConv || submittingReport) return;
+    setSubmittingReport(true);
+    clearActionError();
+    try {
+      await submitReport({
+        conversationId: isAuthenticated ? activeConv.id : undefined,
+        reportedStudentId: activeConv.partnerId,
+        reason: reportReason,
+        details: reportDetails.trim() || undefined,
+      });
+      setReportedIds((prev) => ({ ...prev, [activeConv.id]: true }));
+      setReportDetails("");
+      setReportModalOpen(false);
+      setChatNotice("Đã gửi báo cáo vi phạm tới Ban quản trị để xem xét.");
+    } catch {
+      // handled by actionError
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
+
   return (
     <AppShell>
       <div className="space-y-4">
+        {actionError && (
+          <div className="flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/35 dark:bg-rose-500/15 dark:text-rose-200">
+            <span>{actionError}</span>
+            <button
+              type="button"
+              onClick={clearActionError}
+              className="text-xs font-semibold underline"
+            >
+              Đóng
+            </button>
+          </div>
+        )}
+        {chatNotice && (
+          <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/35 dark:bg-emerald-500/15 dark:text-emerald-200">
+            <span>{chatNotice}</span>
+            <button
+              type="button"
+              onClick={() => setChatNotice(null)}
+              className="text-xs font-semibold underline"
+            >
+              Đóng
+            </button>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
@@ -228,6 +356,11 @@ export default function ChatPage() {
                       <p className="text-xs text-slate-600 dark:text-slate-400">
                         {activeConv.courseCode} • {activeConv.myClassCode} ⇄{" "}
                         {activeConv.partnerClassCode}
+                        {typingByConv[activeConv.id] && (
+                          <span className="ml-2 font-semibold text-orange-600 dark:text-orange-400">
+                            • Đang nhập...
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -244,22 +377,49 @@ export default function ChatPage() {
                         Xác nhận đổi lớp
                       </button>
                     )}
-                    <button
-                      type="button"
-                      disabled={isReported}
-                      onClick={() => setReportModalOpen(true)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                    >
-                      <Flag className="h-3.5 w-3.5" />
-                      {isReported ? "Đã báo cáo" : "Báo cáo"}
-                    </button>
+                    {(!isAuthenticated || activeConv.partnerId) && (
+                      <button
+                        type="button"
+                        disabled={isReported}
+                        onClick={() => setReportModalOpen(true)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                      >
+                        <Flag className="h-3.5 w-3.5" />
+                        {isReported ? "Đã báo cáo" : "Báo cáo"}
+                      </button>
+                    )}
+                    {isAuthenticated && activeConv.partnerId && (
+                      <button
+                        type="button"
+                        disabled={blockingPartner}
+                        onClick={handleBlockPartner}
+                        className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-60 dark:border-rose-500/35 dark:bg-slate-800 dark:text-rose-300 dark:hover:bg-rose-500/15"
+                      >
+                        <Ban className="h-3.5 w-3.5" />
+                        Chặn
+                      </button>
+                    )}
                   </div>
                 </div>
 
                 {/* Messages */}
                 <div className="flex-1 space-y-3 overflow-y-auto bg-white p-4 dark:bg-slate-950/60">
-                  {activeMessages.map((msg) => {
+                  {activeMessages.map((msg, msgIdx) => {
                     const isMe = msg.senderId === student.id;
+                    const isLastMine =
+                      isMe &&
+                      msgIdx ===
+                        activeMessages.reduce(
+                          (last, item, idx) => (item.senderId === student.id ? idx : last),
+                          -1,
+                        );
+                    const isReadByPartner = Boolean(
+                      isLastMine &&
+                        activeConv.partnerLastReadAt &&
+                        msg.rawCreatedAt &&
+                        new Date(activeConv.partnerLastReadAt).getTime() >=
+                          new Date(msg.rawCreatedAt).getTime(),
+                    );
                     return (
                       <div
                         key={msg.id}
@@ -272,22 +432,49 @@ export default function ChatPage() {
                               : "rounded-bl-sm bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100"
                           }`}
                         >
+                          {msg.attachmentUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setLightboxUrl(msg.attachmentUrl || null)}
+                              className="mb-2 block overflow-hidden rounded-xl border border-black/10"
+                              aria-label="Phóng to ảnh TKB"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={msg.attachmentUrl}
+                                alt="Ảnh thời khóa biểu"
+                                className="max-h-56 w-auto rounded-xl object-contain"
+                              />
+                            </button>
+                          )}
                           <p className="leading-relaxed">{msg.content}</p>
                           <p
-                            className={`mt-1 text-[10px] ${
+                            className={`mt-1 flex items-center gap-1 text-[10px] ${
                               isMe
-                                ? "text-orange-100"
+                                ? "justify-end text-orange-100"
                                 : "text-slate-400 dark:text-slate-500"
                             }`}
                           >
-                            {msg.createdAt}
+                            <span>{msg.createdAt}</span>
                             {msg.pending ? " • Đang gửi..." : ""}
                             {msg.failed ? " • Gửi thất bại" : ""}
+                            {isReadByPartner && (
+                              <span className="inline-flex items-center gap-0.5 font-semibold">
+                                • <CheckCheck className="h-3 w-3" /> Đã xem
+                              </span>
+                            )}
                           </p>
                         </div>
                       </div>
                     );
                   })}
+                  {typingByConv[activeConv.id] && (
+                    <div className="flex justify-start">
+                      <div className="rounded-2xl rounded-bl-sm bg-slate-100 px-3.5 py-2 text-xs italic text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                        {activeConv.partnerName} đang nhập...
+                      </div>
+                    </div>
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
 
@@ -311,9 +498,30 @@ export default function ChatPage() {
                   className="flex items-center gap-2 border-t border-slate-200 bg-slate-50/50 p-3 dark:border-slate-800 dark:bg-slate-900"
                 >
                   <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={handleImagePick}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    disabled={uploadingImage}
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Gửi ảnh thời khóa biểu"
+                    aria-label="Gửi ảnh thời khóa biểu"
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                  >
+                    {uploadingImage ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ImagePlus className="h-4 w-4" />
+                    )}
+                  </button>
+                  <input
                     type="text"
                     value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
+                    onChange={(e) => handleDraftChange(e.target.value)}
                     placeholder="Nhập tin nhắn trao đổi lịch đổi lớp..."
                     className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                   />
@@ -333,7 +541,12 @@ export default function ChatPage() {
 
       {/* Report Modal */}
       {reportModalOpen && activeConv && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Báo cáo vi phạm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs"
+        >
           <div className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-xl dark:border dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
@@ -367,6 +580,19 @@ export default function ChatPage() {
                 </label>
               ))}
             </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                Mô tả chi tiết (tùy chọn)
+              </label>
+              <textarea
+                rows={3}
+                maxLength={1000}
+                value={reportDetails}
+                onChange={(e) => setReportDetails(e.target.value)}
+                placeholder="Ghi rõ thời gian hẹn, tin nhắn liên quan hoặc lý do cụ thể..."
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              />
+            </div>
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
@@ -377,15 +603,41 @@ export default function ChatPage() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setReportedIds((prev) => ({ ...prev, [activeConv.id]: true }));
-                  setReportModalOpen(false);
-                }}
-                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700"
+                disabled={submittingReport}
+                onClick={handleSubmitReport}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
               >
-                Gửi báo cáo
+                {submittingReport ? "Đang gửi..." : "Gửi báo cáo"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Lightbox Modal */}
+      {lightboxUrl && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Xem ảnh TKB"
+          onClick={() => setLightboxUrl(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4"
+        >
+          <div className="relative max-h-[90vh] max-w-4xl">
+            <button
+              type="button"
+              onClick={() => setLightboxUrl(null)}
+              aria-label="Đóng ảnh"
+              className="absolute -right-2 -top-2 rounded-full bg-white p-1.5 text-slate-800 shadow-lg"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={lightboxUrl}
+              alt="Ảnh thời khóa biểu phóng to"
+              className="max-h-[85vh] rounded-2xl object-contain"
+            />
           </div>
         </div>
       )}

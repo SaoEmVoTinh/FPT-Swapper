@@ -57,6 +57,7 @@ class ConversationStatus(str, Enum):
 
 class MessageType(str, Enum):
     TEXT = "TEXT"
+    IMAGE = "IMAGE"
     SYSTEM = "SYSTEM"
 
 

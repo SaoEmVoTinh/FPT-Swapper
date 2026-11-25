@@ -8,12 +8,24 @@ from app.database.models.identity import Student
 from app.database.models.matching import Match
 from app.database.session import get_db
 from app.modules.class_swap.service import ClassSwapService
+from app.modules.matching.cycles import (
+    accept_three_way_cycle,
+    decline_three_way_cycle,
+    list_three_way_cycles,
+)
 from app.modules.matching.engine import is_compatible
+from app.modules.matching.insights import build_swap_insights
 from app.modules.matching.schemas import (
     DiscoverItem,
     MatchResponse,
+    MatchReviewCreate,
+    MatchReviewResponse,
+    SwapInsightsResponse,
     SwipeRequest,
     SwipeResponse,
+    ThreeWayAcceptRequest,
+    ThreeWayCycleItem,
+    UndoSwipeResponse,
 )
 from app.modules.matching.service import MatchingService
 from app.modules.realtime.hub import realtime_hub
@@ -48,6 +60,7 @@ def discover(
                 candidate,
                 mine,
                 MatchingService.has_liked(db, candidate.id, mine.id),
+                viewer_id=current_student.id,
             )
             for candidate in MatchingService.get_discover_candidates(
                 db, current_student.id, mine, limit
@@ -84,6 +97,7 @@ def discover(
                 compatible_mine,
                 reciprocal,
                 has_course_conflict=conflict,
+                viewer_id=current_student.id,
             )
         )
 
@@ -158,3 +172,59 @@ def complete_match(
     match = MatchingService.complete_match(db, match_id, current_student.id)
     _emit_match_event(match)
     return match_view(db, match, current_student.id)
+
+
+@router.post("/swipes/undo", response_model=UndoSwipeResponse)
+def undo_last_swipe(
+    current_student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+):
+    return MatchingService.undo_last_swipe(db, current_student.id)
+
+
+@router.post("/matches/{match_id}/review", response_model=MatchReviewResponse)
+def review_match(
+    match_id: uuid.UUID,
+    data: MatchReviewCreate,
+    current_student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+):
+    return MatchingService.review_match(db, match_id, current_student.id, data)
+
+
+@router.get("/cycles", response_model=list[ThreeWayCycleItem])
+def list_cycles(
+    limit: int = Query(20, ge=1, le=50),
+    current_student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+):
+    return list_three_way_cycles(db, current_student.id, current_student.campus_id, limit)
+
+
+@router.post("/cycles/accept", response_model=ThreeWayCycleItem)
+def accept_cycle(
+    data: ThreeWayAcceptRequest,
+    current_student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+):
+    return accept_three_way_cycle(
+        db, current_student.id, data.req_a_id, data.req_b_id, data.req_c_id
+    )
+
+
+@router.post("/cycles/{proposal_id}/decline", response_model=ThreeWayCycleItem)
+def decline_cycle(
+    proposal_id: uuid.UUID,
+    current_student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+):
+    return decline_three_way_cycle(db, proposal_id, current_student.id)
+
+
+@router.get("/insights", response_model=SwapInsightsResponse)
+def get_swap_insights(
+    limit: int = Query(8, ge=1, le=20),
+    current_student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+):
+    return build_swap_insights(db, current_student.id, current_student.campus_id, limit=limit)

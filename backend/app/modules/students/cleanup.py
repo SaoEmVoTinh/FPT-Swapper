@@ -16,13 +16,17 @@ from app.database.models import (
     Conversation,
     ConversationMember,
     Match,
+    MatchReview,
     MatchingRequest,
     Message,
     Notification,
+    PushSubscription,
     RefreshToken,
     Report,
     Student,
+    StudentBlock,
     Swipe,
+    ThreeWaySwapProposal,
 )
 
 
@@ -83,6 +87,43 @@ def cancel_student_matches_and_notify(
                 reference_id=match.id,
             )
         )
+
+    # Cancel open 3-way swap proposals involving this student and reopen partner requests
+    open_proposals = (
+        db.query(ThreeWaySwapProposal)
+        .filter(
+            or_(
+                ThreeWaySwapProposal.student_a_id == student_id,
+                ThreeWaySwapProposal.student_b_id == student_id,
+                ThreeWaySwapProposal.student_c_id == student_id,
+            ),
+            ThreeWaySwapProposal.status.in_(
+                [MatchStatus.PENDING_CONFIRMATION, MatchStatus.CONFIRMED]
+            ),
+        )
+        .all()
+    )
+    for prop in open_proposals:
+        was_confirmed = prop.status == MatchStatus.CONFIRMED
+        prop.status = MatchStatus.CANCELLED
+        cancelled_count += 1
+        if was_confirmed:
+            for rid in (prop.req_a_id, prop.req_b_id, prop.req_c_id):
+                req = db.get(MatchingRequest, rid)
+                if req is not None and req.student_id != student_id and req.status == SwapRequestStatus.MATCHED:
+                    req.status = SwapRequestStatus.ACTIVE
+        for sid in (prop.student_a_id, prop.student_b_id, prop.student_c_id):
+            if sid != student_id:
+                db.add(
+                    Notification(
+                        student_id=sid,
+                        notification_type=NotificationType.SYSTEM,
+                        title="Vòng đổi lớp 3 bên đã hủy",
+                        body=reason_text,
+                        is_read=False,
+                        reference_id=prop.id,
+                    )
+                )
 
     # Hide/cancel user's own non-terminal requests immediately
     db.query(MatchingRequest).filter(
@@ -171,10 +212,42 @@ def purge_student_account(db: Session, target_id: uuid.UUID) -> tuple[str, str]:
             [Swipe.swiper_request_id.in_(req_ids), Swipe.target_request_id.in_(req_ids)]
         )
     db.query(Swipe).filter(or_(*swipe_filters)).delete(synchronize_session=False)
+    db.query(MatchReview).filter(
+        or_(MatchReview.reviewer_id == target_id, MatchReview.reviewee_id == target_id)
+    ).delete(synchronize_session=False)
+    proposals = (
+        db.query(ThreeWaySwapProposal)
+        .filter(
+            or_(
+                ThreeWaySwapProposal.student_a_id == target_id,
+                ThreeWaySwapProposal.student_b_id == target_id,
+                ThreeWaySwapProposal.student_c_id == target_id,
+            )
+        )
+        .all()
+    )
+    for prop in proposals:
+        convs = (
+            db.query(Conversation)
+            .filter(
+                Conversation.source_type == ConversationSourceType.CLASS_SWAP,
+                Conversation.source_id == prop.id,
+            )
+            .all()
+        )
+        for conv in convs:
+            db.delete(conv)
+        db.delete(prop)
+    db.query(StudentBlock).filter(
+        or_(StudentBlock.blocker_id == target_id, StudentBlock.blocked_student_id == target_id)
+    ).delete(synchronize_session=False)
     db.query(MatchingRequest).filter(
         MatchingRequest.student_id == target_id
     ).delete(synchronize_session=False)
     db.query(Notification).filter(Notification.student_id == target_id).delete(
+        synchronize_session=False
+    )
+    db.query(PushSubscription).filter(PushSubscription.student_id == target_id).delete(
         synchronize_session=False
     )
     db.query(RefreshToken).filter(RefreshToken.student_id == target_id).delete(

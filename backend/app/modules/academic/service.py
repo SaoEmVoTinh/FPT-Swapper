@@ -1,5 +1,6 @@
 import uuid
 
+from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -122,8 +123,15 @@ class CourseService:
 
     @staticmethod
     def delete(db: Session, course: Course) -> None:
-        db.delete(course)
-        db.commit()
+        try:
+            db.delete(course)
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Không thể xóa môn học vì đang có lớp học hoặc yêu cầu đổi lớp tham chiếu.",
+            )
 
 
 # ───────────────────────── AcademicClass ─────────────────────────
@@ -185,12 +193,33 @@ class ClassService:
 
 
 # Default timetable slots used when a course has no classes yet for a campus/semester.
+# Regular courses: 2h15m per slot with 15m breaks in morning/afternoon.
 DEFAULT_CLASS_SLOTS: list[tuple[str, str, str]] = [
-    ("01", "Thứ 2 & Thứ 4", "Slot 1 (07:30 - 09:50)"),
-    ("02", "Thứ 2 & Thứ 4", "Slot 2 (10:00 - 12:20)"),
-    ("03", "Thứ 3 & Thứ 5", "Slot 3 (12:50 - 15:10)"),
-    ("04", "Thứ 3 & Thứ 5", "Slot 4 (15:20 - 17:40)"),
+    ("01", "Thứ 2 & Thứ 4", "Slot 1 (07:00 - 09:15)"),
+    ("02", "Thứ 2 & Thứ 4", "Slot 2 (09:30 - 11:45)"),
+    ("03", "Thứ 3 & Thứ 5", "Slot 3 (12:30 - 14:45)"),
+    ("04", "Thứ 3 & Thứ 5", "Slot 4 (15:00 - 17:15)"),
 ]
+
+# Vovinam (VOV*) courses: 1h30m per slot, 15m apart (07:00-12:00 & 12:30-17:30).
+DEFAULT_VOVINAM_SLOTS: list[tuple[str, str, str]] = [
+    ("01", "Thứ 2 & Thứ 4", "Slot 1 (07:00 - 08:30)"),
+    ("02", "Thứ 2 & Thứ 4", "Slot 2 (08:45 - 10:15)"),
+    ("03", "Thứ 2 & Thứ 4", "Slot 3 (10:30 - 12:00)"),
+    ("04", "Thứ 3 & Thứ 5", "Slot 4 (12:30 - 14:00)"),
+    ("05", "Thứ 3 & Thứ 5", "Slot 5 (14:15 - 15:45)"),
+    ("06", "Thứ 3 & Thứ 5", "Slot 6 (16:00 - 17:30)"),
+]
+
+
+def is_vovinam_course_code(course_code: str | None) -> bool:
+    return bool(course_code and course_code.strip().upper().startswith("VOV"))
+
+
+def default_slots_for_course(course_code: str | None) -> list[tuple[str, str, str]]:
+    if is_vovinam_course_code(course_code):
+        return DEFAULT_VOVINAM_SLOTS
+    return DEFAULT_CLASS_SLOTS
 
 
 def ensure_default_classes(
@@ -213,9 +242,10 @@ def ensure_default_classes(
     if len(existing) >= 2:
         return existing
 
+    slot_templates = default_slots_for_course(course.code)
     existing_codes = {c.code for c in existing}
     try:
-        for suffix, day, slot in DEFAULT_CLASS_SLOTS:
+        for suffix, day, slot in slot_templates:
             code = f"{course.code}_{campus.code}_{suffix}"
             if code in existing_codes:
                 continue

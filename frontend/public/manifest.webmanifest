@@ -1,0 +1,26 @@
+{
+  "name": "FPT ClassSwap — Kết nối đổi lớp sinh viên FPT",
+  "short_name": "ClassSwap",
+  "description": "Nền tảng hỗ trợ kết nối sinh viên FPT tìm người đổi lớp học tương thích theo cơ chế matching hai chiều.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#f97316",
+  "lang": "vi",
+  "icons": [
+    {
+      "src": "/fpt-logo2.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/fpt-logo2.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

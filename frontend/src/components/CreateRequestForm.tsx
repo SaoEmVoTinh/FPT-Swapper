@@ -9,10 +9,19 @@ import { useAppState } from "@/lib/app-state";
 import { AcademicClass } from "@/types";
 
 const DEFAULT_SLOTS = [
-  { suffix: "01", dayOfWeek: "Thứ 2 & Thứ 4", slot: "Slot 1 (07:30 - 09:50)" },
-  { suffix: "02", dayOfWeek: "Thứ 2 & Thứ 4", slot: "Slot 2 (10:00 - 12:20)" },
-  { suffix: "03", dayOfWeek: "Thứ 3 & Thứ 5", slot: "Slot 3 (12:50 - 15:10)" },
-  { suffix: "04", dayOfWeek: "Thứ 3 & Thứ 5", slot: "Slot 4 (15:20 - 17:40)" },
+  { suffix: "01", dayOfWeek: "Thứ 2 & Thứ 4", slot: "Slot 1 (07:00 - 09:15)" },
+  { suffix: "02", dayOfWeek: "Thứ 2 & Thứ 4", slot: "Slot 2 (09:30 - 11:45)" },
+  { suffix: "03", dayOfWeek: "Thứ 3 & Thứ 5", slot: "Slot 3 (12:30 - 14:45)" },
+  { suffix: "04", dayOfWeek: "Thứ 3 & Thứ 5", slot: "Slot 4 (15:00 - 17:15)" },
+];
+
+const VOVINAM_SLOTS = [
+  { suffix: "01", dayOfWeek: "Thứ 2 & Thứ 4", slot: "Slot 1 (07:00 - 08:30)" },
+  { suffix: "02", dayOfWeek: "Thứ 2 & Thứ 4", slot: "Slot 2 (08:45 - 10:15)" },
+  { suffix: "03", dayOfWeek: "Thứ 2 & Thứ 4", slot: "Slot 3 (10:30 - 12:00)" },
+  { suffix: "04", dayOfWeek: "Thứ 3 & Thứ 5", slot: "Slot 4 (12:30 - 14:00)" },
+  { suffix: "05", dayOfWeek: "Thứ 3 & Thứ 5", slot: "Slot 5 (14:15 - 15:45)" },
+  { suffix: "06", dayOfWeek: "Thứ 3 & Thứ 5", slot: "Slot 6 (16:00 - 17:30)" },
 ];
 
 interface ApiClassItem {
@@ -174,7 +183,11 @@ export function CreateRequestForm({
     const campus = campuses.find((cp) => cp.id === campusId);
     const campusTag = campus?.code || "HN";
 
-    return DEFAULT_SLOTS.map((s) => ({
+    const slotTemplates = course.code.toUpperCase().startsWith("VOV")
+      ? VOVINAM_SLOTS
+      : DEFAULT_SLOTS;
+
+    return slotTemplates.map((s) => ({
       id: `cls-${course.code.toLowerCase()}-${campusTag.toLowerCase()}-${s.suffix}`,
       code: `${course.code}_${campusTag}_${s.suffix}`,
       courseId,

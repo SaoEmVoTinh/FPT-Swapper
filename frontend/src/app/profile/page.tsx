@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
+  Ban,
   Download,
   KeyRound,
   Loader2,
@@ -13,6 +14,7 @@ import {
   PlayCircle,
   Save,
   Shield,
+  Star,
   Trash2,
   User,
 } from "lucide-react";
@@ -21,7 +23,7 @@ import { AppShell } from "@/components/AppShell";
 import { MajorSelect } from "@/components/MajorSelect";
 import { ApiError, apiFetch } from "@/lib/api";
 import { useAppState } from "@/lib/app-state";
-import { Campus, StudentProfile } from "@/types";
+import { BlockedStudent, Campus, StudentProfile } from "@/types";
 
 const SUPER_ADMIN_EMAIL = "pmquan1406@gmail.com";
 
@@ -41,6 +43,10 @@ interface AccountSummary {
   campus_name?: string | null;
   avatar_url?: string | null;
   bio?: string | null;
+  share_contact_after_match?: boolean;
+  trust_score?: number;
+  completed_swaps_count?: number;
+  no_show_count?: number;
   total_requests: number;
   active_requests: number;
   paused_requests: number;
@@ -73,6 +79,9 @@ function ProfileForm({
   const [campusId, setCampusId] = useState(student.campusId);
   const [avatarUrl, setAvatarUrl] = useState(student.avatarUrl || "");
   const [bio, setBio] = useState(initialBio);
+  const [shareContact, setShareContact] = useState(
+    Boolean(student.shareContactAfterMatch),
+  );
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -94,6 +103,7 @@ function ProfileForm({
         campusName: campus?.name || student.campusName,
         avatarUrl: avatarUrl.trim(),
         bio: bio.trim(),
+        shareContactAfterMatch: shareContact,
       });
       setSaved(true);
       onSaved();
@@ -197,6 +207,25 @@ function ProfileForm({
         />
       </div>
 
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 text-sm dark:border-slate-700 dark:bg-slate-800/70">
+        <input
+          type="checkbox"
+          checked={shareContact}
+          onChange={(e) => setShareContact(e.target.checked)}
+          disabled={saving}
+          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
+        />
+        <div>
+          <p className="font-semibold text-slate-800 dark:text-slate-100">
+            Chia sẻ Email &amp; MSSV đầy đủ sau khi Match được xác nhận
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Mặc định thông tin liên hệ ngoài được ẩn. Chỉ khi bạn bật tùy chọn này
+            và hai bên cùng xác nhận đổi lớp, đối tác mới nhìn thấy Email &amp; MSSV của bạn.
+          </p>
+        </div>
+      </label>
+
       <div className="flex justify-end pt-2">
         <button
           type="submit"
@@ -245,6 +274,8 @@ export default function ProfilePage() {
 
   // Activity bulk actions / export
   const [busyActivity, setBusyActivity] = useState(false);
+  const [blocks, setBlocks] = useState<BlockedStudent[]>([]);
+  const [unblockingId, setUnblockingId] = useState<string | null>(null);
 
   // Self-delete account
   const [deletePassword, setDeletePassword] = useState("");
@@ -263,12 +294,18 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!isAuthenticated) return;
     let cancelled = false;
-    fetchSummary()
-      .then((data) => {
-        if (cancelled || !data) return;
-        setSummary(data);
-        setIdentityEmail(data.email);
-        setIdentityCode(data.student_code);
+    Promise.all([
+      fetchSummary(),
+      apiFetch<BlockedStudent[]>("/students/me/blocks").catch(() => []),
+    ])
+      .then(([data, blockRows]) => {
+        if (cancelled) return;
+        if (data) {
+          setSummary(data);
+          setIdentityEmail(data.email);
+          setIdentityCode(data.student_code);
+        }
+        setBlocks(blockRows);
       })
       .catch(() => {
         // ignore background summary error
@@ -277,6 +314,22 @@ export default function ProfilePage() {
       cancelled = true;
     };
   }, [isAuthenticated, fetchSummary]);
+
+  async function handleUnblock(targetId: string) {
+    setUnblockingId(targetId);
+    setNotice("");
+    setErrorMsg("");
+    try {
+      await apiFetch(`/students/me/blocks/${targetId}`, { method: "DELETE" });
+      setBlocks((prev) => prev.filter((b) => b.student_id !== targetId));
+      setNotice("Đã bỏ chặn người dùng.");
+      await refreshWorkspace();
+    } catch (err) {
+      setErrorMsg(err instanceof ApiError ? err.message : "Không thể bỏ chặn.");
+    } finally {
+      setUnblockingId(null);
+    }
+  }
 
   async function reloadSummary() {
     if (!isAuthenticated) return;
@@ -479,6 +532,13 @@ export default function ProfilePage() {
                 </span>
                 <span className="rounded-lg bg-orange-50 px-2.5 py-0.5 text-xs font-semibold text-orange-700 dark:bg-orange-500/15 dark:text-orange-300">
                   {student.role}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                  <Star className="h-3.5 w-3.5 fill-current" />
+                  Uy tín {(summary?.trust_score ?? student.trustScore ?? 5).toFixed(1)}
+                  {(summary?.completed_swaps_count ?? 0) > 0
+                    ? ` · ${summary?.completed_swaps_count} đổi thành công`
+                    : ""}
                 </span>
               </div>
               <p className="mt-1 truncate text-sm text-slate-600 dark:text-slate-300">
@@ -797,6 +857,51 @@ export default function ProfilePage() {
                 <Download className="h-4 w-4" />
                 Tải dữ liệu cá nhân (.json)
               </button>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
+              <div>
+                <h2 className="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-slate-100">
+                  <Ban className="h-4 w-4 text-rose-500" />
+                  Danh sách người dùng đã chặn ({blocks.length})
+                </h2>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Người bị chặn sẽ không hiển thị trong Discover và không thể nhắn tin với bạn.
+                </p>
+              </div>
+              {blocks.length === 0 ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Bạn chưa chặn sinh viên nào.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {blocks.map((b) => (
+                    <div
+                      key={b.student_id}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-800/70"
+                    >
+                      <div>
+                        <p className="font-semibold text-slate-900 dark:text-slate-100">
+                          {b.full_name || "Sinh viên"} ({b.student_code_masked})
+                        </p>
+                        {b.reason && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {b.reason}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={unblockingId === b.student_id}
+                        onClick={() => handleUnblock(b.student_id)}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+                      >
+                        {unblockingId === b.student_id ? "Đang bỏ..." : "Bỏ chặn"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

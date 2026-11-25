@@ -1,6 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { PwaRegistrar } from "@/components/PwaManager";
 import { AppStateProvider } from "@/lib/app-state";
+import { LocaleProvider } from "@/lib/i18n";
 import { ThemeInitializer } from "@/lib/theme";
 import "./globals.css";
 
@@ -18,9 +20,15 @@ export const metadata: Metadata = {
   title: "FPT ClassSwap — Kết nối đổi lớp sinh viên FPT",
   description:
     "Nền tảng kết nối sinh viên FPT để tìm người đổi lớp học tương thích theo cơ chế matching hai chiều.",
+  manifest: "/manifest.webmanifest",
   icons: {
     icon: "/fpt-logo2.png",
+    apple: "/fpt-logo2.png",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#f97316",
 };
 
 export default function RootLayout({
@@ -36,7 +44,10 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
         <ThemeInitializer />
-        <AppStateProvider>{children}</AppStateProvider>
+        <PwaRegistrar />
+        <LocaleProvider>
+          <AppStateProvider>{children}</AppStateProvider>
+        </LocaleProvider>
       </body>
     </html>
   );

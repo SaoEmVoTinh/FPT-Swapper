@@ -18,6 +18,7 @@ from app.database.models import (
     RefreshToken,
     Semester,
     Student,
+    StudentBlock,
     StudentProfile,
 )
 from app.modules.auth.service import resolve_campus
@@ -25,6 +26,7 @@ from app.modules.students.cleanup import cancel_student_matches_and_notify
 from app.modules.students.schemas import (
     AccountDataExportResponse,
     AccountSummaryResponse,
+    BlockedStudentItem,
     BulkRequestsActionResponse,
 )
 
@@ -50,6 +52,7 @@ class StudentService:
         avatar_url: str | None,
         bio: str | None,
         campus_id: uuid.UUID | str | None = None,
+        share_contact_after_match: bool | None = None,
     ) -> StudentProfile:
         profile = self.get_profile(student_id)
         if profile is None:
@@ -62,6 +65,8 @@ class StudentService:
             profile.avatar_url = avatar_url.strip() or None
         if bio is not None:
             profile.bio = bio.strip() or None
+        if share_contact_after_match is not None:
+            profile.share_contact_after_match = share_contact_after_match
         if campus_id is not None:
             campus = resolve_campus(self.db, campus_id)
             if campus is None:
@@ -149,6 +154,10 @@ class StudentService:
             campus_name=campus.name if campus else None,
             avatar_url=profile.avatar_url if profile else None,
             bio=profile.bio if profile else None,
+            share_contact_after_match=bool(profile.share_contact_after_match) if profile else False,
+            trust_score=float(profile.trust_score) if profile else 5.0,
+            completed_swaps_count=int(profile.completed_swaps_count) if profile else 0,
+            no_show_count=int(profile.no_show_count) if profile else 0,
             total_requests=total_requests,
             active_requests=active_requests,
             paused_requests=paused_requests,
@@ -398,4 +407,88 @@ class StudentService:
                 },
             )
         )
+        self.db.commit()
+
+    def list_blocks(self, student_id: uuid.UUID) -> list[BlockedStudentItem]:
+        rows = (
+            self.db.query(StudentBlock)
+            .filter(StudentBlock.blocker_id == student_id)
+            .order_by(StudentBlock.created_at.desc())
+            .all()
+        )
+        items: list[BlockedStudentItem] = []
+        for row in rows:
+            target = self.db.get(Student, row.blocked_student_id)
+            code = target.student_code if target else ""
+            masked = f"{code[:4]}****" if code else "****"
+            full_name = (
+                target.profile.full_name
+                if target and target.profile and target.profile.full_name
+                else None
+            )
+            items.append(
+                BlockedStudentItem(
+                    student_id=row.blocked_student_id,
+                    full_name=full_name,
+                    student_code_masked=masked,
+                    reason=row.reason,
+                    created_at=row.created_at,
+                )
+            )
+        return items
+
+    def block_student(
+        self, student_id: uuid.UUID, target_student_id: uuid.UUID, reason: str | None = None
+    ) -> BlockedStudentItem:
+        if target_student_id == student_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Không thể tự chặn chính mình.",
+            )
+        target = self.db.get(Student, target_student_id)
+        if target is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Không tìm thấy sinh viên cần chặn.",
+            )
+        existing = (
+            self.db.query(StudentBlock)
+            .filter(
+                StudentBlock.blocker_id == student_id,
+                StudentBlock.blocked_student_id == target_student_id,
+            )
+            .first()
+        )
+        if existing is None:
+            existing = StudentBlock(
+                blocker_id=student_id,
+                blocked_student_id=target_student_id,
+                reason=reason.strip() if reason else None,
+            )
+            self.db.add(existing)
+            self.db.commit()
+            self.db.refresh(existing)
+        code = target.student_code or ""
+        return BlockedStudentItem(
+            student_id=target.id,
+            full_name=target.profile.full_name if target.profile else None,
+            student_code_masked=f"{code[:4]}****" if code else "****",
+            reason=existing.reason,
+            created_at=existing.created_at,
+        )
+
+    def unblock_student(self, student_id: uuid.UUID, target_student_id: uuid.UUID) -> None:
+        deleted = (
+            self.db.query(StudentBlock)
+            .filter(
+                StudentBlock.blocker_id == student_id,
+                StudentBlock.blocked_student_id == target_student_id,
+            )
+            .delete(synchronize_session=False)
+        )
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Người dùng này chưa nằm trong danh sách chặn.",
+            )
         self.db.commit()

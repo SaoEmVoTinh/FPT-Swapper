@@ -1,10 +1,10 @@
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from app.common.enums import AccountStatus, SwapRequestStatus, UserRole
+from app.common.enums import AccountStatus, ReportStatus, SwapRequestStatus, UserRole
 
 
 class AdminOverviewResponse(BaseModel):
@@ -20,6 +20,7 @@ class AdminOverviewResponse(BaseModel):
     total_messages: int
     total_courses: int
     total_campuses: int
+    open_reports: int = 0
 
 
 class AdminUserItem(BaseModel):
@@ -96,3 +97,50 @@ class AdminAuditLogItem(BaseModel):
     entity_id: uuid.UUID | None = None
     details: dict[str, Any] | None = None
     created_at: datetime
+
+
+class AdminReportItem(BaseModel):
+    id: uuid.UUID
+    reporter_id: uuid.UUID | None = None
+    reporter_email: str | None = None
+    reporter_label: str | None = None
+    reported_student_id: uuid.UUID | None = None
+    reported_email: str | None = None
+    reported_label: str | None = None
+    conversation_id: uuid.UUID | None = None
+    reason: str
+    details: str | None = None
+    status: ReportStatus
+    resolved_by_id: uuid.UUID | None = None
+    resolved_by_email: str | None = None
+    resolution_note: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AdminResolveReportRequest(BaseModel):
+    status: ReportStatus
+    action: Literal["NONE", "WARN", "SUSPEND"] = "NONE"
+    resolution_note: str | None = Field(default=None, max_length=1000)
+
+
+class AdminBulkUserStatusRequest(BaseModel):
+    student_ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
+    status: AccountStatus
+
+
+class AdminBulkDeleteRequestsRequest(BaseModel):
+    request_ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
+
+
+class AdminImportTimetableRequest(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+    content_base64: str = Field(min_length=4, max_length=8_000_000)
+    semester_id: uuid.UUID | None = None
+    campus_id: uuid.UUID | None = None
+
+
+class AdminBroadcastRequest(BaseModel):
+    title: str = Field(min_length=2, max_length=160)
+    body: str = Field(min_length=4, max_length=2000)
+    campus_id: uuid.UUID | None = None

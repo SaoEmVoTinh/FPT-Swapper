@@ -213,6 +213,15 @@ export default function LoginPage() {
             Đăng ký ngay
           </Link>
         </div>
+        <div className="mt-4 flex items-center justify-center gap-3 text-xs text-slate-400">
+          <Link href="/privacy" className="hover:text-orange-600 hover:underline">
+            Chính sách bảo mật (NĐ 13/2023)
+          </Link>
+          <span>•</span>
+          <Link href="/terms" className="hover:text-orange-600 hover:underline">
+            Điều khoản sử dụng
+          </Link>
+        </div>
       </div>
     </div>
   );

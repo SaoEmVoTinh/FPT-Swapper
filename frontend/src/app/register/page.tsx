@@ -19,6 +19,7 @@ export default function RegisterPage() {
   const [campusId, setCampusId] = useState("");
   const [major, setMajor] = useState("Kỹ thuật phần mềm");
   const [password, setPassword] = useState("");
+  const [agreePrivacyTerms, setAgreePrivacyTerms] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -30,6 +31,12 @@ export default function RegisterPage() {
     e.preventDefault();
     if (!fullName.trim() || !studentCode.trim() || !email.trim() || password.length < 8) {
       setError("Vui lòng điền đầy đủ thông tin và mật khẩu tối thiểu 8 ký tự.");
+      return;
+    }
+    if (!agreePrivacyTerms) {
+      setError(
+        "Vui lòng đồng ý với Chính sách Bảo vệ Dữ liệu Cá nhân (Nghị định 13/2023/NĐ-CP) & Điều khoản sử dụng.",
+      );
       return;
     }
 
@@ -45,6 +52,7 @@ export default function RegisterPage() {
           campus_id: selectedCampusId,
           major: major.trim(),
           password,
+          agree_privacy_terms: agreePrivacyTerms,
         }),
       });
       setAuthenticatedUser(createdUser);
@@ -180,6 +188,35 @@ export default function RegisterPage() {
               className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800"
             />
           </div>
+
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
+            <input
+              type="checkbox"
+              checked={agreePrivacyTerms}
+              onChange={(e) => setAgreePrivacyTerms(e.target.checked)}
+              disabled={submitting}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
+            />
+            <span>
+              Tôi xác nhận đã đọc và đồng ý với{" "}
+              <Link
+                href="/privacy"
+                target="_blank"
+                className="font-semibold text-orange-600 hover:underline dark:text-orange-400"
+              >
+                Chính sách Bảo vệ Dữ liệu Cá nhân (Nghị định 13/2023/NĐ-CP)
+              </Link>{" "}
+              và{" "}
+              <Link
+                href="/terms"
+                target="_blank"
+                className="font-semibold text-orange-600 hover:underline dark:text-orange-400"
+              >
+                Điều khoản sử dụng
+              </Link>
+              .
+            </span>
+          </label>
 
           <button
             type="submit"

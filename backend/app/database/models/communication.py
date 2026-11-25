@@ -102,6 +102,7 @@ class Message(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     client_message_id: Mapped[str] = mapped_column(String(64), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    attachment_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     message_type: Mapped[MessageType] = mapped_column(
         SAEnum(MessageType, name="message_type"),
         default=MessageType.TEXT,

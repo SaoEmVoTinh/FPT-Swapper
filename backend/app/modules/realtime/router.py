@@ -63,18 +63,45 @@ async def websocket_endpoint(
                 await websocket.send_json({"type": "pong"})
                 continue
 
+            if event_type == "chat.typing":
+                try:
+                    conv_id = uuid.UUID(str(payload.get("conversation_id", "")))
+                    conv = db.get(Conversation, conv_id)
+                    if conv and any(m.student_id == student.id for m in conv.members):
+                        other_ids = [m.student_id for m in conv.members if m.student_id != student.id]
+                        if other_ids:
+                            await realtime_hub.publish_to_users(
+                                other_ids,
+                                {
+                                    "type": "chat.typing",
+                                    "data": {
+                                        "conversation_id": str(conv_id),
+                                        "student_id": str(student.id),
+                                        "is_typing": bool(payload.get("is_typing", True)),
+                                    },
+                                },
+                            )
+                except ValueError:
+                    pass
+                continue
+
             if event_type == "chat.message.send":
                 client_message_id = payload.get("client_message_id")
                 try:
                     conv_id = uuid.UUID(str(payload.get("conversation_id", "")))
                     content = str(payload.get("content", "")).strip()
-                    if not content:
+                    attachment_url = payload.get("attachment_url")
+                    if not content and not attachment_url:
                         raise HTTPException(422, "Message content cannot be empty")
                     msg = ChatService.send_message(
                         db,
                         conv_id,
                         student.id,
-                        MessageCreate(content=content, client_message_id=client_message_id),
+                        MessageCreate(
+                            content=content,
+                            attachment_url=str(attachment_url) if attachment_url else None,
+                            client_message_id=client_message_id,
+                        ),
                     )
                     conv = db.get(Conversation, conv_id)
                     member_ids = [m.student_id for m in conv.members] if conv else [student.id]
