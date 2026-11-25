@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { KeyRound, Loader2, Lock, Mail, RotateCcw } from "lucide-react";
+import { LegalDocType, LegalModal } from "@/components/LegalModal";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { apiFetch, ApiError } from "@/lib/api";
 import { AuthMeResponse, useAppState } from "@/lib/app-state";
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [totpCode, setTotpCode] = useState("");
   const [needs2FA, setNeeds2FA] = useState(false);
   const [pendingDeleteAccount, setPendingDeleteAccount] = useState(false);
+  const [legalDoc, setLegalDoc] = useState<LegalDocType | null>(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -214,15 +216,29 @@ export default function LoginPage() {
           </Link>
         </div>
         <div className="mt-4 flex items-center justify-center gap-3 text-xs text-slate-400">
-          <Link href="/privacy" className="hover:text-orange-600 hover:underline">
+          <button
+            type="button"
+            onClick={() => setLegalDoc("privacy")}
+            className="hover:text-orange-600 hover:underline"
+          >
             Chính sách bảo mật (NĐ 13/2023)
-          </Link>
+          </button>
           <span>•</span>
-          <Link href="/terms" className="hover:text-orange-600 hover:underline">
+          <button
+            type="button"
+            onClick={() => setLegalDoc("terms")}
+            className="hover:text-orange-600 hover:underline"
+          >
             Điều khoản sử dụng
-          </Link>
+          </button>
         </div>
       </div>
+
+      <LegalModal
+        doc={legalDoc}
+        onClose={() => setLegalDoc(null)}
+        onSwitchDoc={setLegalDoc}
+      />
     </div>
   );
 }

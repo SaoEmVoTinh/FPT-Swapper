@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 
+import { LegalDocType, LegalModal } from "@/components/LegalModal";
 import { usePwaInstall } from "@/components/PwaManager";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAppState } from "@/lib/app-state";
@@ -32,6 +33,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [legalDoc, setLegalDoc] = useState<LegalDocType | null>(null);
   const { locale, toggleLocale, t } = useLocale();
   const { canInstall, triggerInstall } = usePwaInstall();
 
@@ -233,13 +235,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           )}
           <div className="flex items-center justify-center gap-2 pt-1 text-[11px] text-slate-400">
-            <Link href="/privacy" className="hover:text-orange-600 hover:underline">
+            <button
+              type="button"
+              onClick={() => setLegalDoc("privacy")}
+              className="hover:text-orange-600 hover:underline"
+            >
               {t("legal.privacy")}
-            </Link>
+            </button>
             <span>•</span>
-            <Link href="/terms" className="hover:text-orange-600 hover:underline">
+            <button
+              type="button"
+              onClick={() => setLegalDoc("terms")}
+              className="hover:text-orange-600 hover:underline"
+            >
               {t("legal.terms")}
-            </Link>
+            </button>
           </div>
         </div>
       </aside>
@@ -448,6 +458,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           );
         })}
       </nav>
+
+      <LegalModal
+        doc={legalDoc}
+        onClose={() => setLegalDoc(null)}
+        onSwitchDoc={setLegalDoc}
+      />
     </div>
   );
 }

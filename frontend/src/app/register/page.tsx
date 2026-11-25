@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
+import { LegalDocType, LegalModal } from "@/components/LegalModal";
 import { MajorSelect } from "@/components/MajorSelect";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -22,6 +23,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [agreePrivacyTerms, setAgreePrivacyTerms] = useState(false);
   const [confirmStep, setConfirmStep] = useState(false);
+  const [legalDoc, setLegalDoc] = useState<LegalDocType | null>(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -230,21 +232,29 @@ export default function RegisterPage() {
               />
               <span>
                 Tôi xác nhận đã đọc và đồng ý với{" "}
-                <Link
-                  href="/privacy"
-                  target="_blank"
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setLegalDoc("privacy");
+                  }}
                   className="font-semibold text-orange-600 hover:underline dark:text-orange-400"
                 >
                   Chính sách Bảo vệ Dữ liệu Cá nhân (Nghị định 13/2023/NĐ-CP)
-                </Link>{" "}
+                </button>{" "}
                 và{" "}
-                <Link
-                  href="/terms"
-                  target="_blank"
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setLegalDoc("terms");
+                  }}
                   className="font-semibold text-orange-600 hover:underline dark:text-orange-400"
                 >
                   Điều khoản sử dụng
-                </Link>
+                </button>
                 .
               </span>
             </label>
@@ -343,6 +353,12 @@ export default function RegisterPage() {
           </Link>
         </div>
       </div>
+
+      <LegalModal
+        doc={legalDoc}
+        onClose={() => setLegalDoc(null)}
+        onSwitchDoc={setLegalDoc}
+      />
     </div>
   );
 }
