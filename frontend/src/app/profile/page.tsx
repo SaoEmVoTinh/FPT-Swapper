@@ -251,7 +251,6 @@ export default function ProfilePage() {
     campuses,
     isAuthenticated,
     updateStudent,
-    refreshAuth,
     refreshWorkspace,
     logout,
   } = useAppState();
@@ -260,11 +259,6 @@ export default function ProfilePage() {
   const [summary, setSummary] = useState<AccountSummary | null>(null);
   const [notice, setNotice] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
-
-  // Identity form state (email & student code)
-  const [identityEmail, setIdentityEmail] = useState("");
-  const [identityCode, setIdentityCode] = useState("");
-  const [savingIdentity, setSavingIdentity] = useState(false);
 
   // Change password state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -302,8 +296,6 @@ export default function ProfilePage() {
         if (cancelled) return;
         if (data) {
           setSummary(data);
-          setIdentityEmail(data.email);
-          setIdentityCode(data.student_code);
         }
         setBlocks(blockRows);
       })
@@ -337,40 +329,9 @@ export default function ProfilePage() {
       const data = await fetchSummary();
       if (data) {
         setSummary(data);
-        setIdentityEmail(data.email);
-        setIdentityCode(data.student_code);
       }
     } catch {
       // ignore
-    }
-  }
-
-  async function handleSaveIdentity(e: React.FormEvent) {
-    e.preventDefault();
-    setNotice("");
-    setErrorMsg("");
-    setSavingIdentity(true);
-    try {
-      const updated = await apiFetch<AccountSummary>("/students/me/account", {
-        method: "PATCH",
-        body: JSON.stringify({
-          email: identityEmail.trim(),
-          student_code: identityCode.trim().toUpperCase(),
-        }),
-      });
-      setSummary(updated);
-      setIdentityEmail(updated.email);
-      setIdentityCode(updated.student_code);
-      await refreshAuth();
-      setNotice("Đã cập nhật thông tin đăng nhập (Email / Mã sinh viên).");
-    } catch (err) {
-      setErrorMsg(
-        err instanceof ApiError
-          ? err.message
-          : "Không thể cập nhật thông tin tài khoản.",
-      );
-    } finally {
-      setSavingIdentity(false);
     }
   }
 
@@ -667,16 +628,13 @@ export default function ProfilePage() {
         {/* ════════ TAB 2: SECURITY & IDENTITY ════════ */}
         {tab === "security" && (
           <div className="space-y-6">
-            <form
-              onSubmit={handleSaveIdentity}
-              className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-            >
+            <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
               <div>
                 <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                  Thông tin đăng nhập (Email &amp; Mã sinh viên)
+                  Thông tin định danh cố định (Email &amp; Mã sinh viên)
                 </h2>
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Bạn có thể đăng nhập bằng Email hoặc Mã sinh viên.
+                  Email và Mã sinh viên được khóa cố định sau khi xác nhận đăng ký, không thể tự thay đổi. Bạn có thể đăng nhập bằng Email hoặc Mã sinh viên.
                 </p>
               </div>
 
@@ -687,17 +645,11 @@ export default function ProfilePage() {
                   </label>
                   <input
                     type="email"
-                    required
-                    disabled={!isAuthenticated || isSuperAdmin || savingIdentity}
-                    value={identityEmail || student.email}
-                    onChange={(e) => setIdentityEmail(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 disabled:bg-slate-100 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800 dark:disabled:text-slate-400"
+                    readOnly
+                    disabled
+                    value={summary?.email || student.email}
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none disabled:bg-slate-100 disabled:text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:disabled:bg-slate-800 dark:disabled:text-slate-300"
                   />
-                  {isSuperAdmin && (
-                    <p className="mt-1 text-xs text-slate-400">
-                      Email Super Admin được cố định để bảo vệ quyền quản trị.
-                    </p>
-                  )}
                 </div>
 
                 <div>
@@ -706,27 +658,14 @@ export default function ProfilePage() {
                   </label>
                   <input
                     type="text"
-                    required
-                    minLength={4}
-                    disabled={!isAuthenticated || savingIdentity}
-                    value={identityCode || student.studentCode}
-                    onChange={(e) => setIdentityCode(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm uppercase outline-none focus:border-orange-500 disabled:bg-slate-100 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800 dark:disabled:text-slate-400"
+                    readOnly
+                    disabled
+                    value={summary?.student_code || student.studentCode}
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm uppercase outline-none disabled:bg-slate-100 disabled:text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:disabled:bg-slate-800 dark:disabled:text-slate-300"
                   />
                 </div>
               </div>
-
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={!isAuthenticated || savingIdentity}
-                  className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-700 dark:hover:bg-slate-600"
-                >
-                  <Save className="h-4 w-4" />
-                  {savingIdentity ? "Đang cập nhật..." : "Cập nhật định danh"}
-                </button>
-              </div>
-            </form>
+            </div>
 
             <form
               onSubmit={handleChangePassword}

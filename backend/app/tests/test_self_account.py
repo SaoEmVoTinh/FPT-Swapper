@@ -133,22 +133,23 @@ def test_self_account_management_full_flow(client, db_session):
     assert r_resume.status_code == 200
     assert r_resume.json()["updated_count"] == 1
 
-    # 3. Update email & student_code (duplicate rejected with 409)
-    r_dup = client.patch(
-        "/api/v1/students/me/account",
-        json={"email": other.email},
-        headers=headers,
+    # 3. Email & student_code are immutable (self-change rejected with 403)
+    assert (
+        client.patch(
+            "/api/v1/students/me/account",
+            json={"email": other.email},
+            headers=headers,
+        ).status_code
+        == 403
     )
-    assert r_dup.status_code == 409
-
-    r_upd = client.patch(
-        "/api/v1/students/me/account",
-        json={"email": "self_renamed@fpt.edu.vn", "student_code": "DE190999"},
-        headers=headers,
+    assert (
+        client.patch(
+            "/api/v1/students/me/account",
+            json={"email": "self_renamed@fpt.edu.vn", "student_code": "DE190999"},
+            headers=headers,
+        ).status_code
+        == 403
     )
-    assert r_upd.status_code == 200
-    assert r_upd.json()["email"] == "self_renamed@fpt.edu.vn"
-    assert r_upd.json()["student_code"] == "DE190999"
 
     # 4. Change password (wrong current -> 400, same -> 400, valid -> 204)
     assert (
@@ -177,7 +178,7 @@ def test_self_account_management_full_flow(client, db_session):
     assert (
         client.post(
             "/api/v1/auth/login",
-            json={"email": "DE190999", "password": "NewPassword2"},
+            json={"email": "DE190001", "password": "NewPassword2"},
         ).status_code
         == 200
     )
@@ -186,7 +187,7 @@ def test_self_account_management_full_flow(client, db_session):
     r_exp = client.get("/api/v1/students/me/export", headers=headers)
     assert r_exp.status_code == 200
     exp = r_exp.json()
-    assert exp["account"]["student_code"] == "DE190999"
+    assert exp["account"]["student_code"] == "DE190001"
     assert len(exp["requests"]) == 1
     assert len(exp["notifications"]) == 1
 
@@ -229,7 +230,7 @@ def test_super_admin_cannot_self_delete_or_change_email(client, db_session):
             json={"email": "another_email@fpt.edu.vn"},
             headers=headers,
         ).status_code
-        == 400
+        == 403
     )
     assert (
         client.request(

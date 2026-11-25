@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import { MajorSelect } from "@/components/MajorSelect";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -20,14 +20,16 @@ export default function RegisterPage() {
   const [major, setMajor] = useState("Kỹ thuật phần mềm");
   const [password, setPassword] = useState("");
   const [agreePrivacyTerms, setAgreePrivacyTerms] = useState(false);
+  const [confirmStep, setConfirmStep] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const selectedCampusId = campuses.some((c) => c.id === campusId)
     ? campusId
     : campuses[0]?.id || "";
+  const selectedCampusObj = campuses.find((c) => c.id === selectedCampusId);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleReviewStep = (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim() || !studentCode.trim() || !email.trim() || password.length < 8) {
       setError("Vui lòng điền đầy đủ thông tin và mật khẩu tối thiểu 8 ký tự.");
@@ -39,7 +41,11 @@ export default function RegisterPage() {
       );
       return;
     }
+    setError("");
+    setConfirmStep(true);
+  };
 
+  const handleSubmit = async () => {
     setError("");
     setSubmitting(true);
     try {
@@ -63,6 +69,7 @@ export default function RegisterPage() {
       } else {
         setError("Đăng ký thất bại. Vui lòng thử lại.");
       }
+      setConfirmStep(false);
     } finally {
       setSubmitting(false);
     }
@@ -101,132 +108,201 @@ export default function RegisterPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+        {!confirmStep ? (
+          <form onSubmit={handleReviewStep} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Họ và tên
+                </label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Nguyễn Văn An"
+                  disabled={submitting}
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Mã sinh viên
+                </label>
+                <input
+                  type="text"
+                  value={studentCode}
+                  autoCapitalize="characters"
+                  onChange={(e) => setStudentCode(e.target.value.toUpperCase())}
+                  placeholder="HE180123"
+                  disabled={submitting}
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm uppercase placeholder:normal-case outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800"
+                />
+              </div>
+            </div>
+
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                Họ và tên
+                Email
               </label>
               <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Nguyễn Văn An"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="ban@gmail.com hoặc annvhe180123@fpt.edu.vn"
                 disabled={submitting}
                 className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800"
               />
             </div>
+
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                Mã sinh viên
+                Campus
               </label>
-              <input
-                type="text"
-                value={studentCode}
-                autoCapitalize="characters"
-                onChange={(e) => setStudentCode(e.target.value.toUpperCase())}
-                placeholder="HE180123"
+              <select
+                value={selectedCampusId}
+                onChange={(e) => setCampusId(e.target.value)}
                 disabled={submitting}
-                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm uppercase placeholder:normal-case outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800"
+              >
+                {campuses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Ngành &amp; Chuyên ngành
+              </label>
+              <MajorSelect
+                value={major}
+                onChange={setMajor}
+                disabled={submitting}
               />
             </div>
-          </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="ban@gmail.com hoặc annvhe180123@fpt.edu.vn"
-              disabled={submitting}
-              className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800"
-            />
-          </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Mật khẩu (tối thiểu 8 ký tự)
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                disabled={submitting}
+                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800"
+              />
+            </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-              Campus
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={agreePrivacyTerms}
+                onChange={(e) => setAgreePrivacyTerms(e.target.checked)}
+                disabled={submitting}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
+              />
+              <span>
+                Tôi xác nhận đã đọc và đồng ý với{" "}
+                <Link
+                  href="/privacy"
+                  target="_blank"
+                  className="font-semibold text-orange-600 hover:underline dark:text-orange-400"
+                >
+                  Chính sách Bảo vệ Dữ liệu Cá nhân (Nghị định 13/2023/NĐ-CP)
+                </Link>{" "}
+                và{" "}
+                <Link
+                  href="/terms"
+                  target="_blank"
+                  className="font-semibold text-orange-600 hover:underline dark:text-orange-400"
+                >
+                  Điều khoản sử dụng
+                </Link>
+                .
+              </span>
             </label>
-            <select
-              value={selectedCampusId}
-              onChange={(e) => setCampusId(e.target.value)}
+
+            <button
+              type="submit"
               disabled={submitting}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-600 transition-colors disabled:opacity-60"
             >
-              {campuses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.code})
-                </option>
-              ))}
-            </select>
-          </div>
+              Kiểm tra &amp; Xác nhận thông tin
+            </button>
+          </form>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900 dark:border-amber-500/35 dark:bg-amber-500/15 dark:text-amber-200">
+              <p className="inline-flex items-center gap-1.5 font-bold">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                Xác nhận thông tin trước khi tạo tài khoản
+              </p>
+              <p className="mt-1">
+                <strong>Email</strong> và <strong>Mã sinh viên</strong> sẽ được khóa cố định và{" "}
+                <strong>không thể tự thay đổi</strong> sau khi hoàn tất đăng ký. Vui lòng kiểm tra kỹ thông tin bên dưới.
+              </p>
+            </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-              Ngành &amp; Chuyên ngành
-            </label>
-            <MajorSelect
-              value={major}
-              onChange={setMajor}
-              disabled={submitting}
-            />
-          </div>
+            <div className="space-y-2.5 rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-sm dark:border-slate-700 dark:bg-slate-800/70">
+              <div className="flex justify-between gap-3 border-b border-slate-200/70 pb-2 dark:border-slate-700">
+                <span className="text-slate-500 dark:text-slate-400">Họ và tên</span>
+                <span className="font-semibold text-slate-900 dark:text-slate-100">{fullName.trim()}</span>
+              </div>
+              <div className="flex justify-between gap-3 border-b border-slate-200/70 pb-2 dark:border-slate-700">
+                <span className="text-slate-500 dark:text-slate-400">Mã sinh viên</span>
+                <span className="font-bold uppercase text-orange-600 dark:text-orange-400">
+                  {studentCode.trim().toUpperCase()}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3 border-b border-slate-200/70 pb-2 dark:border-slate-700">
+                <span className="text-slate-500 dark:text-slate-400">Email</span>
+                <span className="font-bold text-slate-900 dark:text-slate-100">{email.trim().toLowerCase()}</span>
+              </div>
+              <div className="flex justify-between gap-3 border-b border-slate-200/70 pb-2 dark:border-slate-700">
+                <span className="text-slate-500 dark:text-slate-400">Campus</span>
+                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                  {selectedCampusObj ? `${selectedCampusObj.name} (${selectedCampusObj.code})` : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500 dark:text-slate-400">Ngành học</span>
+                <span className="text-right font-semibold text-slate-900 dark:text-slate-100">{major.trim()}</span>
+              </div>
+            </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-              Mật khẩu (tối thiểu 8 ký tự)
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              disabled={submitting}
-              className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800"
-            />
-          </div>
-
-          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
-            <input
-              type="checkbox"
-              checked={agreePrivacyTerms}
-              onChange={(e) => setAgreePrivacyTerms(e.target.checked)}
-              disabled={submitting}
-              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
-            />
-            <span>
-              Tôi xác nhận đã đọc và đồng ý với{" "}
-              <Link
-                href="/privacy"
-                target="_blank"
-                className="font-semibold text-orange-600 hover:underline dark:text-orange-400"
+            <div className="flex flex-col-reverse gap-2.5 sm:flex-row">
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => {
+                  setError("");
+                  setConfirmStep(false);
+                }}
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               >
-                Chính sách Bảo vệ Dữ liệu Cá nhân (Nghị định 13/2023/NĐ-CP)
-              </Link>{" "}
-              và{" "}
-              <Link
-                href="/terms"
-                target="_blank"
-                className="font-semibold text-orange-600 hover:underline dark:text-orange-400"
+                <ArrowLeft className="h-4 w-4" />
+                Quay lại sửa
+              </button>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={handleSubmit}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-orange-500 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-600 disabled:opacity-60"
               >
-                Điều khoản sử dụng
-              </Link>
-              .
-            </span>
-          </label>
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-600 transition-colors disabled:opacity-60"
-          >
-            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-            {submitting ? "Đang tạo tài khoản..." : "Đăng ký tài khoản"}
-          </button>
-        </form>
+                {submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                {submitting ? "Đang tạo tài khoản..." : "Xác nhận & Đăng ký"}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="mt-6 text-center text-sm text-slate-600">
           Đã có tài khoản?{" "}

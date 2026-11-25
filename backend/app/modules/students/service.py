@@ -173,62 +173,10 @@ class StudentService:
         email: str | None,
         student_code: str | None,
     ) -> AccountSummaryResponse:
-        if email is not None and email != student.email:
-            if student.role == UserRole.SUPER_ADMIN:
-                other_super = (
-                    self.db.query(Student.id)
-                    .filter(
-                        Student.role == UserRole.SUPER_ADMIN,
-                        Student.status == AccountStatus.ACTIVE,
-                        Student.id != student.id,
-                    )
-                    .first()
-                )
-                if other_super is None:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Không thể đổi email của Super Admin duy nhất.",
-                    )
-            existing_email = (
-                self.db.query(Student)
-                .filter(func.lower(Student.email) == email.lower(), Student.id != student.id)
-                .first()
-            )
-            if existing_email is not None:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Email này đã được sử dụng bởi tài khoản khác.",
-                )
-            student.email = email
-
-        if student_code is not None and student_code != student.student_code:
-            existing_code = (
-                self.db.query(Student)
-                .filter(
-                    func.upper(Student.student_code) == student_code.upper(),
-                    Student.id != student.id,
-                )
-                .first()
-            )
-            if existing_code is not None:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Mã sinh viên này đã được đăng ký bởi tài khoản khác.",
-                )
-            student.student_code = student_code
-
-        self.db.add(
-            AuditLog(
-                actor_id=student.id,
-                action="SELF_UPDATE_ACCOUNT",
-                entity_type="student",
-                entity_id=student.id,
-                details={"email": student.email, "student_code": student.student_code},
-            )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email và Mã sinh viên là định danh cố định, không thể tự thay đổi sau khi đăng ký.",
         )
-        self.db.commit()
-        self.db.refresh(student)
-        return self.get_account_summary(student)
 
     def change_password(
         self,

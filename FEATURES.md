@@ -27,7 +27,7 @@ Giao diện gồm thẻ tổng quan cá nhân (avatar, mã sinh viên, email, va
 1. **Hồ sơ cá nhân (`GET/PUT /api/v1/students/me`):**
    - Cập nhật họ tên, cơ sở học tập (`campus_id`), ngành & chuyên ngành (`MajorSelect`), URL ảnh đại diện (`avatar_url`) và giới thiệu ngắn (`bio`).
 2. **Tài khoản & Bảo mật:**
-   - **Cập nhật định danh (`PATCH /api/v1/students/me/account`):** Tự đổi Email hoặc Mã sinh viên (kiểm tra trùng lặp `409 Conflict`, bảo vệ email của Super Admin cuối cùng).
+   - **Định danh cố định:** Email và Mã sinh viên được khóa cố định sau bước xác nhận thông tin khi đăng ký, không thể tự thay đổi.
    - **Đổi mật khẩu (`POST /api/v1/students/me/change-password`):** Xác thực mật khẩu hiện tại, mật khẩu mới tối thiểu **8 ký tự**, khác mật khẩu cũ, và tự động thu hồi toàn bộ refresh token cũ.
 3. **Hoạt động & Dữ liệu cá nhân:**
    - Xem thống kê tổng quan (`GET /api/v1/students/me/summary`).
