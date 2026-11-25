@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeftRight,
@@ -18,9 +19,13 @@ export default function LandingPage() {
       <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-500 text-white shadow-sm">
-              <ArrowLeftRight className="h-5 w-5" />
-            </div>
+            <Image
+              src="/fpt-logo2.png"
+              alt="FPT ClassSwap"
+              width={36}
+              height={36}
+              className="h-9 w-9 rounded-xl object-contain"
+            />
             <span className="text-lg font-bold tracking-tight">
               FPT ClassSwap
             </span>

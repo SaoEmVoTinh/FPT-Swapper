@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeftRight } from "lucide-react";
 import { DEMO_CAMPUSES } from "@/lib/demo-data";
 
 export default function RegisterPage() {
@@ -31,9 +31,13 @@ export default function RegisterPage() {
       <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-6 text-center">
           <Link href="/" className="inline-flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500 text-white">
-              <ArrowLeftRight className="h-5 w-5" />
-            </div>
+            <Image
+              src="/fpt-logo2.png"
+              alt="FPT ClassSwap"
+              width={40}
+              height={40}
+              className="h-10 w-10 rounded-xl object-contain"
+            />
             <span className="text-xl font-bold text-slate-900">
               FPT ClassSwap
             </span>

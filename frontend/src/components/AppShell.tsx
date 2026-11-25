@@ -1,9 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  ArrowLeftRight,
   Bell,
   Flame,
   LayoutDashboard,
@@ -48,9 +48,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r border-slate-200 bg-white">
         <div className="flex h-16 items-center gap-2.5 px-5 border-b border-slate-100">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-500 text-white shadow-sm">
-              <ArrowLeftRight className="h-5 w-5" />
-            </div>
+            <Image
+              src="/fpt-logo2.png"
+              alt="FPT ClassSwap"
+              width={36}
+              height={36}
+              className="h-9 w-9 rounded-xl object-contain"
+            />
             <div>
               <span className="font-bold text-slate-900 tracking-tight block leading-none">
                 FPT ClassSwap
@@ -116,9 +120,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Mobile Top Bar */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white/95 backdrop-blur px-4 py-3 md:hidden">
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500 text-white">
-            <ArrowLeftRight className="h-4 w-4" />
-          </div>
+          <Image
+            src="/fpt-logo2.png"
+            alt="FPT ClassSwap"
+            width={32}
+            height={32}
+            className="h-8 w-8 rounded-lg object-contain"
+          />
           <span className="font-bold text-slate-900">FPT ClassSwap</span>
         </Link>
         <div className="flex items-center gap-2">
