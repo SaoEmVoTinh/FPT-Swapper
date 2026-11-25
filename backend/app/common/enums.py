@@ -7,6 +7,12 @@ class UserRole(str, Enum):
     ADMIN = "ADMIN"
 
 
+class AccountStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+    CLOSED = "CLOSED"
+
+
 class SwapRequestStatus(str, Enum):
     DRAFT = "DRAFT"
     ACTIVE = "ACTIVE"
@@ -34,3 +40,38 @@ class ConversationType(str, Enum):
     DIRECT = "DIRECT"
     GROUP = "GROUP"
 
+
+class ConversationSourceType(str, Enum):
+    CLASS_SWAP = "CLASS_SWAP"
+    STUDY_BUDDY = "STUDY_BUDDY"
+    TEAM_FINDER = "TEAM_FINDER"
+
+
+class ConversationStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    READ_ONLY = "READ_ONLY"
+    CLOSED = "CLOSED"
+
+
+class MessageType(str, Enum):
+    TEXT = "TEXT"
+    SYSTEM = "SYSTEM"
+
+
+class NotificationType(str, Enum):
+    MATCH = "MATCH"
+    MESSAGE = "MESSAGE"
+    SYSTEM = "SYSTEM"
+
+
+class ReportStatus(str, Enum):
+    OPEN = "OPEN"
+    UNDER_REVIEW = "UNDER_REVIEW"
+    RESOLVED = "RESOLVED"
+    DISMISSED = "DISMISSED"
+
+
+class EnrollmentStatus(str, Enum):
+    ENROLLED = "ENROLLED"
+    DROPPED = "DROPPED"
+    COMPLETED = "COMPLETED"
