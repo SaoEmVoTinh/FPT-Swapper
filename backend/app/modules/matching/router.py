@@ -8,6 +8,7 @@ from app.database.models.identity import Student
 from app.database.models.matching import Match
 from app.database.session import get_db
 from app.modules.class_swap.service import ClassSwapService
+from app.modules.matching.engine import is_compatible
 from app.modules.matching.schemas import (
     DiscoverItem,
     MatchResponse,
@@ -33,27 +34,61 @@ def _emit_match_event(match: Match, event_type: str = "match.updated") -> None:
 def discover(
     request_id: uuid.UUID | None = Query(
         None,
-        description="Limit to one of your swap requests. Omit to discover for all your ACTIVE requests.",
+        description="Limit to compatible candidates for one specific swap request. Omit to browse all ACTIVE posts in your campus.",
     ),
-    limit: int = Query(20, ge=1, le=50),
+    limit: int = Query(50, ge=1, le=100),
     current_student: Student = Depends(get_current_student),
     db: Session = Depends(get_db),
 ):
     if request_id is not None:
-        my_requests = [ClassSwapService.get_owned(db, request_id, current_student.id)]
-    else:
-        my_requests = MatchingService.list_my_active_requests(db, current_student.id)
+        mine = ClassSwapService.get_owned(db, request_id, current_student.id)
+        items = [
+            discover_view(
+                db,
+                candidate,
+                mine,
+                MatchingService.has_liked(db, candidate.id, mine.id),
+            )
+            for candidate in MatchingService.get_discover_candidates(
+                db, current_student.id, mine, limit
+            )
+        ]
+        items.sort(key=lambda item: not item.is_reciprocal_ready)
+        return items[:limit]
+
+    my_requests = MatchingService.list_my_active_requests(db, current_student.id)
+    busy_pairs = MatchingService.list_busy_course_semesters(db, current_student.id)
+    campus_posts = MatchingService.list_campus_discover_requests(
+        db, current_student.id, current_student.campus_id, limit
+    )
 
     items: list[DiscoverItem] = []
-    for mine in my_requests:
-        for candidate in MatchingService.get_discover_candidates(
-            db, current_student.id, mine, limit
-        ):
-            reciprocal = MatchingService.has_liked(db, candidate.id, mine.id)
-            items.append(discover_view(db, candidate, mine, reciprocal))
+    for candidate in campus_posts:
+        compatible_mine = next(
+            (m for m in my_requests if is_compatible(m, candidate)),
+            None,
+        )
+        reciprocal = (
+            MatchingService.has_liked(db, candidate.id, compatible_mine.id)
+            if compatible_mine is not None
+            else False
+        )
+        conflict = (
+            compatible_mine is None
+            and (candidate.course_id, candidate.semester_id) in busy_pairs
+        )
+        items.append(
+            discover_view(
+                db,
+                candidate,
+                compatible_mine,
+                reciprocal,
+                has_course_conflict=conflict,
+            )
+        )
 
-    # Candidates who already liked you first (guaranteed matches), then the rest.
-    items.sort(key=lambda item: not item.is_reciprocal_ready)
+    # Order: 1) already liked you, 2) compatible with your request, 3) all other campus posts
+    items.sort(key=lambda item: (not item.is_reciprocal_ready, not item.is_compatible))
     return items[:limit]
 
 

@@ -14,6 +14,7 @@ from app.common.enums import (
     SwapRequestStatus,
     SwipeAction,
 )
+from app.database.models.academic import AcademicClass
 from app.database.models.communication import Conversation, ConversationMember
 from app.database.models.matching import Match, MatchingRequest, Swipe
 from app.database.models.operations import Notification
@@ -84,6 +85,54 @@ class MatchingService:
         )
 
         return [c for c in candidates if c.id not in swiped_ids][:limit]
+
+    @staticmethod
+    def list_campus_discover_requests(
+        db: Session,
+        student_id: uuid.UUID,
+        campus_id: uuid.UUID,
+        limit: int = 50,
+    ) -> list[MatchingRequest]:
+        """Return all ACTIVE, non-expired swap requests posted within the student's campus."""
+        swiped_ids = {
+            row[0]
+            for row in db.query(Swipe.target_request_id).filter(
+                Swipe.swiper_student_id == student_id
+            )
+        }
+        now = datetime.now(timezone.utc)
+        rows = (
+            db.query(MatchingRequest)
+            .join(AcademicClass, AcademicClass.id == MatchingRequest.current_class_id)
+            .filter(
+                MatchingRequest.status == SwapRequestStatus.ACTIVE,
+                MatchingRequest.student_id != student_id,
+                AcademicClass.campus_id == campus_id,
+                or_(MatchingRequest.expires_at.is_(None), MatchingRequest.expires_at > now),
+            )
+            .order_by(MatchingRequest.created_at.desc())
+            .limit(limit + len(swiped_ids))
+            .all()
+        )
+        return [r for r in rows if r.id not in swiped_ids][:limit]
+
+    @staticmethod
+    def list_busy_course_semesters(
+        db: Session,
+        student_id: uuid.UUID,
+    ) -> set[tuple[uuid.UUID, uuid.UUID]]:
+        """Course/semester pairs where the student already has an active/draft/matched request."""
+        rows = (
+            db.query(MatchingRequest.course_id, MatchingRequest.semester_id)
+            .filter(
+                MatchingRequest.student_id == student_id,
+                MatchingRequest.status.in_(
+                    [SwapRequestStatus.ACTIVE, SwapRequestStatus.DRAFT, SwapRequestStatus.MATCHED]
+                ),
+            )
+            .all()
+        )
+        return {(r[0], r[1]) for r in rows}
 
     @staticmethod
     def has_liked(db: Session, swiper_request_id: uuid.UUID, target_request_id: uuid.UUID) -> bool:

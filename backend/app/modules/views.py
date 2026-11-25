@@ -81,8 +81,9 @@ def request_view(db: Session, req: MatchingRequest) -> RequestResponse:
 def discover_view(
     db: Session,
     candidate: MatchingRequest,
-    mine: MatchingRequest,
+    mine: MatchingRequest | None,
     reciprocal_ready: bool,
+    has_course_conflict: bool = False,
 ) -> DiscoverItem:
     student = db.get(Student, candidate.student_id)
     profile = student.profile if student else None
@@ -94,12 +95,16 @@ def discover_view(
     return DiscoverItem(
         id=candidate.id,
         student_id=candidate.student_id,
+        semester_id=candidate.semester_id,
         course_id=candidate.course_id,
         current_class_id=candidate.current_class_id,
         target_class_id=candidate.target_class_id,
         note=candidate.note,
         status=candidate.status,
-        for_request_id=mine.id,
+        for_request_id=mine.id if mine else None,
+        is_compatible=mine is not None,
+        has_course_conflict=has_course_conflict,
+        campus_id=current.campus_id if current else None,
         student_display_name=display_name(db, candidate.student_id),
         student_code_masked=(code[:4] + "****") if code else "****",
         major=profile.major if profile else None,

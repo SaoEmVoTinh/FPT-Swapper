@@ -678,3 +678,73 @@ def test_decline_confirmed_match_reopens_requests(client, db_session, flow):
     assert dec.json()["status"] == "DECLINED"
     mine = client.get("/api/v1/class-swap/requests/me", headers=auth_headers(token_d)).json()
     assert next(x for x in mine if x["id"] == rd["id"])["status"] == "ACTIVE"
+
+
+def test_campus_wide_discover_shows_all_posts_in_same_campus_only(client, db_session, flow):
+    from app.database.models.academic import AcademicClass, Campus, Course
+
+    # Brand new student in CAMPUS_ID with NO active requests yet sees flow_c2 / others? Let's create a fresh active post
+    _, poster_token = make_student(db_session, f"campus_post_{uuid.uuid4().hex[:4]}@fpt.edu.vn")
+    _, viewer_token = make_student(db_session, f"campus_view_{uuid.uuid4().hex[:4]}@fpt.edu.vn")
+
+    other_campus = Campus(id=uuid.uuid4(), code=f"OT{uuid.uuid4().hex[:3].upper()}", name="Other Campus")
+    other_course = Course(code=f"CMP{uuid.uuid4().hex[:4]}", name="Campus Course", credits=3)
+    db_session.add_all([other_campus, other_course])
+    db_session.flush()
+
+    c_other_1 = AcademicClass(
+        code=f"OC1_{uuid.uuid4().hex[:4]}",
+        course_id=other_course.id,
+        semester_id=flow["semester"].id,
+        campus_id=other_campus.id,
+    )
+    c_other_2 = AcademicClass(
+        code=f"OC2_{uuid.uuid4().hex[:4]}",
+        course_id=other_course.id,
+        semester_id=flow["semester"].id,
+        campus_id=other_campus.id,
+    )
+    db_session.add_all([c_other_1, c_other_2])
+    db_session.commit()
+
+    _, other_campus_token = make_student(
+        db_session,
+        f"other_camp_{uuid.uuid4().hex[:4]}@fpt.edu.vn",
+        campus_id=other_campus.id,
+    )
+
+    # Post in CAMPUS_ID
+    r_same = client.post(
+        "/api/v1/class-swap/requests",
+        json={
+            "semester_id": str(flow["semester"].id),
+            "course_id": str(flow["course"].id),
+            "current_class_id": flow["classes"][0]["id"],
+            "target_class_id": flow["classes"][1]["id"],
+        },
+        headers=auth_headers(poster_token),
+    )
+    assert r_same.status_code == 201, r_same.text
+
+    # Post in other_campus
+    r_other = client.post(
+        "/api/v1/class-swap/requests",
+        json={
+            "semester_id": str(flow["semester"].id),
+            "course_id": str(other_course.id),
+            "current_class_id": str(c_other_1.id),
+            "target_class_id": str(c_other_2.id),
+        },
+        headers=auth_headers(other_campus_token),
+    )
+    assert r_other.status_code == 201, r_other.text
+
+    # Viewer in CAMPUS_ID (with 0 requests) sees same-campus post, NOT other-campus post
+    disc = client.get("/api/v1/class-swap/discover", headers=auth_headers(viewer_token))
+    assert disc.status_code == 200, disc.text
+    ids = {x["id"] for x in disc.json()}
+    assert r_same.json()["id"] in ids
+    assert r_other.json()["id"] not in ids
+    same_card = next(x for x in disc.json() if x["id"] == r_same.json()["id"])
+    assert same_card["is_compatible"] is False
+    assert same_card["for_request_id"] is None

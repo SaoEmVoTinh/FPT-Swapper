@@ -82,7 +82,13 @@ interface ApiRequest {
 
 interface ApiDiscover {
   id: string;
+  semester_id?: string;
+  course_id?: string;
+  current_class_id?: string;
+  target_class_id?: string;
   for_request_id?: string | null;
+  is_compatible?: boolean;
+  has_course_conflict?: boolean;
   note?: string | null;
   student_display_name?: string | null;
   student_code_masked?: string | null;
@@ -190,6 +196,12 @@ function mapDiscover(d: ApiDiscover): DiscoverCard {
   return {
     requestId: d.id,
     myRequestId: d.for_request_id || undefined,
+    isCompatible: Boolean(d.is_compatible ?? d.for_request_id),
+    hasCourseConflict: Boolean(d.has_course_conflict),
+    semesterId: d.semester_id,
+    courseId: d.course_id,
+    currentClassId: d.current_class_id,
+    targetClassId: d.target_class_id,
     studentDisplayName: d.student_display_name || "Sinh viên",
     studentCodeMasked: d.student_code_masked || "****",
     campusName: normalizeCampusName(d.campus_name),
@@ -796,10 +808,62 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     const card = discoverCards.find((c) => c.requestId === requestId);
 
     if (backendAuthed) {
-      if (!card?.myRequestId) {
-        setDiscoverCards((prev) => prev.filter((c) => c.requestId !== requestId));
-        return { matched: false };
+      if (!card) return { matched: false };
+
+      if (!card.myRequestId) {
+        if (action === "PASS") {
+          setDiscoverCards((prev) => prev.filter((c) => c.requestId !== requestId));
+          return { matched: false };
+        }
+        if (card.hasCourseConflict) {
+          setActionError(
+            "Bạn đang có một yêu cầu khác cho môn học này (lớp khác). Hãy tạm ẩn hoặc hủy yêu cầu cũ trước khi đổi lớp này."
+          );
+          return { matched: false };
+        }
+        if (
+          !card.semesterId ||
+          !card.courseId ||
+          !card.currentClassId ||
+          !card.targetClassId
+        ) {
+          setActionError("Thiếu thông tin lớp học để tạo yêu cầu đối ứng.");
+          return { matched: false };
+        }
+
+        try {
+          const createdReq = await apiFetch<ApiRequest>("/class-swap/requests", {
+            method: "POST",
+            body: JSON.stringify({
+              semester_id: card.semesterId,
+              course_id: card.courseId,
+              current_class_id: card.targetClassId,
+              target_class_id: card.currentClassId,
+              note: "Nhận đổi lớp từ Discover",
+            }),
+          });
+          const res = await apiFetch<ApiSwipe>("/class-swap/swipes", {
+            method: "POST",
+            body: JSON.stringify({
+              swiper_request_id: createdReq.id,
+              target_request_id: card.requestId,
+              action: "LIKE",
+            }),
+          });
+          setDiscoverCards((prev) => prev.filter((c) => c.requestId !== requestId));
+          void refreshWorkspace();
+          if (res.match && res.match_created) {
+            const match = mapMatch(res.match);
+            setMatches((prev) => [match, ...prev.filter((m) => m.id !== match.id)]);
+            return { matched: true, match };
+          }
+          return { matched: false };
+        } catch (err) {
+          reportError(err, "Không thể gửi yêu cầu đổi lớp. Vui lòng thử lại.");
+          return { matched: false };
+        }
       }
+
       try {
         const res = await apiFetch<ApiSwipe>("/class-swap/swipes", {
           method: "POST",

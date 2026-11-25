@@ -24,8 +24,8 @@ import { MatchItem } from "@/types";
 
 export default function DiscoverPage() {
   const {
+    student,
     discoverCards,
-    requests,
     isAuthenticated,
     swipeCard,
     refreshWorkspace,
@@ -36,19 +36,29 @@ export default function DiscoverPage() {
   const [showDetails, setShowDetails] = useState(false);
   const [swiping, setSwiping] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [onlyCompatible, setOnlyCompatible] = useState(false);
+  const [likeFeedback, setLikeFeedback] = useState<string | null>(null);
 
-  const currentCard = discoverCards[0];
-  const hasActiveRequest = requests.some((r) => r.status === "ACTIVE");
+  const visibleCards = onlyCompatible
+    ? discoverCards.filter((c) => c.isCompatible)
+    : discoverCards;
+  const compatibleCount = discoverCards.filter((c) => c.isCompatible).length;
+  const currentCard = visibleCards[0];
 
   const handleSwipe = async (action: "LIKE" | "PASS") => {
     if (!currentCard || swiping) return;
     clearActionError();
+    setLikeFeedback(null);
     setShowDetails(false);
     setSwiping(true);
     try {
       const result = await swipeCard(currentCard.requestId, action);
       if (result.matched && result.match) {
         setMatchedModal(result.match);
+      } else if (action === "LIKE") {
+        setLikeFeedback(
+          `Đã gửi Like cho ${currentCard.studentDisplayName} (${currentCard.courseCode}). Khi họ Like lại bạn, hai bạn sẽ Match!`
+        );
       }
     } finally {
       setSwiping(false);
@@ -66,7 +76,7 @@ export default function DiscoverPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-xl space-y-6">
+      <div className="mx-auto max-w-xl space-y-5">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
@@ -74,8 +84,11 @@ export default function DiscoverPage() {
               Discover đổi lớp
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              Các yêu cầu tương thích với nhu cầu của bạn ({discoverCards.length}{" "}
-              ứng viên còn lại)
+              Tin đăng tại cơ sở{" "}
+              <span className="font-semibold text-slate-700">
+                {student.campusName}
+              </span>{" "}
+              ({visibleCards.length} tin)
             </p>
           </div>
           {isAuthenticated && (
@@ -92,6 +105,47 @@ export default function DiscoverPage() {
             </button>
           )}
         </div>
+
+        {/* Filter bar: All campus posts vs compatible with my requests */}
+        {isAuthenticated && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setOnlyCompatible(false)}
+              className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors ${
+                !onlyCompatible
+                  ? "bg-orange-500 text-white shadow-sm"
+                  : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Tất cả trong campus ({discoverCards.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setOnlyCompatible(true)}
+              className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors ${
+                onlyCompatible
+                  ? "bg-orange-500 text-white shadow-sm"
+                  : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Khớp yêu cầu của tôi ({compatibleCount})
+            </button>
+          </div>
+        )}
+
+        {likeFeedback && (
+          <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            <span>{likeFeedback}</span>
+            <button
+              type="button"
+              onClick={() => setLikeFeedback(null)}
+              className="text-xs font-semibold underline"
+            >
+              Đóng
+            </button>
+          </div>
+        )}
 
         {actionError && (
           <div className="flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -112,16 +166,25 @@ export default function DiscoverPage() {
               <Sparkles className="h-7 w-7" />
             </div>
             <h2 className="mt-4 text-lg font-bold text-slate-900">
-              {isAuthenticated && !hasActiveRequest
-                ? "Bạn chưa có yêu cầu đổi lớp đang mở"
-                : "Chưa có ứng viên tương thích mới"}
+              {onlyCompatible
+                ? "Chưa có tin nào khớp đúng 2 chiều với yêu cầu của bạn"
+                : `Chưa có tin đăng mới tại ${student.campusName}`}
             </h2>
             <p className="mt-2 text-sm text-slate-500">
-              {isAuthenticated && !hasActiveRequest
-                ? "Hãy tạo một yêu cầu đổi lớp (lớp hiện tại → lớp mong muốn) để hệ thống tìm sinh viên có nhu cầu ngược lại cho bạn."
-                : "Hệ thống chỉ hiển thị người muốn đổi đúng chiều ngược lại với bạn. Hãy thử làm mới hoặc kiểm tra danh sách Match."}
+              {onlyCompatible
+                ? "Bạn có thể chuyển sang tab 'Tất cả trong campus' để xem toàn bộ tin đăng đổi lớp tại cơ sở của mình."
+                : "Hãy tạo yêu cầu đổi lớp mới hoặc quay lại sau để xem tin đăng từ các sinh viên cùng cơ sở."}
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
+              {onlyCompatible && discoverCards.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setOnlyCompatible(false)}
+                  className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-600"
+                >
+                  Xem tất cả tin trong campus ({discoverCards.length})
+                </button>
+              )}
               <Link
                 href="/requests/new"
                 className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-600"
@@ -148,12 +211,22 @@ export default function DiscoverPage() {
                   {currentCard.campusName}
                 </span>
               </div>
-              {currentCard.isReciprocalReady && (
-                <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/90 px-3 py-1 text-xs font-bold text-white shadow-sm">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Đã Like bạn — Like lại để Match ngay!
-                </div>
-              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {currentCard.isReciprocalReady ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1 text-xs font-bold text-white shadow-sm">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Đã Like bạn — Like lại để Match ngay!
+                  </span>
+                ) : currentCard.isCompatible ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/25 px-3 py-1 text-xs font-semibold text-white">
+                    Khớp ngược chiều với yêu cầu của bạn
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-medium text-white">
+                    Tin đăng trong campus {currentCard.campusName}
+                  </span>
+                )}
+              </div>
               <h2 className="mt-3 text-2xl font-extrabold tracking-tight">
                 {currentCard.courseCode}
               </h2>
@@ -242,7 +315,7 @@ export default function DiscoverPage() {
               )}
 
               {/* Swipe Actions */}
-              <div className="flex items-center justify-center gap-5 pt-2">
+              <div className="flex items-center justify-center gap-4 pt-2">
                 <button
                   type="button"
                   disabled={swiping}
@@ -250,20 +323,29 @@ export default function DiscoverPage() {
                   className="flex h-14 w-32 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-600 shadow-sm hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 transition-all active:scale-95 disabled:opacity-60"
                 >
                   <X className="h-5 w-5" />
-                  Pass
+                  Bỏ qua
                 </button>
                 <button
                   type="button"
-                  disabled={swiping}
+                  disabled={swiping || Boolean(currentCard.hasCourseConflict)}
                   onClick={() => handleSwipe("LIKE")}
-                  className="flex h-14 w-40 items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-bold text-white shadow-md shadow-orange-500/25 hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-60"
+                  title={
+                    currentCard.hasCourseConflict
+                      ? "Bạn đang có yêu cầu khác cho môn này"
+                      : undefined
+                  }
+                  className="flex h-14 flex-1 max-w-xs items-center justify-center gap-2 rounded-2xl bg-orange-500 px-4 text-sm font-bold text-white shadow-md shadow-orange-500/25 hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-50"
                 >
                   {swiping ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
                     <Heart className="h-5 w-5 fill-current" />
                   )}
-                  Like để đổi
+                  {currentCard.hasCourseConflict
+                    ? "Đã có yêu cầu khác"
+                    : currentCard.isCompatible
+                      ? "Like để đổi"
+                      : "Nhận đổi & Like"}
                 </button>
               </div>
             </div>

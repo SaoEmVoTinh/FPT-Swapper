@@ -93,6 +93,12 @@ export interface DiscoverCard {
   requestId: string;
   /** Your own ACTIVE request this candidate is compatible with (used when swiping). */
   myRequestId?: string;
+  isCompatible?: boolean;
+  hasCourseConflict?: boolean;
+  semesterId?: string;
+  courseId?: string;
+  currentClassId?: string;
+  targetClassId?: string;
   studentDisplayName: string;
   studentCodeMasked: string;
   campusName: string;

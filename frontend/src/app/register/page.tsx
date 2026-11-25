@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { MajorSelect } from "@/components/MajorSelect";
 import { apiFetch, ApiError } from "@/lib/api";
 import { AuthMeResponse, useAppState } from "@/lib/app-state";
 
@@ -15,7 +16,7 @@ export default function RegisterPage() {
   const [studentCode, setStudentCode] = useState("");
   const [email, setEmail] = useState("");
   const [campusId, setCampusId] = useState("");
-  const [major, setMajor] = useState("Software Engineering");
+  const [major, setMajor] = useState("Kỹ thuật phần mềm");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -133,37 +134,33 @@ export default function RegisterPage() {
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Campus
-              </label>
-              <select
-                value={selectedCampusId}
-                onChange={(e) => setCampusId(e.target.value)}
-                disabled={submitting}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100"
-              >
-                {campuses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.code})
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              Campus
+            </label>
+            <select
+              value={selectedCampusId}
+              onChange={(e) => setCampusId(e.target.value)}
+              disabled={submitting}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100"
+            >
+              {campuses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.code})
+                </option>
+              ))}
+            </select>
+          </div>
 
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Ngành học
-              </label>
-              <input
-                type="text"
-                value={major}
-                onChange={(e) => setMajor(e.target.value)}
-                disabled={submitting}
-                className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100"
-              />
-            </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              Ngành &amp; Chuyên ngành
+            </label>
+            <MajorSelect
+              value={major}
+              onChange={setMajor}
+              disabled={submitting}
+            />
           </div>
 
           <div>

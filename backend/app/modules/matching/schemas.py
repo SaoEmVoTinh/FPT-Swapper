@@ -56,6 +56,7 @@ class DiscoverItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     student_id: uuid.UUID
+    semester_id: uuid.UUID
     course_id: uuid.UUID
     current_class_id: uuid.UUID
     target_class_id: uuid.UUID
@@ -63,6 +64,9 @@ class DiscoverItem(BaseModel):
     status: SwapRequestStatus
     # Enriched display fields (filled by views.discover_view)
     for_request_id: uuid.UUID | None = None
+    is_compatible: bool = False
+    has_course_conflict: bool = False
+    campus_id: uuid.UUID | None = None
     student_display_name: str | None = None
     student_code_masked: str | None = None
     major: str | None = None

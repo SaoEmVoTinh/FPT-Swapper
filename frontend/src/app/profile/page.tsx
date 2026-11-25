@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Loader2, Save } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { MajorSelect } from "@/components/MajorSelect";
 import { ApiError } from "@/lib/api";
 import { useAppState } from "@/lib/app-state";
 import { Campus, StudentProfile } from "@/types";
@@ -107,36 +108,33 @@ function ProfileForm({
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">
-            Campus
-          </label>
-          <select
-            value={selectedCampusId}
-            onChange={(e) => setCampusId(e.target.value)}
-            disabled={saving}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
-          >
-            {campuses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.code})
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">
-            Ngành học
-          </label>
-          <input
-            type="text"
-            value={major}
-            onChange={(e) => setMajor(e.target.value)}
-            disabled={saving}
-            className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
-          />
-        </div>
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-slate-700">
+          Campus
+        </label>
+        <select
+          value={selectedCampusId}
+          onChange={(e) => setCampusId(e.target.value)}
+          disabled={saving}
+          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
+        >
+          {campuses.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name} ({c.code})
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-slate-700">
+          Ngành &amp; Chuyên ngành
+        </label>
+        <MajorSelect
+          value={major}
+          onChange={setMajor}
+          disabled={saving}
+        />
       </div>
 
       <div className="pt-2 flex justify-end">
