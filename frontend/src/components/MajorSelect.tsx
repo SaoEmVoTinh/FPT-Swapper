@@ -32,15 +32,15 @@ export function MajorSelect({ value, onChange, disabled }: MajorSelectProps) {
         type="button"
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-left text-sm outline-none transition-colors hover:border-orange-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100"
+        className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-left text-sm outline-none transition-colors hover:border-orange-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:disabled:bg-slate-800"
       >
         <div className="min-w-0">
           {matchedGroup && (
-            <span className="block text-[11px] font-bold text-orange-600 truncate">
+            <span className="block truncate text-[11px] font-bold text-orange-600 dark:text-orange-400">
               {matchedGroup.faculty}
             </span>
           )}
-          <span className="block truncate font-medium text-slate-900">
+          <span className="block truncate font-medium text-slate-900 dark:text-slate-100">
             {value || "Chọn chuyên ngành"}
           </span>
         </div>
@@ -53,9 +53,9 @@ export function MajorSelect({ value, onChange, disabled }: MajorSelectProps) {
 
       {/* Expandable selector: Orange Ngành tabs on top, smaller Chuyên ngành underneath */}
       {open && !disabled && (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3 space-y-3">
+        <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-900/90">
           <div>
-            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               1. Chọn Ngành
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -69,7 +69,7 @@ export function MajorSelect({ value, onChange, disabled }: MajorSelectProps) {
                     className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors ${
                       isSelected
                         ? "bg-orange-500 text-white shadow-sm"
-                        : "border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
+                        : "border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 dark:border-orange-500/35 dark:bg-orange-500/15 dark:text-orange-300 dark:hover:bg-orange-500/25"
                     }`}
                   >
                     {group.faculty}
@@ -79,8 +79,8 @@ export function MajorSelect({ value, onChange, disabled }: MajorSelectProps) {
             </div>
           </div>
 
-          <div className="border-t border-slate-200 pt-2.5">
-            <p className="mb-1.5 text-[11px] font-semibold text-slate-500">
+          <div className="border-t border-slate-200 pt-2.5 dark:border-slate-700">
+            <p className="mb-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
               2. Chọn Chuyên ngành ({activeGroup.faculty})
             </p>
             <div className="grid max-h-56 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-2">
@@ -96,8 +96,8 @@ export function MajorSelect({ value, onChange, disabled }: MajorSelectProps) {
                     }}
                     className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors ${
                       active
-                        ? "border-orange-500 bg-orange-50 font-semibold text-orange-800"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-orange-300 hover:bg-orange-50/40"
+                        ? "border-orange-500 bg-orange-50 font-semibold text-orange-800 dark:bg-orange-500/20 dark:text-orange-200"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-orange-300 hover:bg-orange-50/40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-orange-400"
                     }`}
                   >
                     <span className="leading-snug">{spec}</span>

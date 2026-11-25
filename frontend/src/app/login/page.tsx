@@ -53,7 +53,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 py-12">
-      <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="absolute right-4 top-4">
           <ThemeToggle variant="icon" />
         </div>
@@ -66,12 +66,12 @@ export default function LoginPage() {
               height={40}
               className="h-10 w-10 rounded-xl object-contain"
             />
-            <span className="text-xl font-bold text-slate-900">
+            <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
               FPT ClassSwap
             </span>
           </Link>
-          <h1 className="mt-4 text-2xl font-bold text-slate-900">Đăng nhập</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="mt-4 text-2xl font-bold text-slate-900 dark:text-slate-100">Đăng nhập</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Sử dụng tài khoản sinh viên FPT đã đăng ký trên hệ thống
           </p>
         </div>
@@ -84,7 +84,7 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
               Email hoặc Mã sinh viên
             </label>
             <div className="relative">
@@ -101,7 +101,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
               Mật khẩu
             </label>
             <div className="relative">

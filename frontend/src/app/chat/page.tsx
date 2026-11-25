@@ -41,6 +41,7 @@ export default function ChatPage() {
       queueMicrotask(() => setSelectedId(convParam));
     }
   }, []);
+
   const [convSearch, setConvSearch] = useState("");
   const [draft, setDraft] = useState("");
   const [reportedIds, setReportedIds] = useState<Record<string, boolean>>({});
@@ -91,8 +92,10 @@ export default function ChatPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Tin nhắn 1-1</h1>
-            <p className="text-sm text-slate-500">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+              Tin nhắn 1-1
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               Chỉ mở cuộc trò chuyện khi hai bên đã Match
             </p>
           </div>
@@ -100,8 +103,8 @@ export default function ChatPage() {
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
                 realtimeStatus === "connected"
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "bg-amber-50 text-amber-700"
+                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                  : "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
               }`}
             >
               <span
@@ -118,14 +121,14 @@ export default function ChatPage() {
           )}
         </div>
 
-        <div className="grid h-[calc(100vh-14rem)] min-h-[500px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:grid-cols-3">
+        <div className="grid h-[calc(100vh-14rem)] min-h-[500px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 md:grid-cols-3">
           {/* Conversation List */}
           <div
-            className={`flex flex-col border-r border-slate-200 ${
+            className={`flex flex-col border-r border-slate-200 dark:border-slate-800 ${
               selectedId ? "hidden md:flex" : "flex"
             }`}
           >
-            <div className="space-y-2.5 border-b border-slate-100 p-3.5">
+            <div className="space-y-2.5 border-b border-slate-100 p-3.5 dark:border-slate-800">
               <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Hội thoại ({conversations.length})
               </div>
@@ -137,7 +140,7 @@ export default function ChatPage() {
                     value={convSearch}
                     onChange={(e) => setConvSearch(e.target.value)}
                     placeholder="Tìm tên hoặc mã môn..."
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-2.5 text-xs outline-none focus:border-orange-500 focus:bg-white"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-2.5 text-xs outline-none focus:border-orange-500 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                   />
                 </div>
               )}
@@ -145,7 +148,7 @@ export default function ChatPage() {
 
             <div className="flex-1 overflow-y-auto">
               {filteredConversations.length === 0 ? (
-                <p className="p-6 text-center text-sm text-slate-500">
+                <p className="p-6 text-center text-sm text-slate-500 dark:text-slate-400">
                   {conversations.length === 0
                     ? "Chưa có cuộc trò chuyện nào."
                     : "Không tìm thấy hội thoại phù hợp."}
@@ -158,12 +161,14 @@ export default function ChatPage() {
                       key={conv.id}
                       type="button"
                       onClick={() => setSelectedId(conv.id)}
-                      className={`w-full border-b border-slate-100 p-4 text-left transition-colors ${
-                        isSelected ? "bg-orange-50/70" : "hover:bg-slate-50"
+                      className={`w-full border-b border-slate-100 p-4 text-left transition-colors dark:border-slate-800 ${
+                        isSelected
+                          ? "bg-orange-50/70 dark:bg-orange-500/15"
+                          : "hover:bg-slate-50 dark:hover:bg-slate-800/70"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-sm font-semibold text-slate-900">
+                        <span className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
                           {conv.partnerName}
                         </span>
                         <div className="flex shrink-0 items-center gap-1.5">
@@ -177,11 +182,11 @@ export default function ChatPage() {
                           </span>
                         </div>
                       </div>
-                      <p className="mt-0.5 text-xs font-medium text-orange-600">
+                      <p className="mt-0.5 text-xs font-medium text-orange-600 dark:text-orange-400">
                         {conv.courseCode}: {conv.myClassCode} ⇄{" "}
                         {conv.partnerClassCode}
                       </p>
-                      <p className="mt-1 truncate text-xs text-slate-500">
+                      <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
                         {conv.lastMessage}
                       </p>
                     </button>
@@ -198,29 +203,29 @@ export default function ChatPage() {
             }`}
           >
             {!activeConv ? (
-              <div className="flex flex-1 items-center justify-center p-8 text-sm text-slate-500">
+              <div className="flex flex-1 items-center justify-center p-8 text-sm text-slate-500 dark:text-slate-400">
                 Chọn một cuộc trò chuyện để bắt đầu nhắn tin.
               </div>
             ) : (
               <>
                 {/* Swap Header */}
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/70 px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/70 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/90">
                   <div className="flex items-center gap-2.5">
                     <button
                       type="button"
                       onClick={() => setSelectedId(null)}
-                      className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-200 md:hidden"
+                      className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800 md:hidden"
                     >
                       <ArrowLeft className="h-4 w-4" />
                     </button>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-900">
+                        <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
                           {activeConv.partnerName}
                         </span>
                         <MatchStatusBadge status={activeConv.matchStatus} />
                       </div>
-                      <p className="text-xs text-slate-600">
+                      <p className="text-xs text-slate-600 dark:text-slate-400">
                         {activeConv.courseCode} • {activeConv.myClassCode} ⇄{" "}
                         {activeConv.partnerClassCode}
                       </p>
@@ -243,7 +248,7 @@ export default function ChatPage() {
                       type="button"
                       disabled={isReported}
                       onClick={() => setReportModalOpen(true)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-60"
+                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                     >
                       <Flag className="h-3.5 w-3.5" />
                       {isReported ? "Đã báo cáo" : "Báo cáo"}
@@ -252,7 +257,7 @@ export default function ChatPage() {
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 space-y-3 overflow-y-auto bg-white p-4">
+                <div className="flex-1 space-y-3 overflow-y-auto bg-white p-4 dark:bg-slate-950/60">
                   {activeMessages.map((msg) => {
                     const isMe = msg.senderId === student.id;
                     return (
@@ -264,13 +269,15 @@ export default function ChatPage() {
                           className={`max-w-[78%] rounded-2xl px-4 py-2.5 text-sm shadow-xs ${
                             isMe
                               ? "rounded-br-sm bg-orange-500 text-white"
-                              : "rounded-bl-sm bg-slate-100 text-slate-800"
+                              : "rounded-bl-sm bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100"
                           }`}
                         >
                           <p className="leading-relaxed">{msg.content}</p>
                           <p
                             className={`mt-1 text-[10px] ${
-                              isMe ? "text-orange-100" : "text-slate-400"
+                              isMe
+                                ? "text-orange-100"
+                                : "text-slate-400 dark:text-slate-500"
                             }`}
                           >
                             {msg.createdAt}
@@ -285,13 +292,13 @@ export default function ChatPage() {
                 </div>
 
                 {/* Quick Replies */}
-                <div className="flex gap-1.5 overflow-x-auto border-t border-slate-100 bg-white px-3 py-2">
+                <div className="flex gap-1.5 overflow-x-auto border-t border-slate-100 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
                   {QUICK_REPLIES.map((q) => (
                     <button
                       key={q}
                       type="button"
                       onClick={() => setDraft(q)}
-                      className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-medium text-slate-600 hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700"
+                      className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-medium text-slate-600 hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-orange-500/40 dark:hover:bg-orange-500/15 dark:hover:text-orange-300"
                     >
                       {q}
                     </button>
@@ -301,14 +308,14 @@ export default function ChatPage() {
                 {/* Input */}
                 <form
                   onSubmit={handleSend}
-                  className="flex items-center gap-2 border-t border-slate-200 bg-slate-50/50 p-3"
+                  className="flex items-center gap-2 border-t border-slate-200 bg-slate-50/50 p-3 dark:border-slate-800 dark:bg-slate-900"
                 >
                   <input
                     type="text"
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     placeholder="Nhập tin nhắn trao đổi lịch đổi lớp..."
-                    className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-orange-500"
+                    className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                   />
                   <button
                     type="submit"
@@ -327,15 +334,15 @@ export default function ChatPage() {
       {/* Report Modal */}
       {reportModalOpen && activeConv && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4">
+          <div className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-xl dark:border dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900">
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
                 Báo cáo vi phạm ({activeConv.partnerName})
               </h2>
               <button
                 type="button"
                 onClick={() => setReportModalOpen(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -346,8 +353,8 @@ export default function ChatPage() {
                   key={reason}
                   className={`flex cursor-pointer items-center gap-2.5 rounded-xl border p-3 text-sm ${
                     reportReason === reason
-                      ? "border-orange-300 bg-orange-50/60 text-slate-900"
-                      : "border-slate-200 text-slate-600"
+                      ? "border-orange-300 bg-orange-50/60 text-slate-900 dark:border-orange-500/40 dark:bg-orange-500/15 dark:text-slate-100"
+                      : "border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"
                   }`}
                 >
                   <input
@@ -364,7 +371,7 @@ export default function ChatPage() {
               <button
                 type="button"
                 onClick={() => setReportModalOpen(false)}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700"
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200"
               >
                 Hủy
               </button>

@@ -21,7 +21,7 @@ export function ThemeToggle({
         onClick={toggleTheme}
         aria-label={label}
         title={label}
-        className={`inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 ${className}`}
+        className={`inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 ${className}`}
       >
         {isDark ? (
           <Sun className="h-4 w-4 text-amber-400" />

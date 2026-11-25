@@ -293,14 +293,14 @@ export function CreateRequestForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-5 rounded-2xl border border-orange-200 bg-white p-6 shadow-sm"
+      className="space-y-5 rounded-2xl border border-orange-200 bg-white p-6 shadow-sm dark:border-orange-500/35 dark:bg-slate-900"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4 dark:border-slate-800">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
             Tạo yêu cầu đổi lớp mới
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Hỗ trợ {courses.length} môn học tại {campuses.length} cơ sở trên
             toàn quốc
           </p>
@@ -315,14 +315,14 @@ export function CreateRequestForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
             Cơ sở (Campus)
           </label>
           <select
             value={campusId}
             onChange={(e) => handleCampusChange(e.target.value)}
             disabled={submitting}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
             {campuses.map((cp) => (
               <option key={cp.id} value={cp.id}>
@@ -333,14 +333,14 @@ export function CreateRequestForm({
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
             Học kỳ
           </label>
           <select
             value={semesterId}
             onChange={(e) => handleSemesterChange(e.target.value)}
             disabled={submitting}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
             {semesters.map((s) => (
               <option key={s.id} value={s.id}>
@@ -352,7 +352,7 @@ export function CreateRequestForm({
       </div>
 
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-slate-700">
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
           Môn học ({filteredCourses.length}/{courses.length} môn)
         </label>
         <div className="relative">
@@ -382,7 +382,7 @@ export function CreateRequestForm({
           value={courseId}
           onChange={(e) => handleCourseChange(e.target.value)}
           disabled={submitting}
-          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         >
           {filteredCourses.length === 0 ? (
             <option value="">Không tìm thấy môn học phù hợp</option>
@@ -398,7 +398,7 @@ export function CreateRequestForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-slate-700">
+          <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
             Lớp hiện tại của bạn
             {loadingClasses && (
               <Loader2 className="h-3.5 w-3.5 animate-spin text-orange-500" />
@@ -408,7 +408,7 @@ export function CreateRequestForm({
             value={selectedCurrentClassId}
             onChange={(e) => setCurrentClassId(e.target.value)}
             disabled={submitting || loadingClasses}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
             {availableClasses.length === 0 ? (
               <option value="">Không có lớp khả dụng</option>
@@ -423,14 +423,14 @@ export function CreateRequestForm({
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
             Lớp mong muốn chuyển sang
           </label>
           <select
             value={selectedTargetClassId}
             onChange={(e) => setTargetClassId(e.target.value)}
             disabled={submitting || loadingClasses}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
             {availableClasses.length === 0 ? (
               <option value="">Không có lớp khả dụng</option>
@@ -447,7 +447,7 @@ export function CreateRequestForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
             Thời hạn yêu cầu
           </label>
           <input
@@ -460,7 +460,7 @@ export function CreateRequestForm({
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
             Ghi chú tùy chọn
           </label>
           <input
@@ -480,7 +480,7 @@ export function CreateRequestForm({
             type="button"
             onClick={onCancel}
             disabled={submitting}
-            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50"
           >
             Đóng
           </button>

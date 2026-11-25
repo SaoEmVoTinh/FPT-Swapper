@@ -62,7 +62,7 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 py-12">
-      <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="absolute right-4 top-4">
           <ThemeToggle variant="icon" />
         </div>
@@ -75,14 +75,14 @@ export default function RegisterPage() {
               height={40}
               className="h-10 w-10 rounded-xl object-contain"
             />
-            <span className="text-xl font-bold text-slate-900">
+            <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
               FPT ClassSwap
             </span>
           </Link>
-          <h1 className="mt-4 text-2xl font-bold text-slate-900">
+          <h1 className="mt-4 text-2xl font-bold text-slate-900 dark:text-slate-100">
             Tạo tài khoản sinh viên
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Tham gia kết nối đổi lớp cùng sinh viên FPT
           </p>
         </div>
@@ -96,7 +96,7 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Họ và tên
               </label>
               <input
@@ -109,7 +109,7 @@ export default function RegisterPage() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Mã sinh viên
               </label>
               <input
@@ -125,7 +125,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
               Email
             </label>
             <input
@@ -139,7 +139,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
               Campus
             </label>
             <select
@@ -157,7 +157,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
               Ngành &amp; Chuyên ngành
             </label>
             <MajorSelect
@@ -168,7 +168,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
               Mật khẩu (tối thiểu 6 ký tự)
             </label>
             <input

@@ -400,14 +400,14 @@ export default function AdminPage() {
   if (!isSuperAdmin) {
     return (
       <AppShell>
-        <div className="mx-auto max-w-xl rounded-2xl border border-rose-200 bg-white p-8 text-center shadow-sm">
+        <div className="mx-auto max-w-xl rounded-2xl border border-rose-200 bg-white dark:border-slate-800 dark:bg-slate-900 p-8 text-center shadow-sm">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
             <ShieldAlert className="h-7 w-7" />
           </div>
-          <h1 className="mt-4 text-xl font-bold text-slate-900">
+          <h1 className="mt-4 text-xl font-bold text-slate-900 dark:text-slate-100">
             Không có quyền truy cập trang Quản trị
           </h1>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
             Trang Admin chỉ cấp quyền truy cập duy nhất cho tài khoản quản trị
             viên hệ thống ({SUPER_ADMIN_EMAIL}).
           </p>
@@ -474,16 +474,16 @@ export default function AdminPage() {
     <AppShell>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 p-6 shadow-sm">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white">
               <ShieldCheck className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">
+              <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
                 Trung tâm Quản trị FPT Swapper
               </h1>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
                 Quyền Super Admin duy nhất:{" "}
                 <span className="font-semibold text-slate-800">
                   {student.email}
@@ -520,48 +520,48 @@ export default function AdminPage() {
         {/* Overview KPIs */}
         {overview && (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-medium text-slate-500">Tài khoản</p>
-              <p className="mt-1 text-2xl font-bold text-slate-900">
+            <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 p-4 shadow-sm">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Tài khoản</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
                 {overview.total_students}
               </p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {overview.active_students} hoạt động ·{" "}
                 {overview.suspended_students} đang khóa
               </p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-medium text-slate-500">
+            <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 p-4 shadow-sm">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
                 Tin đăng đổi lớp
               </p>
-              <p className="mt-1 text-2xl font-bold text-slate-900">
+              <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
                 {overview.total_requests}
               </p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {overview.active_requests} đang tìm · {overview.matched_requests}{" "}
                 đã ghép
               </p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-medium text-slate-500">
+            <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 p-4 shadow-sm">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
                 Cặp ghép (Matches)
               </p>
-              <p className="mt-1 text-2xl font-bold text-slate-900">
+              <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
                 {overview.total_matches}
               </p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {overview.confirmed_matches} xác nhận ·{" "}
                 {overview.completed_matches} hoàn tất
               </p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-medium text-slate-500">
+            <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 p-4 shadow-sm">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
                 Tin nhắn & Học vụ
               </p>
-              <p className="mt-1 text-2xl font-bold text-slate-900">
+              <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
                 {overview.total_messages}
               </p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {overview.total_courses} môn học · {overview.total_campuses} cơ
                 sở
               </p>
@@ -582,7 +582,7 @@ export default function AdminPage() {
                 className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
                   active
                     ? "bg-slate-900 text-white"
-                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    : "border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50"
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -595,7 +595,7 @@ export default function AdminPage() {
         {/* ═════════ TAB 1: USERS ═════════ */}
         {tab === "users" && (
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 p-4 shadow-sm">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -610,12 +610,12 @@ export default function AdminPage() {
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
                     placeholder="Tìm theo email, mã SV, họ tên, ngành..."
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-orange-400 focus:bg-white"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-orange-400 focus:bg-white dark:border-slate-800 dark:bg-slate-900"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   Tìm
                 </button>
@@ -637,7 +637,7 @@ export default function AdminPage() {
                 onSubmit={handleCreateUser}
                 className="space-y-4 rounded-2xl border border-orange-200 bg-orange-50/40 p-5 shadow-sm"
               >
-                <h2 className="text-base font-bold text-slate-900">
+                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
                   Tạo tài khoản sinh viên mới
                 </h2>
                 <div className="grid gap-4 md:grid-cols-2">
@@ -651,7 +651,7 @@ export default function AdminPage() {
                       value={newEmail}
                       onChange={(e) => setNewEmail(e.target.value)}
                       placeholder="ten@fpt.edu.vn"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-orange-400"
+                      className="w-full rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 px-3 py-2 text-sm outline-none focus:border-orange-400"
                     />
                   </div>
                   <div>
@@ -665,7 +665,7 @@ export default function AdminPage() {
                       value={newCode}
                       onChange={(e) => setNewCode(e.target.value)}
                       placeholder="DE210999"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm uppercase outline-none focus:border-orange-400"
+                      className="w-full rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 px-3 py-2 text-sm uppercase outline-none focus:border-orange-400"
                     />
                   </div>
                   <div>
@@ -679,7 +679,7 @@ export default function AdminPage() {
                       value={newFullName}
                       onChange={(e) => setNewFullName(e.target.value)}
                       placeholder="Nguyễn Văn A"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-orange-400"
+                      className="w-full rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 px-3 py-2 text-sm outline-none focus:border-orange-400"
                     />
                   </div>
                   <div>
@@ -693,7 +693,7 @@ export default function AdminPage() {
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="Ít nhất 6 ký tự"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-orange-400"
+                      className="w-full rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 px-3 py-2 text-sm outline-none focus:border-orange-400"
                     />
                   </div>
                   <div>
@@ -703,7 +703,7 @@ export default function AdminPage() {
                     <select
                       value={selectedCampusId}
                       onChange={(e) => setNewCampusId(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-orange-400"
+                      className="w-full rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 px-3 py-2 text-sm outline-none focus:border-orange-400"
                     >
                       {campuses.map((c) => (
                         <option key={c.id} value={c.id}>
@@ -719,7 +719,7 @@ export default function AdminPage() {
                     <select
                       value={newRole}
                       onChange={(e) => setNewRole(e.target.value as UserRole)}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-orange-400"
+                      className="w-full rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 px-3 py-2 text-sm outline-none focus:border-orange-400"
                     >
                       <option value="STUDENT">STUDENT</option>
                       <option value="MODERATOR">MODERATOR</option>
@@ -739,7 +739,7 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={() => setShowCreateUser(false)}
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+                    className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-700"
                   >
                     Hủy
                   </button>
@@ -774,7 +774,7 @@ export default function AdminPage() {
                     value={resetPasswordValue}
                     onChange={(e) => setResetPasswordValue(e.target.value)}
                     placeholder="Mật khẩu mới (>= 6 ký tự)"
-                    className="rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-sm outline-none"
+                    className="rounded-xl border border-amber-300 bg-white dark:border-slate-800 dark:bg-slate-900 px-3 py-1.5 text-sm outline-none"
                   />
                   <button
                     type="submit"
@@ -789,7 +789,7 @@ export default function AdminPage() {
                       setResetUserTarget(null);
                       setResetPasswordValue("");
                     }}
-                    className="rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-sm font-semibold text-amber-900"
+                    className="rounded-xl border border-amber-300 bg-white dark:border-slate-800 dark:bg-slate-900 px-3 py-1.5 text-sm font-semibold text-amber-900"
                   >
                     Hủy
                   </button>
@@ -798,10 +798,10 @@ export default function AdminPage() {
             )}
 
             {/* User List */}
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 shadow-sm">
               <div className="divide-y divide-slate-100">
                 {users.length === 0 ? (
-                  <p className="p-6 text-center text-sm text-slate-500">
+                  <p className="p-6 text-center text-sm text-slate-500 dark:text-slate-400">
                     Chưa có tài khoản phù hợp.
                   </p>
                 ) : (
@@ -816,7 +816,7 @@ export default function AdminPage() {
                       >
                         <div className="space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-bold text-slate-900">
+                            <span className="font-bold text-slate-900 dark:text-slate-100">
                               {u.full_name || "Chưa cập nhật tên"}
                             </span>
                             <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
@@ -845,8 +845,8 @@ export default function AdminPage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-slate-600">{u.email}</p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-sm text-slate-600 dark:text-slate-300">{u.email}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
                             {u.campus_name || u.campus_code || "Campus"} ·{" "}
                             {u.major || "Chưa chọn ngành"} · {u.request_count}{" "}
                             tin đăng · Tạo lúc {formatDateTime(u.created_at)}
@@ -885,7 +885,7 @@ export default function AdminPage() {
                                 setResetUserTarget(u);
                                 setResetPasswordValue("");
                               }}
-                              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                             >
                               <KeyRound className="h-3.5 w-3.5" />
                               Đổi MK
@@ -904,7 +904,7 @@ export default function AdminPage() {
                                 <button
                                   type="button"
                                   onClick={() => setConfirmDeleteUserId(null)}
-                                  className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600"
+                                  className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300"
                                 >
                                   Hủy
                                 </button>
@@ -934,7 +934,7 @@ export default function AdminPage() {
         {/* ═════════ TAB 2: SWAP REQUESTS ═════════ */}
         {tab === "requests" && (
           <div className="space-y-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 p-4 shadow-sm">
               <div className="relative max-w-md">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
@@ -942,15 +942,15 @@ export default function AdminPage() {
                   value={requestSearch}
                   onChange={(e) => setRequestSearch(e.target.value)}
                   placeholder="Lọc theo mã SV, môn học, mã lớp..."
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-orange-400 focus:bg-white"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-orange-400 focus:bg-white dark:border-slate-800 dark:bg-slate-900"
                 />
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 shadow-sm">
               <div className="divide-y divide-slate-100">
                 {filteredRequests.length === 0 ? (
-                  <p className="p-6 text-center text-sm text-slate-500">
+                  <p className="p-6 text-center text-sm text-slate-500 dark:text-slate-400">
                     Không có tin đăng nào.
                   </p>
                 ) : (
@@ -964,7 +964,7 @@ export default function AdminPage() {
                           <span className="rounded-lg bg-orange-50 px-2 py-0.5 text-xs font-bold text-orange-700">
                             {r.course_code || "COURSE"}
                           </span>
-                          <span className="font-semibold text-slate-900">
+                          <span className="font-semibold text-slate-900 dark:text-slate-100">
                             {r.current_class_code || "?"} →{" "}
                             {r.target_class_code || "?"}
                           </span>
@@ -972,14 +972,14 @@ export default function AdminPage() {
                             {r.status}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-600">
+                        <p className="text-xs text-slate-600 dark:text-slate-300">
                           {r.student_name || r.student_email} ({r.student_code})
                           · {r.campus_name || "Campus"} ·{" "}
                           {r.semester_name || "Học kỳ"} ·{" "}
                           {formatDateTime(r.created_at)}
                         </p>
                         {r.note && (
-                          <p className="text-xs italic text-slate-500">
+                          <p className="text-xs italic text-slate-500 dark:text-slate-400">
                             “{r.note}”
                           </p>
                         )}
@@ -1017,7 +1017,7 @@ export default function AdminPage() {
                     className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
                       active
                         ? "bg-orange-500 text-white"
-                        : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                        : "border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50"
                     }`}
                   >
                     <Icon className="h-4 w-4" />
@@ -1031,7 +1031,7 @@ export default function AdminPage() {
               <div className="space-y-4">
                 <form
                   onSubmit={handleCreateCourse}
-                  className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-4"
+                  className="grid gap-3 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 p-4 shadow-sm sm:grid-cols-4"
                 >
                   <input
                     type="text"
@@ -1070,22 +1070,22 @@ export default function AdminPage() {
                   </div>
                 </form>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 p-5 shadow-sm">
                   <div className="grid gap-3 md:grid-cols-2">
                     {courses.map((course) => (
                       <div
                         key={course.id}
-                        className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"
+                        className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/70"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-slate-900">
+                          <span className="font-bold text-slate-900 dark:text-slate-100">
                             {course.code}
                           </span>
-                          <span className="rounded-lg bg-white px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                          <span className="rounded-lg bg-white dark:border-slate-800 dark:bg-slate-900 px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
                             {course.credits} tín chỉ
                           </span>
                         </div>
-                        <p className="mt-1 text-sm text-slate-600">
+                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                           {course.name}
                         </p>
                       </div>
@@ -1096,18 +1096,18 @@ export default function AdminPage() {
             )}
 
             {academicTab === "semesters" && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 p-5 shadow-sm">
                 <div className="space-y-3">
                   {semesters.map((semester) => (
                     <div
                       key={semester.id}
-                      className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/70 p-4"
+                      className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/70"
                     >
                       <div>
-                        <p className="font-bold text-slate-900">
+                        <p className="font-bold text-slate-900 dark:text-slate-100">
                           {semester.name}
                         </p>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                           Mã kỳ: {semester.code}
                         </p>
                       </div>
@@ -1115,7 +1115,7 @@ export default function AdminPage() {
                         className={`rounded-full px-3 py-1 text-xs font-semibold ${
                           semester.isActive
                             ? "bg-emerald-50 text-emerald-700"
-                            : "bg-slate-200 text-slate-600"
+                            : "bg-slate-200 text-slate-600 dark:text-slate-300"
                         }`}
                       >
                         {semester.isActive ? "Đang mở" : "Lưu trữ"}
@@ -1127,17 +1127,17 @@ export default function AdminPage() {
             )}
 
             {academicTab === "campuses" && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 p-5 shadow-sm">
                 <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                   {campuses.map((campus) => (
                     <div
                       key={campus.id}
-                      className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"
+                      className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/70"
                     >
                       <p className="text-xs font-bold uppercase text-orange-600">
                         {campus.code}
                       </p>
-                      <p className="mt-1 font-bold text-slate-900">
+                      <p className="mt-1 font-bold text-slate-900 dark:text-slate-100">
                         {campus.name}
                       </p>
                     </div>
@@ -1147,7 +1147,7 @@ export default function AdminPage() {
             )}
 
             {academicTab === "classes" && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 p-5 shadow-sm">
                 <div className="space-y-3">
                   {DEMO_CLASSES.map((cls) => {
                     const course = courses.find((c) => c.id === cls.courseId);
@@ -1155,18 +1155,18 @@ export default function AdminPage() {
                     return (
                       <div
                         key={cls.id}
-                        className="flex flex-col justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:flex-row sm:items-center"
+                        className="flex flex-col justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/70 sm:flex-row sm:items-center"
                       >
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-900">
+                            <span className="font-bold text-slate-900 dark:text-slate-100">
                               {cls.code}
                             </span>
                             <span className="rounded-lg bg-orange-50 px-2 py-0.5 text-xs font-semibold text-orange-700">
                               {course?.code ?? cls.courseId}
                             </span>
                           </div>
-                          <p className="mt-1 text-xs text-slate-500">
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                             {campus?.name ?? "Campus"} · {cls.lecturer}
                           </p>
                         </div>
@@ -1184,10 +1184,10 @@ export default function AdminPage() {
 
         {/* ═════════ TAB 4: AUDIT LOGS ═════════ */}
         {tab === "logs" && (
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 shadow-sm">
             <div className="divide-y divide-slate-100">
               {auditLogs.length === 0 ? (
-                <p className="p-6 text-center text-sm text-slate-500">
+                <p className="p-6 text-center text-sm text-slate-500 dark:text-slate-400">
                   Chưa có nhật ký quản trị nào.
                 </p>
               ) : (
@@ -1198,7 +1198,7 @@ export default function AdminPage() {
                         <span className="rounded-lg bg-slate-900 px-2 py-0.5 text-xs font-semibold text-white">
                           {log.action}
                         </span>
-                        <span className="text-xs font-semibold text-slate-600">
+                        <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
                           {log.entity_type}
                         </span>
                       </div>
@@ -1206,14 +1206,14 @@ export default function AdminPage() {
                         {formatDateTime(log.created_at)}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-600">
+                    <p className="text-xs text-slate-600 dark:text-slate-300">
                       Thực hiện bởi:{" "}
                       <span className="font-semibold">
                         {log.actor_email || "System"}
                       </span>
                     </p>
                     {log.details && (
-                      <pre className="overflow-x-auto rounded-lg bg-slate-50 p-2 text-xs text-slate-600">
+                      <pre className="overflow-x-auto rounded-lg bg-slate-50 p-2 text-xs text-slate-600 dark:text-slate-300">
                         {JSON.stringify(log.details)}
                       </pre>
                     )}

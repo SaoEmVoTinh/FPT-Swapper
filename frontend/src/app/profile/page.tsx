@@ -112,7 +112,7 @@ function ProfileForm({
   return (
     <form
       onSubmit={handleSave}
-      className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+      className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
     >
       {saved && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-700">
@@ -128,7 +128,7 @@ function ProfileForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
             Họ và tên
           </label>
           <input
@@ -143,7 +143,7 @@ function ProfileForm({
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
             Campus
           </label>
           <select
@@ -162,14 +162,14 @@ function ProfileForm({
       </div>
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-slate-700">
+        <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
           Ngành &amp; Chuyên ngành
         </label>
         <MajorSelect value={major} onChange={setMajor} disabled={saving} />
       </div>
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-slate-700">
+        <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
           Ảnh đại diện (URL tùy chọn)
         </label>
         <input
@@ -183,7 +183,7 @@ function ProfileForm({
       </div>
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-slate-700">
+        <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
           Giới thiệu ngắn (hiển thị cho đối tác trao đổi lớp)
         </label>
         <textarea
@@ -454,7 +454,7 @@ export default function ProfilePage() {
     <AppShell>
       <div className="mx-auto max-w-3xl space-y-6">
         {/* Account Overview Card */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-wrap items-center gap-4">
             {student.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -471,10 +471,10 @@ export default function ProfilePage() {
 
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl font-bold text-slate-900">
+                <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
                   {student.fullName}
                 </h1>
-                <span className="rounded-lg bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                <span className="rounded-lg bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
                   {student.studentCode}
                 </span>
                 <span className="rounded-lg bg-orange-50 px-2.5 py-0.5 text-xs font-semibold text-orange-700">
@@ -484,7 +484,7 @@ export default function ProfilePage() {
               <p className="mt-1 truncate text-sm text-slate-600">
                 {student.email}
               </p>
-              <p className="mt-0.5 text-xs text-slate-500">
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                 {student.campusName} · {student.major}
                 {summary?.created_at &&
                   ` · Tham gia ${new Date(summary.created_at).toLocaleDateString("vi-VN")}`}
@@ -508,27 +508,27 @@ export default function ProfilePage() {
 
           {summary && (
             <div className="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-4">
-              <div className="rounded-xl bg-slate-50 p-3">
-                <p className="text-xs text-slate-500">Tin đang tìm</p>
-                <p className="mt-0.5 text-lg font-bold text-slate-900">
+              <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/70">
+                <p className="text-xs text-slate-500 dark:text-slate-400">Tin đang tìm</p>
+                <p className="mt-0.5 text-lg font-bold text-slate-900 dark:text-slate-100">
                   {summary.active_requests}
                 </p>
               </div>
-              <div className="rounded-xl bg-slate-50 p-3">
-                <p className="text-xs text-slate-500">Tin tạm dừng</p>
-                <p className="mt-0.5 text-lg font-bold text-slate-900">
+              <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/70">
+                <p className="text-xs text-slate-500 dark:text-slate-400">Tin tạm dừng</p>
+                <p className="mt-0.5 text-lg font-bold text-slate-900 dark:text-slate-100">
                   {summary.paused_requests}
                 </p>
               </div>
-              <div className="rounded-xl bg-slate-50 p-3">
-                <p className="text-xs text-slate-500">Matches</p>
-                <p className="mt-0.5 text-lg font-bold text-slate-900">
+              <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/70">
+                <p className="text-xs text-slate-500 dark:text-slate-400">Matches</p>
+                <p className="mt-0.5 text-lg font-bold text-slate-900 dark:text-slate-100">
                   {summary.total_matches}
                 </p>
               </div>
-              <div className="rounded-xl bg-slate-50 p-3">
-                <p className="text-xs text-slate-500">Thông báo mới</p>
-                <p className="mt-0.5 text-lg font-bold text-slate-900">
+              <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/70">
+                <p className="text-xs text-slate-500 dark:text-slate-400">Thông báo mới</p>
+                <p className="mt-0.5 text-lg font-bold text-slate-900 dark:text-slate-100">
                   {summary.unread_notifications}
                 </p>
               </div>
@@ -609,20 +609,20 @@ export default function ProfilePage() {
           <div className="space-y-6">
             <form
               onSubmit={handleSaveIdentity}
-              className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+              className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
             >
               <div>
-                <h2 className="text-base font-bold text-slate-900">
+                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
                   Thông tin đăng nhập (Email &amp; Mã sinh viên)
                 </h2>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   Bạn có thể đăng nhập bằng Email hoặc Mã sinh viên.
                 </p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                     Email
                   </label>
                   <input
@@ -631,7 +631,7 @@ export default function ProfilePage() {
                     disabled={!isAuthenticated || isSuperAdmin || savingIdentity}
                     value={identityEmail || student.email}
                     onChange={(e) => setIdentityEmail(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 disabled:bg-slate-100 disabled:text-slate-500"
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 disabled:bg-slate-100 disabled:text-slate-500 dark:text-slate-400"
                   />
                   {isSuperAdmin && (
                     <p className="mt-1 text-xs text-slate-400">
@@ -641,7 +641,7 @@ export default function ProfilePage() {
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                     Mã sinh viên
                   </label>
                   <input
@@ -651,7 +651,7 @@ export default function ProfilePage() {
                     disabled={!isAuthenticated || savingIdentity}
                     value={identityCode || student.studentCode}
                     onChange={(e) => setIdentityCode(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm uppercase outline-none focus:border-orange-500 disabled:bg-slate-100 disabled:text-slate-500"
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm uppercase outline-none focus:border-orange-500 disabled:bg-slate-100 disabled:text-slate-500 dark:text-slate-400"
                   />
                 </div>
               </div>
@@ -670,19 +670,19 @@ export default function ProfilePage() {
 
             <form
               onSubmit={handleChangePassword}
-              className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+              className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
             >
               <div>
-                <h2 className="text-base font-bold text-slate-900">
+                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
                   Đổi mật khẩu
                 </h2>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   Mật khẩu mới tối thiểu 6 ký tự và khác mật khẩu hiện tại.
                 </p>
               </div>
 
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                   Mật khẩu hiện tại
                 </label>
                 <input
@@ -697,7 +697,7 @@ export default function ProfilePage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                     Mật khẩu mới
                   </label>
                   <input
@@ -711,7 +711,7 @@ export default function ProfilePage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                     Nhập lại mật khẩu mới
                   </label>
                   <input
@@ -743,12 +743,12 @@ export default function ProfilePage() {
         {/* ════════ TAB 3: ACTIVITY & DATA EXPORT ════════ */}
         {tab === "activity" && (
           <div className="space-y-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
               <div>
-                <h2 className="text-base font-bold text-slate-900">
+                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
                   Quản lý nhanh tin đăng đổi lớp
                 </h2>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   Tạm ẩn toàn bộ tin đăng khi bạn đã đổi xong hoặc bận, và bật
                   lại bất cứ lúc nào.
                 </p>
@@ -777,12 +777,12 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
               <div>
-                <h2 className="text-base font-bold text-slate-900">
+                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
                   Sao lưu dữ liệu cá nhân
                 </h2>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   Tải về file JSON chứa thông tin tài khoản, các yêu cầu đổi
                   lớp và lịch sử thông báo của bạn.
                 </p>
@@ -828,7 +828,7 @@ export default function ProfilePage() {
             ) : (
               <form onSubmit={handleDeleteOwnAccount} className="space-y-4">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                     Nhập mật khẩu hiện tại để xác thực
                   </label>
                   <input
@@ -842,7 +842,7 @@ export default function ProfilePage() {
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                     Gõ <span className="font-bold text-rose-700">XOA TAI KHOAN</span>{" "}
                     để xác nhận
                   </label>
