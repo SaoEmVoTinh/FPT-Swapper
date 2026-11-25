@@ -7,6 +7,9 @@ const localIps = Object.values(os.networkInterfaces())
   .map((iface) => iface.address);
 
 const nextConfig: NextConfig = {
+  images: {
+    unoptimized: true,
+  },
   allowedDevOrigins: Array.from(new Set(["localhost", "127.0.0.1", "172.18.224.1", ...localIps])),
   cacheComponents: true,
   partialPrefetching: true,
