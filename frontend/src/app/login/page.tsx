@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, Lock, Mail } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { apiFetch, ApiError } from "@/lib/api";
 import { AuthMeResponse, useAppState } from "@/lib/app-state";
 
@@ -51,8 +52,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 py-12">
+      <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="absolute right-4 top-4">
+          <ThemeToggle variant="icon" />
+        </div>
         <div className="mb-6 text-center">
           <Link href="/" className="inline-flex items-center gap-2.5">
             <Image

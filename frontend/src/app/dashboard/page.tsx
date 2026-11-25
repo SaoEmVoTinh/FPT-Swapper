@@ -58,7 +58,7 @@ export default function DashboardPage() {
         )}
 
         {/* Hero Welcome Banner */}
-        <div className="relative overflow-hidden rounded-3xl border border-orange-100 bg-gradient-to-br from-white via-orange-50/40 to-amber-50/60 p-6 shadow-sm">
+        <div className="relative overflow-hidden rounded-3xl border border-orange-100 bg-gradient-to-br from-white via-orange-50/40 to-amber-50/60 p-6 shadow-sm dark:border-orange-900/40 dark:from-slate-900 dark:via-slate-900 dark:to-orange-950/20">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-100/80 px-2.5 py-1 text-[11px] font-semibold text-orange-700">

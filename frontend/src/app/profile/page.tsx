@@ -8,6 +8,7 @@ import {
   Download,
   KeyRound,
   Loader2,
+  LogOut,
   PauseCircle,
   PlayCircle,
   Save,
@@ -489,6 +490,20 @@ export default function ProfilePage() {
                   ` · Tham gia ${new Date(summary.created_at).toLocaleDateString("vi-VN")}`}
               </p>
             </div>
+
+            {isAuthenticated && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await logout();
+                  router.push("/login");
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Đăng xuất
+              </button>
+            )}
           </div>
 
           {summary && (
