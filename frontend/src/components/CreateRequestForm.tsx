@@ -375,7 +375,7 @@ export function CreateRequestForm({
             }}
             placeholder="Tìm mã môn hoặc tên môn (VD: PRF192, SWP391, JPD126...)"
             disabled={submitting}
-            className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3.5 text-sm outline-none focus:border-orange-500"
+            className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3.5 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
         <select

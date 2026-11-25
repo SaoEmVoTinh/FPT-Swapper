@@ -115,13 +115,13 @@ function ProfileForm({
       className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
     >
       {saved && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-700">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-700 dark:border-emerald-500/35 dark:bg-emerald-500/15 dark:text-emerald-200">
           Đã lưu thay đổi hồ sơ vào hệ thống.
         </div>
       )}
 
       {error && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700">
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-500/35 dark:bg-rose-500/15 dark:text-rose-200">
           {error}
         </div>
       )}
@@ -138,7 +138,7 @@ function ProfileForm({
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             disabled={saving}
-            className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
 
@@ -150,7 +150,7 @@ function ProfileForm({
             value={selectedCampusId}
             onChange={(e) => setCampusId(e.target.value)}
             disabled={saving}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
             {campuses.map((c) => (
               <option key={c.id} value={c.id}>
@@ -178,7 +178,7 @@ function ProfileForm({
           onChange={(e) => setAvatarUrl(e.target.value)}
           disabled={saving}
           placeholder="https://..."
-          className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         />
       </div>
 
@@ -193,7 +193,7 @@ function ProfileForm({
           onChange={(e) => setBio(e.target.value)}
           disabled={saving}
           placeholder="VD: Cần đổi slot sáng để tránh trùng lịch làm thêm / đồ án..."
-          className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         />
       </div>
 
@@ -474,14 +474,14 @@ export default function ProfilePage() {
                 <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
                   {student.fullName}
                 </h1>
-                <span className="rounded-lg bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                <span className="rounded-lg bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                   {student.studentCode}
                 </span>
-                <span className="rounded-lg bg-orange-50 px-2.5 py-0.5 text-xs font-semibold text-orange-700">
+                <span className="rounded-lg bg-orange-50 px-2.5 py-0.5 text-xs font-semibold text-orange-700 dark:bg-orange-500/15 dark:text-orange-300">
                   {student.role}
                 </span>
               </div>
-              <p className="mt-1 truncate text-sm text-slate-600">
+              <p className="mt-1 truncate text-sm text-slate-600 dark:text-slate-300">
                 {student.email}
               </p>
               <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
@@ -498,7 +498,7 @@ export default function ProfilePage() {
                   await logout();
                   router.push("/login");
                 }}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-500/35 dark:bg-rose-500/15 dark:text-rose-300 dark:hover:bg-rose-500/25"
               >
                 <LogOut className="h-3.5 w-3.5" />
                 Đăng xuất
@@ -507,7 +507,7 @@ export default function ProfilePage() {
           </div>
 
           {summary && (
-            <div className="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-4">
+            <div className="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 dark:border-slate-800 sm:grid-cols-4">
               <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/70">
                 <p className="text-xs text-slate-500 dark:text-slate-400">Tin đang tìm</p>
                 <p className="mt-0.5 text-lg font-bold text-slate-900 dark:text-slate-100">
@@ -537,14 +537,14 @@ export default function ProfilePage() {
         </div>
 
         {!isAuthenticated && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/35 dark:bg-amber-500/15 dark:text-amber-200">
             <span>
               Bạn đang xem ở chế độ demo. Hãy đăng nhập để lưu thay đổi vào hệ
               thống, đổi mật khẩu và quản lý tài khoản thật.
             </span>
             <Link
               href="/login"
-              className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
+              className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white dark:bg-orange-500"
             >
               Đăng nhập ngay
             </Link>
@@ -552,12 +552,12 @@ export default function ProfilePage() {
         )}
 
         {errorMsg && (
-          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 dark:border-rose-500/35 dark:bg-rose-500/15 dark:text-rose-200">
             {errorMsg}
           </div>
         )}
         {notice && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:border-emerald-500/35 dark:bg-emerald-500/15 dark:text-emerald-200">
             {notice}
           </div>
         )}
@@ -581,8 +581,8 @@ export default function ProfilePage() {
                   active
                     ? isDanger
                       ? "bg-rose-600 text-white"
-                      : "bg-slate-900 text-white"
-                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      : "bg-slate-900 text-white dark:bg-orange-500"
+                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -631,7 +631,7 @@ export default function ProfilePage() {
                     disabled={!isAuthenticated || isSuperAdmin || savingIdentity}
                     value={identityEmail || student.email}
                     onChange={(e) => setIdentityEmail(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 disabled:bg-slate-100 disabled:text-slate-500 dark:text-slate-400"
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 disabled:bg-slate-100 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800 dark:disabled:text-slate-400"
                   />
                   {isSuperAdmin && (
                     <p className="mt-1 text-xs text-slate-400">
@@ -651,7 +651,7 @@ export default function ProfilePage() {
                     disabled={!isAuthenticated || savingIdentity}
                     value={identityCode || student.studentCode}
                     onChange={(e) => setIdentityCode(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm uppercase outline-none focus:border-orange-500 disabled:bg-slate-100 disabled:text-slate-500 dark:text-slate-400"
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm uppercase outline-none focus:border-orange-500 disabled:bg-slate-100 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800 dark:disabled:text-slate-400"
                   />
                 </div>
               </div>
@@ -660,7 +660,7 @@ export default function ProfilePage() {
                 <button
                   type="submit"
                   disabled={!isAuthenticated || savingIdentity}
-                  className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-700 dark:hover:bg-slate-600"
                 >
                   <Save className="h-4 w-4" />
                   {savingIdentity ? "Đang cập nhật..." : "Cập nhật định danh"}
@@ -691,7 +691,7 @@ export default function ProfilePage() {
                   disabled={!isAuthenticated || changingPassword}
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 disabled:bg-slate-100"
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800"
                 />
               </div>
 
@@ -707,7 +707,7 @@ export default function ProfilePage() {
                     disabled={!isAuthenticated || changingPassword}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 disabled:bg-slate-100"
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800"
                   />
                 </div>
                 <div>
@@ -721,7 +721,7 @@ export default function ProfilePage() {
                     disabled={!isAuthenticated || changingPassword}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 disabled:bg-slate-100"
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800"
                   />
                 </div>
               </div>
@@ -759,7 +759,7 @@ export default function ProfilePage() {
                   type="button"
                   disabled={!isAuthenticated || busyActivity}
                   onClick={() => handleBulkToggle("pause-all")}
-                  className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-500/35 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/25"
                 >
                   <PauseCircle className="h-4 w-4" />
                   Tạm dừng tất cả tin đang mở ({summary?.active_requests ?? 0})
@@ -769,7 +769,7 @@ export default function ProfilePage() {
                   type="button"
                   disabled={!isAuthenticated || busyActivity}
                   onClick={() => handleBulkToggle("resume-all")}
-                  className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-500/35 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25"
                 >
                   <PlayCircle className="h-4 w-4" />
                   Mở lại tin đang tạm dừng ({summary?.paused_requests ?? 0})
@@ -792,7 +792,7 @@ export default function ProfilePage() {
                 type="button"
                 disabled={!isAuthenticated || busyActivity}
                 onClick={handleExportData}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 disabled:opacity-50"
+                                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               >
                 <Download className="h-4 w-4" />
                 Tải dữ liệu cá nhân (.json)
@@ -803,16 +803,16 @@ export default function ProfilePage() {
 
         {/* ════════ TAB 4: DANGER ZONE ════════ */}
         {tab === "danger" && (
-          <div className="rounded-2xl border border-rose-200 bg-white p-6 shadow-sm space-y-4">
+          <div className="space-y-4 rounded-2xl border border-rose-200 bg-white p-6 shadow-sm dark:border-rose-500/35 dark:bg-slate-900">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400">
                 <AlertTriangle className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-rose-700">
+                <h2 className="text-base font-bold text-rose-700 dark:text-rose-400">
                   Xóa tài khoản vĩnh viễn
                 </h2>
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                   Hành động này sẽ xóa vĩnh viễn hồ sơ, toàn bộ yêu cầu đổi
                   lớp, lượt quẹt, cặp Match, đoạn chat và thông báo của bạn.
                   Không thể khôi phục sau khi xóa.
@@ -821,7 +821,7 @@ export default function ProfilePage() {
             </div>
 
             {isSuperAdmin ? (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                 Tài khoản Super Admin chính ({SUPER_ADMIN_EMAIL}) được khóa
                 tính năng tự xóa để bảo vệ toàn hệ thống.
               </div>
@@ -837,13 +837,13 @@ export default function ProfilePage() {
                     disabled={!isAuthenticated || deletingAccount}
                     value={deletePassword}
                     onChange={(e) => setDeletePassword(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-rose-500 disabled:bg-slate-100"
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-rose-500 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800"
                   />
                 </div>
 
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Gõ <span className="font-bold text-rose-700">XOA TAI KHOAN</span>{" "}
+                    Gõ <span className="font-bold text-rose-700 dark:text-rose-400">XOA TAI KHOAN</span>{" "}
                     để xác nhận
                   </label>
                   <input
@@ -853,7 +853,7 @@ export default function ProfilePage() {
                     value={deleteConfirmText}
                     onChange={(e) => setDeleteConfirmText(e.target.value)}
                     placeholder="XOA TAI KHOAN"
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-rose-500 disabled:bg-slate-100"
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-rose-500 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800"
                   />
                 </div>
 
