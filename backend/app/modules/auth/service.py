@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.common.enums import AccountStatus, UserRole
+from app.core.config import settings
 from app.core.security import hash_password, verify_password
 from app.database.models import AuditLog, Campus, Student, StudentProfile
 
@@ -88,11 +89,16 @@ class AuthService:
         if existing_code:
             raise ValueError("Mã sinh viên này đã được đăng ký.")
 
+        role = (
+            UserRole.ADMIN
+            if email.strip().lower() == settings.ADMIN_EMAIL.lower()
+            else UserRole.STUDENT
+        )
         student = Student(
             email=email.lower(),
             student_code=student_code.upper(),
             password_hash=hash_password(password),
-            role=UserRole.STUDENT,
+            role=role,
             status=AccountStatus.ACTIVE,
             campus_id=campus.id,
         )
@@ -130,6 +136,9 @@ class AuthService:
             return None
         if not verify_password(password, student.password_hash):
             return None
+
+        if student.email.lower() == settings.ADMIN_EMAIL.lower() and student.role != UserRole.ADMIN:
+            student.role = UserRole.ADMIN
 
         self.db.add(
             AuditLog(

@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/fpt_classswap"
     REDIS_URL: str | None = None
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    ADMIN_EMAIL: str = "pmquan1406@gmail.com"
 
     # JWT
     SECRET_KEY: str = "change-me-in-production-use-openssl-rand-hex-32"

@@ -38,6 +38,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     router.push("/login");
   };
 
+  const isSuperAdmin =
+    isAuthenticated &&
+    student.email.trim().toLowerCase() === "pmquan1406@gmail.com";
+
   const navItems = [
     { href: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
     { href: "/discover", label: "Discover", icon: Flame },
@@ -57,7 +61,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       badge: unreadNotificationsCount,
     },
     { href: "/profile", label: "Hồ sơ", icon: User },
-    { href: "/admin", label: "Admin", icon: ShieldCheck },
+    ...(isSuperAdmin
+      ? [{ href: "/admin", label: "Admin", icon: ShieldCheck }]
+      : []),
   ];
 
   return (

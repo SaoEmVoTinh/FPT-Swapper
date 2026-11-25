@@ -4,6 +4,7 @@ from fastapi import Cookie, Depends, HTTPException, status
 from jose import JWTError
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.security import decode_token
 from app.database.models import Student
 from app.database.session import get_db
@@ -41,6 +42,18 @@ def get_current_student(
 def get_current_admin(
     student: Student = Depends(get_current_student),
 ) -> Student:
-    if student.role.value not in ("ADMIN", "MODERATOR"):
+    is_super_admin = student.email.lower() == settings.ADMIN_EMAIL.lower()
+    if not is_super_admin and student.role.value not in ("ADMIN", "MODERATOR"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required.")
+    return student
+
+
+def get_current_super_admin(
+    student: Student = Depends(get_current_student),
+) -> Student:
+    if student.email.lower() != settings.ADMIN_EMAIL.lower():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chỉ tài khoản quản trị được chỉ định mới có quyền truy cập.",
+        )
     return student
