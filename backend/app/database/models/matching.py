@@ -161,4 +161,7 @@ class Match(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     student_a_confirmed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     student_b_confirmed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    confirm_deadline_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 

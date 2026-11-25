@@ -31,7 +31,7 @@ import { UserRole } from "@/types";
 
 const SUPER_ADMIN_EMAIL = "pmquan1406@gmail.com";
 
-type AdminTab = "users" | "requests" | "academic" | "logs";
+type AdminTab = "users" | "requests" | "academic" | "logs" | "security";
 type AcademicSubTab = "courses" | "semesters" | "campuses" | "classes";
 type AccountStatus = "ACTIVE" | "SUSPENDED" | "PENDING_VERIFY";
 
@@ -115,10 +115,25 @@ export default function AdminPage() {
 
   const isSuperAdmin =
     isAuthenticated &&
-    student.email.trim().toLowerCase() === SUPER_ADMIN_EMAIL;
+    (student.role === "SUPER_ADMIN" ||
+      student.email.trim().toLowerCase() === SUPER_ADMIN_EMAIL);
+  const isAdminOrAbove =
+    isSuperAdmin || (isAuthenticated && student.role === "ADMIN");
+  const isStaff =
+    isAdminOrAbove || (isAuthenticated && student.role === "MODERATOR");
 
   const [tab, setTab] = useState<AdminTab>("users");
   const [academicTab, setAcademicTab] = useState<AcademicSubTab>("courses");
+
+  // Admin 2FA state
+  const [totpEnabled, setTotpEnabled] = useState(false);
+  const [totpSetup, setTotpSetup] = useState<{
+    secret: string;
+    otpauth_uri: string;
+  } | null>(null);
+  const [totpCode, setTotpCode] = useState("");
+  const [disablePassword, setDisablePassword] = useState("");
+  const [busy2FA, setBusy2FA] = useState(false);
 
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [users, setUsers] = useState<AdminUserItem[]>([]);
@@ -176,15 +191,19 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    if (!isSuperAdmin) return;
+    if (!isStaff) return;
     let cancelled = false;
-    loadAdminBundle("")
-      .then((data) => {
+    Promise.all([
+      loadAdminBundle(""),
+      apiFetch<{ totp_enabled: boolean }>("/auth/2fa/status"),
+    ])
+      .then(([data, twoFa]) => {
         if (cancelled) return;
         setOverview(data.ov);
         setUsers(data.usr);
         setRequests(data.reqs);
         setAuditLogs(data.logs);
+        setTotpEnabled(Boolean(twoFa.totp_enabled));
         setErrorMsg("");
       })
       .catch((err) => {
@@ -198,10 +217,10 @@ export default function AdminPage() {
     return () => {
       cancelled = true;
     };
-  }, [isSuperAdmin, loadAdminBundle]);
+  }, [isStaff, loadAdminBundle]);
 
   async function refreshAll(searchOverride?: string) {
-    if (!isSuperAdmin) return;
+    if (!isStaff) return;
     setLoading(true);
     setErrorMsg("");
     try {
@@ -318,6 +337,95 @@ export default function AdminPage() {
     }
   }
 
+  async function handleChangeRole(target: AdminUserItem, nextRole: UserRole) {
+    setBusyUserId(target.id);
+    setErrorMsg("");
+    setFlashMsg("");
+    try {
+      await apiFetch(`/admin/users/${target.id}/role`, {
+        method: "PATCH",
+        body: JSON.stringify({ role: nextRole }),
+      });
+      setFlashMsg(`Đã cập nhật vai trò của ${target.email} thành ${nextRole}.`);
+      await refreshAll();
+    } catch (err) {
+      setErrorMsg(
+        err instanceof ApiError ? err.message : "Không thể cập nhật vai trò.",
+      );
+    } finally {
+      setBusyUserId(null);
+    }
+  }
+
+  async function handleSetup2FA() {
+    setBusy2FA(true);
+    setErrorMsg("");
+    setFlashMsg("");
+    try {
+      const res = await apiFetch<{ secret: string; otpauth_uri: string }>(
+        "/auth/2fa/setup",
+        { method: "POST" },
+      );
+      setTotpSetup(res);
+      setTotpCode("");
+    } catch (err) {
+      setErrorMsg(
+        err instanceof ApiError ? err.message : "Không thể khởi tạo 2FA.",
+      );
+    } finally {
+      setBusy2FA(false);
+    }
+  }
+
+  async function handleEnable2FA(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy2FA(true);
+    setErrorMsg("");
+    setFlashMsg("");
+    try {
+      await apiFetch("/auth/2fa/enable", {
+        method: "POST",
+        body: JSON.stringify({ code: totpCode.trim() }),
+      });
+      setTotpEnabled(true);
+      setTotpSetup(null);
+      setTotpCode("");
+      setFlashMsg("Đã bật xác thực 2FA cho tài khoản quản trị.");
+    } catch (err) {
+      setErrorMsg(
+        err instanceof ApiError ? err.message : "Mã OTP không hợp lệ.",
+      );
+    } finally {
+      setBusy2FA(false);
+    }
+  }
+
+  async function handleDisable2FA(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy2FA(true);
+    setErrorMsg("");
+    setFlashMsg("");
+    try {
+      await apiFetch("/auth/2fa/disable", {
+        method: "POST",
+        body: JSON.stringify({
+          password: disablePassword,
+          code: totpCode.trim(),
+        }),
+      });
+      setTotpEnabled(false);
+      setDisablePassword("");
+      setTotpCode("");
+      setFlashMsg("Đã tắt xác thực 2FA.");
+    } catch (err) {
+      setErrorMsg(
+        err instanceof ApiError ? err.message : "Không thể tắt 2FA.",
+      );
+    } finally {
+      setBusy2FA(false);
+    }
+  }
+
   async function handleDeleteUser(target: AdminUserItem) {
     setBusyUserId(target.id);
     setErrorMsg("");
@@ -397,7 +505,7 @@ export default function AdminPage() {
     );
   }, [requests, requestSearch]);
 
-  if (!isSuperAdmin) {
+  if (!isStaff) {
     return (
       <AppShell>
         <div className="mx-auto max-w-xl rounded-2xl border border-rose-200 bg-white dark:border-slate-800 dark:bg-slate-900 p-8 text-center shadow-sm">
@@ -408,8 +516,8 @@ export default function AdminPage() {
             Không có quyền truy cập trang Quản trị
           </h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-            Trang Admin chỉ cấp quyền truy cập duy nhất cho tài khoản quản trị
-            viên hệ thống ({SUPER_ADMIN_EMAIL}).
+            Trang Admin chỉ dành cho các tài khoản quản trị (SUPER_ADMIN, ADMIN,
+            MODERATOR).
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Link
@@ -445,6 +553,7 @@ export default function AdminPage() {
     },
     { key: "academic", label: "Học vụ", icon: BookOpen },
     { key: "logs", label: `Nhật ký (${auditLogs.length})`, icon: Activity },
+    { key: "security", label: "Bảo mật 2FA", icon: LockKeyhole },
   ];
 
   const academicTabs: Array<{
@@ -484,10 +593,11 @@ export default function AdminPage() {
                 Trung tâm Quản trị FPT Swapper
               </h1>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Quyền Super Admin duy nhất:{" "}
-                <span className="font-semibold text-slate-800">
-                  {student.email}
-                </span>
+                Vai trò:{" "}
+                <span className="font-semibold text-orange-600 dark:text-orange-400">
+                  {student.role}
+                </span>{" "}
+                · {student.email}
               </p>
             </div>
           </div>
@@ -689,10 +799,10 @@ export default function AdminPage() {
                     <input
                       type="password"
                       required
-                      minLength={6}
+                      minLength={8}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Ít nhất 6 ký tự"
+                      placeholder="Ít nhất 8 ký tự"
                       className="w-full rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 px-3 py-2 text-sm outline-none focus:border-orange-400"
                     />
                   </div>
@@ -724,6 +834,9 @@ export default function AdminPage() {
                       <option value="STUDENT">STUDENT</option>
                       <option value="MODERATOR">MODERATOR</option>
                       <option value="ADMIN">ADMIN</option>
+                      {isSuperAdmin && (
+                        <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                      )}
                     </select>
                   </div>
                 </div>
@@ -770,10 +883,10 @@ export default function AdminPage() {
                   <input
                     type="password"
                     required
-                    minLength={6}
+                    minLength={8}
                     value={resetPasswordValue}
                     onChange={(e) => setResetPasswordValue(e.target.value)}
-                    placeholder="Mật khẩu mới (>= 6 ký tự)"
+                    placeholder="Mật khẩu mới (>= 8 ký tự)"
                     className="rounded-xl border border-amber-300 bg-white dark:border-slate-800 dark:bg-slate-900 px-3 py-1.5 text-sm outline-none"
                   />
                   <button
@@ -855,6 +968,22 @@ export default function AdminPage() {
 
                         {!isSelfSuperAdmin && (
                           <div className="flex flex-wrap items-center gap-2">
+                            {isSuperAdmin && (
+                              <select
+                                value={u.role}
+                                disabled={busy}
+                                aria-label={`Vai trò của ${u.email}`}
+                                onChange={(e) =>
+                                  handleChangeRole(u, e.target.value as UserRole)
+                                }
+                                className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                              >
+                                <option value="STUDENT">STUDENT</option>
+                                <option value="MODERATOR">MODERATOR</option>
+                                <option value="ADMIN">ADMIN</option>
+                                <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                              </select>
+                            )}
                             <button
                               type="button"
                               disabled={busy}
@@ -1213,7 +1342,7 @@ export default function AdminPage() {
                       </span>
                     </p>
                     {log.details && (
-                      <pre className="overflow-x-auto rounded-lg bg-slate-50 p-2 text-xs text-slate-600 dark:text-slate-300">
+                      <pre className="overflow-x-auto rounded-lg bg-slate-50 p-2 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                         {JSON.stringify(log.details)}
                       </pre>
                     )}
@@ -1221,6 +1350,114 @@ export default function AdminPage() {
                 ))
               )}
             </div>
+          </div>
+        )}
+
+        {/* ═════════ TAB 5: ADMIN 2FA SECURITY ═════════ */}
+        {tab === "security" && (
+          <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                  Xác thực 2 lớp (2FA TOTP) cho Quản trị viên
+                </h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  Bảo vệ tài khoản quản trị bằng mã OTP 6 chữ số (Google
+                  Authenticator / Authy).
+                </p>
+              </div>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  totpEnabled
+                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                    : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                }`}
+              >
+                {totpEnabled ? "Đang bật 2FA" : "Chưa bật 2FA"}
+              </span>
+            </div>
+
+            {!totpEnabled ? (
+              <div className="space-y-4">
+                <button
+                  type="button"
+                  disabled={busy2FA}
+                  onClick={handleSetup2FA}
+                  className="rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
+                >
+                  {totpSetup ? "Tạo lại khóa bí mật" : "Thiết lập 2FA ngay"}
+                </button>
+
+                {totpSetup && (
+                  <form
+                    onSubmit={handleEnable2FA}
+                    className="space-y-3 rounded-xl border border-orange-200 bg-orange-50/40 p-4 dark:border-orange-500/35 dark:bg-orange-500/10"
+                  >
+                    <p className="text-xs text-slate-700 dark:text-slate-300">
+                      Nhập mã khóa sau vào ứng dụng Authenticator:
+                    </p>
+                    <p className="break-all rounded-lg bg-white px-3 py-2 font-mono text-sm font-bold text-slate-900 dark:bg-slate-800 dark:text-slate-100">
+                      {totpSetup.secret}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="text"
+                        required
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={totpCode}
+                        onChange={(e) => setTotpCode(e.target.value)}
+                        placeholder="Nhập mã OTP 6 số"
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm tracking-widest outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                      />
+                      <button
+                        type="submit"
+                        disabled={busy2FA}
+                        className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-orange-500"
+                      >
+                        Xác nhận kích hoạt
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            ) : (
+              <form
+                onSubmit={handleDisable2FA}
+                className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/70"
+              >
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Tắt 2FA (yêu cầu mật khẩu hiện tại + mã OTP 6 số):
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    type="password"
+                    required
+                    value={disablePassword}
+                    onChange={(e) => setDisablePassword(e.target.value)}
+                    placeholder="Mật khẩu hiện tại"
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  />
+                  <input
+                    type="text"
+                    required
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={totpCode}
+                    onChange={(e) => setTotpCode(e.target.value)}
+                    placeholder="Mã OTP 6 số"
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm tracking-widest outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  />
+                  <button
+                    type="submit"
+                    disabled={busy2FA}
+                    className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+                  >
+                    Tắt 2FA
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         )}
       </div>

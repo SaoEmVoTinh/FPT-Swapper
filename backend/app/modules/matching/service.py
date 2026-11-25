@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import or_
@@ -22,6 +22,8 @@ from app.modules.matching.engine import is_compatible
 from app.modules.matching.schemas import SwipeRequest, SwipeResponse
 from app.modules.views import display_name, match_view
 
+MATCH_CONFIRM_DEADLINE_HOURS = 48
+
 
 def _notify(
     db: Session,
@@ -29,11 +31,12 @@ def _notify(
     title: str,
     body: str,
     reference_id: uuid.UUID | None,
+    notification_type: NotificationType = NotificationType.MATCH,
 ) -> None:
     db.add(
         Notification(
             student_id=student_id,
-            notification_type=NotificationType.MATCH,
+            notification_type=notification_type,
             title=title,
             body=body,
             is_read=False,
@@ -43,6 +46,54 @@ def _notify(
 
 
 class MatchingService:
+    # ── Expiration Sweep ────────────────────────────────────────
+
+    @staticmethod
+    def expire_stale_records(db: Session) -> None:
+        """Transition past-deadline requests and unconfirmed matches to EXPIRED."""
+        now = datetime.now(timezone.utc)
+        changed = False
+
+        overdue_requests = (
+            db.query(MatchingRequest)
+            .filter(
+                MatchingRequest.status.in_(
+                    [SwapRequestStatus.ACTIVE, SwapRequestStatus.PAUSED]
+                ),
+                MatchingRequest.expires_at.isnot(None),
+                MatchingRequest.expires_at <= now,
+            )
+            .all()
+        )
+        for req in overdue_requests:
+            req.status = SwapRequestStatus.EXPIRED
+            changed = True
+
+        overdue_matches = (
+            db.query(Match)
+            .filter(
+                Match.status == MatchStatus.PENDING_CONFIRMATION,
+                Match.confirm_deadline_at.isnot(None),
+                Match.confirm_deadline_at <= now,
+            )
+            .all()
+        )
+        for match in overdue_matches:
+            match.status = MatchStatus.EXPIRED
+            changed = True
+            for sid in (match.student_a_id, match.student_b_id):
+                _notify(
+                    db,
+                    sid,
+                    "Match đã hết hạn xác nhận",
+                    "Quá 48 giờ nhưng hai bên chưa cùng xác nhận nên Match tự động hết hạn.",
+                    match.id,
+                    notification_type=NotificationType.SYSTEM,
+                )
+
+        if changed:
+            db.commit()
+
     # ── Discover ────────────────────────────────────────────────
 
     @staticmethod
@@ -52,13 +103,7 @@ class MatchingService:
         active_request: MatchingRequest,
         limit: int = 20,
     ) -> list[MatchingRequest]:
-        """
-        Return up to `limit` compatible active requests that:
-          - belong to a different student
-          - match the compatibility rule (class flip, same course/semester)
-          - are not expired
-          - haven't been swiped by this request yet
-        """
+        MatchingService.expire_stale_records(db)
         swiped_ids = {
             row[0]
             for row in db.query(Swipe.target_request_id).filter(
@@ -74,7 +119,6 @@ class MatchingService:
                 MatchingRequest.student_id != student_id,
                 MatchingRequest.course_id == active_request.course_id,
                 MatchingRequest.semester_id == active_request.semester_id,
-                # Flip: candidate's current == our target, candidate's target == our current
                 MatchingRequest.current_class_id == active_request.target_class_id,
                 MatchingRequest.target_class_id == active_request.current_class_id,
                 or_(MatchingRequest.expires_at.is_(None), MatchingRequest.expires_at > now),
@@ -94,6 +138,7 @@ class MatchingService:
         limit: int = 50,
     ) -> list[MatchingRequest]:
         """Return all ACTIVE, non-expired swap requests posted within the student's campus."""
+        MatchingService.expire_stale_records(db)
         swiped_ids = {
             row[0]
             for row in db.query(Swipe.target_request_id).filter(
@@ -167,6 +212,8 @@ class MatchingService:
         student_id: uuid.UUID,
         data: SwipeRequest,
     ) -> SwipeResponse:
+        MatchingService.expire_stale_records(db)
+
         swiper_req = db.get(MatchingRequest, data.swiper_request_id)
         if not swiper_req:
             raise HTTPException(404, "Swiper request not found")
@@ -185,7 +232,6 @@ class MatchingService:
         if not is_compatible(swiper_req, target_req):
             raise HTTPException(422, "Requests are not compatible")
 
-        # Idempotency: return the existing swipe (and match, if any) when already swiped
         existing_swipe = (
             db.query(Swipe)
             .filter(
@@ -252,11 +298,9 @@ class MatchingService:
         req_a: MatchingRequest,
         req_b: MatchingRequest,
     ) -> tuple[Match | None, bool]:
-        """
-        Create a Match only if req_b has already LIKED req_a back.
-        Uses a normalised (low, high) pair so a pair can never be matched twice.
-        Returns (match, created_now).
-        """
+        if req_a.status != SwapRequestStatus.ACTIVE or req_b.status != SwapRequestStatus.ACTIVE:
+            return None, False
+
         if not MatchingService.has_liked(db, req_b.id, req_a.id):
             return None, False
 
@@ -276,6 +320,8 @@ class MatchingService:
             student_a_id=student_a_id,
             student_b_id=student_b_id,
             status=MatchStatus.PENDING_CONFIRMATION,
+            confirm_deadline_at=datetime.now(timezone.utc)
+            + timedelta(hours=MATCH_CONFIRM_DEADLINE_HOURS),
         )
         db.add(match)
         try:
@@ -295,7 +341,6 @@ class MatchingService:
         req_a: MatchingRequest,
         req_b: MatchingRequest,
     ) -> None:
-        """Open the 1-1 conversation and notify both students (same transaction)."""
         conversation = Conversation(
             conversation_type=ConversationType.DIRECT,
             source_type=ConversationSourceType.CLASS_SWAP,
@@ -313,7 +358,7 @@ class MatchingService:
                 me.student_id,
                 f"Match mới cho môn {view.course_code or ''}!".strip(),
                 f"Bạn và {display_name(db, partner.student_id)} đã cùng Like "
-                f"({view.my_class_code} ⇄ {view.partner_class_code}). Hãy nhắn tin để thống nhất việc đổi lớp.",
+                f"({view.my_class_code} ⇄ {view.partner_class_code}). Vui lòng xác nhận trong vòng 48 giờ.",
                 match.id,
             )
 
@@ -321,6 +366,7 @@ class MatchingService:
 
     @staticmethod
     def list_matches(db: Session, student_id: uuid.UUID) -> list[Match]:
+        MatchingService.expire_stale_records(db)
         return (
             db.query(Match)
             .filter(
@@ -332,6 +378,7 @@ class MatchingService:
 
     @staticmethod
     def get_match(db: Session, match_id: uuid.UUID, student_id: uuid.UUID) -> Match:
+        MatchingService.expire_stale_records(db)
         match = db.get(Match, match_id)
         if not match:
             raise HTTPException(404, "Match not found")
@@ -353,6 +400,35 @@ class MatchingService:
             ):
                 req.status = new_status
 
+    @staticmethod
+    def _cancel_competing_matches(db: Session, confirmed_match: Match) -> None:
+        """Cancel other pending matches touching either request once one match is confirmed."""
+        req_ids = [confirmed_match.request_low_id, confirmed_match.request_high_id]
+        competing = (
+            db.query(Match)
+            .filter(
+                Match.id != confirmed_match.id,
+                Match.status == MatchStatus.PENDING_CONFIRMATION,
+                or_(
+                    Match.request_low_id.in_(req_ids),
+                    Match.request_high_id.in_(req_ids),
+                ),
+            )
+            .all()
+        )
+        for other in competing:
+            other.status = MatchStatus.CANCELLED
+            for sid in (other.student_a_id, other.student_b_id):
+                if sid not in (confirmed_match.student_a_id, confirmed_match.student_b_id):
+                    _notify(
+                        db,
+                        sid,
+                        "Match chờ đã tự động hủy",
+                        "Đối tác đã chốt đổi lớp với sinh viên khác. Yêu cầu của bạn vẫn đang mở trên Discover.",
+                        other.id,
+                        notification_type=NotificationType.SYSTEM,
+                    )
+
     # ── Match state transitions ───────────────────────────────────
 
     @staticmethod
@@ -372,6 +448,7 @@ class MatchingService:
         if match.student_a_confirmed and match.student_b_confirmed:
             match.status = MatchStatus.CONFIRMED
             MatchingService._set_request_statuses(db, match, SwapRequestStatus.MATCHED)
+            MatchingService._cancel_competing_matches(db, match)
             for sid in (student_id, partner):
                 _notify(
                     db,
@@ -386,7 +463,7 @@ class MatchingService:
                 db,
                 partner,
                 f"{me_name} đã xác nhận đổi lớp",
-                "Bạn hãy vào mục Matches để xác nhận nếu đồng ý.",
+                "Bạn hãy vào mục Matches để xác nhận trong thời hạn 48 giờ nếu đồng ý.",
                 match.id,
             )
 
@@ -403,7 +480,6 @@ class MatchingService:
         was_confirmed = match.status == MatchStatus.CONFIRMED
         match.status = MatchStatus.DECLINED
         if was_confirmed:
-            # Re-open both requests so they can find other partners.
             for rid in (match.request_low_id, match.request_high_id):
                 req = db.get(MatchingRequest, rid)
                 if req is not None and req.status == SwapRequestStatus.MATCHED:

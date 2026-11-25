@@ -47,7 +47,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const isSuperAdmin =
     isAuthenticated &&
-    student.email.trim().toLowerCase() === "pmquan1406@gmail.com";
+    (["SUPER_ADMIN", "ADMIN", "MODERATOR"].includes(student.role) ||
+      student.email.trim().toLowerCase() === "pmquan1406@gmail.com");
 
   const navItems = [
     { href: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },

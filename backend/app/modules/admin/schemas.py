@@ -34,6 +34,8 @@ class AdminUserItem(BaseModel):
     role: UserRole
     status: AccountStatus
     request_count: int = 0
+    totp_enabled: bool = False
+    scheduled_purge_at: datetime | None = None
     created_at: datetime
 
 
@@ -43,7 +45,7 @@ class AdminCreateUserRequest(BaseModel):
     full_name: str = Field(min_length=2, max_length=120)
     major: str = Field(min_length=2, max_length=120)
     campus_id: uuid.UUID | str
-    password: str = Field(min_length=6, max_length=128)
+    password: str = Field(min_length=8, max_length=128)
     role: UserRole = UserRole.STUDENT
 
     @field_validator("email")
@@ -61,8 +63,12 @@ class AdminUpdateStatusRequest(BaseModel):
     status: AccountStatus
 
 
+class AdminUpdateRoleRequest(BaseModel):
+    role: UserRole
+
+
 class AdminResetPasswordRequest(BaseModel):
-    new_password: str = Field(min_length=6, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 class AdminRequestItem(BaseModel):

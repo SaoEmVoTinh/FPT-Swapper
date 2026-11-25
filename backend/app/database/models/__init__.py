@@ -12,7 +12,7 @@ from app.database.models.communication import (
     ConversationMember,
     Message,
 )
-from app.database.models.identity import Student, StudentProfile
+from app.database.models.identity import RefreshToken, Student, StudentProfile
 from app.database.models.matching import (
     ClassExchangePreference,
     Match,
@@ -31,6 +31,7 @@ __all__ = [
     "StudentEnrollment",
     "Student",
     "StudentProfile",
+    "RefreshToken",
     "MatchingRequest",
     "ClassExchangePreference",
     "Swipe",

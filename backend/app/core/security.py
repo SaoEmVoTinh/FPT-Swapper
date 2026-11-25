@@ -25,6 +25,7 @@ def create_access_token(
     subject: str,
     extra_claims: dict[str, Any] | None = None,
     expires_delta: timedelta | None = None,
+    token_version: int | None = None,
 ) -> str:
     expire = _utcnow() + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -35,12 +36,18 @@ def create_access_token(
         "iat": _utcnow(),
         "type": "access",
     }
+    if token_version is not None:
+        payload["tv"] = token_version
     if extra_claims:
         payload.update(extra_claims)
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def create_refresh_token(subject: str) -> str:
+def create_refresh_token(
+    subject: str,
+    jti: str | None = None,
+    token_version: int | None = None,
+) -> str:
     expire = _utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     payload: dict[str, Any] = {
         "sub": subject,
@@ -48,6 +55,10 @@ def create_refresh_token(subject: str) -> str:
         "iat": _utcnow(),
         "type": "refresh",
     }
+    if jti is not None:
+        payload["jti"] = jti
+    if token_version is not None:
+        payload["tv"] = token_version
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 

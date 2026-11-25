@@ -82,7 +82,7 @@ def tokens(db_session):
     super_admin, super_token = make_student(
         db_session,
         settings.ADMIN_EMAIL,
-        role=UserRole.ADMIN,
+        role=UserRole.SUPER_ADMIN,
         student_code="DE210638",
     )
     _, other_admin_token = make_student(
@@ -105,7 +105,7 @@ def tokens(db_session):
     }
 
 
-def test_admin_access_restricted_to_single_account(client, tokens):
+def test_admin_rbac_hierarchy(client, tokens):
     # Unauthenticated -> 401
     assert client.get("/api/v1/admin/overview").status_code == 401
 
@@ -116,21 +116,29 @@ def test_admin_access_restricted_to_single_account(client, tokens):
     )
     assert r_student.status_code == 403
 
-    # Even another ADMIN role user with different email -> 403
+    # Regular ADMIN can read overview & users, but gets 403 on SUPER_ADMIN endpoints
     r_other_admin = client.get(
         "/api/v1/admin/overview",
         headers=auth_headers(tokens["other_admin_token"]),
     )
-    assert r_other_admin.status_code == 403
+    assert r_other_admin.status_code == 200
     assert (
-        client.get(
-            "/api/v1/admin/users",
+        client.patch(
+            f"/api/v1/admin/users/{tokens['super_admin'].id}/role",
+            json={"role": "STUDENT"},
+            headers=auth_headers(tokens["other_admin_token"]),
+        ).status_code
+        == 403
+    )
+    assert (
+        client.delete(
+            f"/api/v1/admin/users/{tokens['super_admin'].id}",
             headers=auth_headers(tokens["other_admin_token"]),
         ).status_code
         == 403
     )
 
-    # Configured ADMIN_EMAIL -> 200
+    # SUPER_ADMIN -> 200
     r_super = client.get(
         "/api/v1/admin/overview",
         headers=auth_headers(tokens["super_token"]),

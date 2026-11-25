@@ -70,6 +70,11 @@ const MATCH_STATUS_MAP: Record<
     className:
       "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700",
   },
+  EXPIRED: {
+    label: "Hết hạn",
+    className:
+      "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700",
+  },
 };
 
 export function RequestStatusBadge({ status }: { status: SwapRequestStatus }) {

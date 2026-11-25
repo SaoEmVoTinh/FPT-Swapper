@@ -677,7 +677,7 @@ export default function ProfilePage() {
                   Đổi mật khẩu
                 </h2>
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Mật khẩu mới tối thiểu 6 ký tự và khác mật khẩu hiện tại.
+                  Mật khẩu mới tối thiểu 8 ký tự và khác mật khẩu hiện tại.
                 </p>
               </div>
 
@@ -703,7 +703,7 @@ export default function ProfilePage() {
                   <input
                     type="password"
                     required
-                    minLength={6}
+                    minLength={8}
                     disabled={!isAuthenticated || changingPassword}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
@@ -717,7 +717,7 @@ export default function ProfilePage() {
                   <input
                     type="password"
                     required
-                    minLength={6}
+                    minLength={8}
                     disabled={!isAuthenticated || changingPassword}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -813,9 +813,10 @@ export default function ProfilePage() {
                   Xóa tài khoản vĩnh viễn
                 </h2>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  Hành động này sẽ xóa vĩnh viễn hồ sơ, toàn bộ yêu cầu đổi
-                  lớp, lượt quẹt, cặp Match, đoạn chat và thông báo của bạn.
-                  Không thể khôi phục sau khi xóa.
+                  Tài khoản sẽ chuyển sang trạng thái chờ xóa trong 14 ngày (bạn
+                  có thể đăng nhập lại để khôi phục trước khi hết hạn). Các Match
+                  đang mở sẽ bị hủy để thông báo cho đối tác, và dữ liệu báo cáo
+                  vi phạm (nếu có) sẽ được ẩn danh hóa khi xóa vĩnh viễn.
                 </p>
               </div>
             </div>

@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, or_
@@ -22,6 +23,7 @@ from app.database.models import (
     Match,
     MatchingRequest,
     Message,
+    RefreshToken,
     Semester,
     Student,
     StudentProfile,
@@ -38,8 +40,33 @@ from app.modules.auth.service import resolve_campus
 from app.modules.students.cleanup import purge_student_account
 
 
-def _is_super_admin_email(email: str) -> bool:
-    return email.lower() == settings.ADMIN_EMAIL.lower()
+def _is_super_admin_user(student: Student) -> bool:
+    return (
+        student.role == UserRole.SUPER_ADMIN
+        or student.email.lower() == settings.ADMIN_EMAIL.lower()
+    )
+
+
+def _count_other_active_super_admins(db: Session, exclude_id: uuid.UUID) -> int:
+    return (
+        db.query(func.count(Student.id))
+        .filter(
+            Student.role == UserRole.SUPER_ADMIN,
+            Student.status == AccountStatus.ACTIVE,
+            Student.id != exclude_id,
+        )
+        .scalar()
+        or 0
+    )
+
+
+def _revoke_user_tokens(db: Session, student: Student) -> None:
+    now = datetime.now(timezone.utc)
+    student.token_version = int(student.token_version) + 1
+    db.query(RefreshToken).filter(
+        RefreshToken.student_id == student.id,
+        RefreshToken.revoked_at.is_(None),
+    ).update({"revoked_at": now}, synchronize_session=False)
 
 
 class AdminService:
@@ -117,6 +144,8 @@ class AdminService:
                     role=s.role,
                     status=s.status,
                     request_count=int(req_counts.get(s.id, 0)),
+                    totp_enabled=bool(s.totp_enabled),
+                    scheduled_purge_at=s.scheduled_purge_at,
                     created_at=s.created_at,
                 )
             )
@@ -124,7 +153,7 @@ class AdminService:
 
     @staticmethod
     def create_user(
-        db: Session, actor_id: uuid.UUID, data: AdminCreateUserRequest
+        db: Session, actor: Student, data: AdminCreateUserRequest
     ) -> AdminUserItem:
         campus = resolve_campus(db, data.campus_id)
         if campus is None:
@@ -135,7 +164,17 @@ class AdminService:
         if db.query(Student).filter(Student.student_code == data.student_code).first():
             raise HTTPException(status_code=409, detail="Mã sinh viên này đã tồn tại.")
 
-        role = UserRole.ADMIN if _is_super_admin_email(data.email) else data.role
+        if data.role == UserRole.SUPER_ADMIN and not _is_super_admin_user(actor):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Chỉ Super Admin mới có thể tạo tài khoản Super Admin.",
+            )
+
+        role = (
+            UserRole.SUPER_ADMIN
+            if data.email.lower() == settings.ADMIN_EMAIL.lower()
+            else data.role
+        )
         student = Student(
             email=data.email,
             student_code=data.student_code,
@@ -155,7 +194,7 @@ class AdminService:
         db.add(profile)
         db.add(
             AuditLog(
-                actor_id=actor_id,
+                actor_id=actor.id,
                 action="ADMIN_CREATE_USER",
                 entity_type="student",
                 entity_id=student.id,
@@ -163,6 +202,7 @@ class AdminService:
                     "email": student.email,
                     "student_code": student.student_code,
                     "campus_code": campus.code,
+                    "role": student.role.value,
                 },
             )
         )
@@ -181,25 +221,44 @@ class AdminService:
             role=student.role,
             status=student.status,
             request_count=0,
+            totp_enabled=bool(student.totp_enabled),
+            scheduled_purge_at=student.scheduled_purge_at,
             created_at=student.created_at,
         )
 
     @staticmethod
     def update_user_status(
-        db: Session, actor_id: uuid.UUID, target_id: uuid.UUID, new_status: AccountStatus
+        db: Session, actor: Student, target_id: uuid.UUID, new_status: AccountStatus
     ) -> AdminUserItem:
         student = db.get(Student, target_id)
         if student is None:
             raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản.")
-        if _is_super_admin_email(student.email) and new_status != AccountStatus.ACTIVE:
+        if (
+            student.role in (UserRole.ADMIN, UserRole.SUPER_ADMIN)
+            and not _is_super_admin_user(actor)
+        ):
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Không thể khóa tài khoản quản trị chính.",
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Không có quyền thay đổi trạng thái của Admin.",
             )
+        if _is_super_admin_user(student) and new_status != AccountStatus.ACTIVE:
+            if _count_other_active_super_admins(db, student.id) == 0 or student.id == actor.id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Không thể khóa Super Admin cuối cùng hoặc tự khóa chính mình.",
+                )
+
         student.status = new_status
+        if new_status == AccountStatus.ACTIVE:
+            student.scheduled_purge_at = None
+            student.locked_until = None
+            student.failed_login_attempts = 0
+        else:
+            _revoke_user_tokens(db, student)
+
         db.add(
             AuditLog(
-                actor_id=actor_id,
+                actor_id=actor.id,
                 action="ADMIN_UPDATE_USER_STATUS",
                 entity_type="student",
                 entity_id=student.id,
@@ -211,16 +270,52 @@ class AdminService:
         return AdminService.list_users(db, query=student.email)[0]
 
     @staticmethod
+    def update_user_role(
+        db: Session, actor: Student, target_id: uuid.UUID, new_role: UserRole
+    ) -> AdminUserItem:
+        student = db.get(Student, target_id)
+        if student is None:
+            raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản.")
+        if student.role == UserRole.SUPER_ADMIN and new_role != UserRole.SUPER_ADMIN:
+            if _count_other_active_super_admins(db, student.id) == 0 or student.id == actor.id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Phải giữ lại ít nhất một Super Admin hoạt động.",
+                )
+
+        student.role = new_role
+        db.add(
+            AuditLog(
+                actor_id=actor.id,
+                action="ADMIN_UPDATE_USER_ROLE",
+                entity_type="student",
+                entity_id=student.id,
+                details={"email": student.email, "role": new_role.value},
+            )
+        )
+        db.commit()
+        db.refresh(student)
+        return AdminService.list_users(db, query=student.email)[0]
+
+    @staticmethod
     def reset_user_password(
-        db: Session, actor_id: uuid.UUID, target_id: uuid.UUID, new_password: str
+        db: Session, actor: Student, target_id: uuid.UUID, new_password: str
     ) -> None:
         student = db.get(Student, target_id)
         if student is None:
             raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản.")
+        if _is_super_admin_user(student) and not _is_super_admin_user(actor):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Chỉ Super Admin mới có thể đặt lại mật khẩu Super Admin.",
+            )
         student.password_hash = hash_password(new_password)
+        student.failed_login_attempts = 0
+        student.locked_until = None
+        _revoke_user_tokens(db, student)
         db.add(
             AuditLog(
-                actor_id=actor_id,
+                actor_id=actor.id,
                 action="ADMIN_RESET_PASSWORD",
                 entity_type="student",
                 entity_id=student.id,
@@ -234,10 +329,15 @@ class AdminService:
         student = db.get(Student, target_id)
         if student is None:
             raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản.")
-        if _is_super_admin_email(student.email) or student.id == actor_id:
+        if student.id == actor_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Không thể xóa tài khoản quản trị chính.",
+                detail="Không thể tự xóa tài khoản quản trị đang đăng nhập.",
+            )
+        if _is_super_admin_user(student) and _count_other_active_super_admins(db, student.id) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Không thể xóa Super Admin cuối cùng.",
             )
 
         deleted_email, deleted_code = purge_student_account(db, target_id)
@@ -251,6 +351,36 @@ class AdminService:
             )
         )
         db.commit()
+
+    @staticmethod
+    def purge_expired_accounts(db: Session, actor_id: uuid.UUID) -> int:
+        now = datetime.now(timezone.utc)
+        expired_users = (
+            db.query(Student)
+            .filter(
+                Student.status == AccountStatus.CLOSED,
+                Student.scheduled_purge_at.isnot(None),
+                Student.scheduled_purge_at <= now,
+            )
+            .all()
+        )
+        count = 0
+        for stu in expired_users:
+            if _is_super_admin_user(stu) and _count_other_active_super_admins(db, stu.id) == 0:
+                continue
+            email, code = purge_student_account(db, stu.id)
+            db.add(
+                AuditLog(
+                    actor_id=actor_id,
+                    action="ADMIN_PURGE_EXPIRED_USER",
+                    entity_type="student",
+                    entity_id=stu.id,
+                    details={"email": email, "student_code": code},
+                )
+            )
+            count += 1
+        db.commit()
+        return count
 
     @staticmethod
     def list_requests(db: Session, limit: int = 100) -> list[AdminRequestItem]:

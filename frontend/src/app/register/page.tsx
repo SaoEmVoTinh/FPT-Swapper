@@ -28,8 +28,8 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim() || !studentCode.trim() || !email.trim() || password.length < 6) {
-      setError("Vui lòng điền đầy đủ thông tin và mật khẩu tối thiểu 6 ký tự.");
+    if (!fullName.trim() || !studentCode.trim() || !email.trim() || password.length < 8) {
+      setError("Vui lòng điền đầy đủ thông tin và mật khẩu tối thiểu 8 ký tự.");
       return;
     }
 
@@ -169,7 +169,7 @@ export default function RegisterPage() {
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-              Mật khẩu (tối thiểu 6 ký tự)
+              Mật khẩu (tối thiểu 8 ký tự)
             </label>
             <input
               type="password"

@@ -3,7 +3,11 @@ import uuid
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_super_admin
+from app.core.dependencies import (
+    get_current_admin,
+    get_current_staff,
+    get_current_super_admin,
+)
 from app.database.models.identity import Student
 from app.database.session import get_db
 from app.modules.admin.schemas import (
@@ -12,6 +16,7 @@ from app.modules.admin.schemas import (
     AdminOverviewResponse,
     AdminRequestItem,
     AdminResetPasswordRequest,
+    AdminUpdateRoleRequest,
     AdminUpdateStatusRequest,
     AdminUserItem,
 )
@@ -20,7 +25,7 @@ from app.modules.admin.service import AdminService
 router = APIRouter(
     prefix="/admin",
     tags=["Admin"],
-    dependencies=[Depends(get_current_super_admin)],
+    dependencies=[Depends(get_current_staff)],
 )
 
 
@@ -40,39 +45,58 @@ def list_users(
 @router.post("/users", response_model=AdminUserItem, status_code=status.HTTP_201_CREATED)
 def create_user(
     payload: AdminCreateUserRequest,
-    admin: Student = Depends(get_current_super_admin),
+    admin: Student = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ) -> AdminUserItem:
-    return AdminService.create_user(db, admin.id, payload)
+    return AdminService.create_user(db, admin, payload)
 
 
 @router.patch("/users/{student_id}/status", response_model=AdminUserItem)
 def update_user_status(
     student_id: uuid.UUID,
     payload: AdminUpdateStatusRequest,
-    admin: Student = Depends(get_current_super_admin),
+    actor: Student = Depends(get_current_staff),
     db: Session = Depends(get_db),
 ) -> AdminUserItem:
-    return AdminService.update_user_status(db, admin.id, student_id, payload.status)
+    return AdminService.update_user_status(db, actor, student_id, payload.status)
+
+
+@router.patch("/users/{student_id}/role", response_model=AdminUserItem)
+def update_user_role(
+    student_id: uuid.UUID,
+    payload: AdminUpdateRoleRequest,
+    super_admin: Student = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> AdminUserItem:
+    return AdminService.update_user_role(db, super_admin, student_id, payload.role)
 
 
 @router.post("/users/{student_id}/reset-password", status_code=status.HTTP_204_NO_CONTENT)
 def reset_user_password(
     student_id: uuid.UUID,
     payload: AdminResetPasswordRequest,
-    admin: Student = Depends(get_current_super_admin),
+    admin: Student = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ) -> None:
-    AdminService.reset_user_password(db, admin.id, student_id, payload.new_password)
+    AdminService.reset_user_password(db, admin, student_id, payload.new_password)
+
+
+@router.post("/users/purge-expired")
+def purge_expired_accounts(
+    super_admin: Student = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, int]:
+    purged = AdminService.purge_expired_accounts(db, super_admin.id)
+    return {"purged_count": purged}
 
 
 @router.delete("/users/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(
     student_id: uuid.UUID,
-    admin: Student = Depends(get_current_super_admin),
+    super_admin: Student = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> None:
-    AdminService.delete_user(db, admin.id, student_id)
+    AdminService.delete_user(db, super_admin.id, student_id)
 
 
 @router.get("/requests", response_model=list[AdminRequestItem])
@@ -86,10 +110,10 @@ def list_requests(
 @router.delete("/requests/{request_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_request(
     request_id: uuid.UUID,
-    admin: Student = Depends(get_current_super_admin),
+    staff: Student = Depends(get_current_staff),
     db: Session = Depends(get_db),
 ) -> None:
-    AdminService.delete_request(db, admin.id, request_id)
+    AdminService.delete_request(db, staff.id, request_id)
 
 
 @router.get("/audit-logs", response_model=list[AdminAuditLogItem])

@@ -208,14 +208,17 @@ def test_self_account_management_full_flow(client, db_session):
     )
     assert r_del.status_code == 204
     db_session.expire_all()
-    assert db_session.get(Student, user.id) is None
+    closed_user = db_session.get(Student, user.id)
+    assert closed_user is not None
+    assert closed_user.status.value == "CLOSED"
+    assert closed_user.scheduled_purge_at is not None
 
 
 def test_super_admin_cannot_self_delete_or_change_email(client, db_session):
     _, admin_token = make_student(
         db_session,
         settings.ADMIN_EMAIL,
-        role=UserRole.ADMIN,
+        role=UserRole.SUPER_ADMIN,
         student_code="DE210638",
     )
     headers = auth_headers(admin_token)

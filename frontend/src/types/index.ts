@@ -1,4 +1,4 @@
-export type UserRole = "STUDENT" | "MODERATOR" | "ADMIN";
+export type UserRole = "STUDENT" | "MODERATOR" | "ADMIN" | "SUPER_ADMIN";
 
 export type SwapRequestStatus =
   | "DRAFT"
@@ -14,7 +14,8 @@ export type MatchStatus =
   | "CONFIRMED"
   | "DECLINED"
   | "COMPLETED"
-  | "CANCELLED";
+  | "CANCELLED"
+  | "EXPIRED";
 
 export type SwipeAction = "LIKE" | "PASS";
 

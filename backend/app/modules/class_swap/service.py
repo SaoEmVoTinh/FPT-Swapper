@@ -87,6 +87,9 @@ class ClassSwapService:
 
     @staticmethod
     def list_mine(db: Session, student_id: uuid.UUID) -> list[MatchingRequest]:
+        from app.modules.matching.service import MatchingService
+
+        MatchingService.expire_stale_records(db)
         return (
             db.query(MatchingRequest)
             .filter(MatchingRequest.student_id == student_id)

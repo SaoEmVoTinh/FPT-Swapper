@@ -1,12 +1,11 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from app.common.enums import MatchStatus, SwapRequestStatus
-from app.core.config import settings
+from app.common.enums import AccountStatus, MatchStatus, SwapRequestStatus, UserRole
 from app.core.security import hash_password, verify_password
 from app.database.models import (
     AcademicClass,
@@ -16,17 +15,20 @@ from app.database.models import (
     Match,
     MatchingRequest,
     Notification,
+    RefreshToken,
     Semester,
     Student,
     StudentProfile,
 )
 from app.modules.auth.service import resolve_campus
-from app.modules.students.cleanup import purge_student_account
+from app.modules.students.cleanup import cancel_student_matches_and_notify
 from app.modules.students.schemas import (
     AccountDataExportResponse,
     AccountSummaryResponse,
     BulkRequestsActionResponse,
 )
+
+SOFT_DELETE_GRACE_DAYS = 14
 
 
 class StudentService:
@@ -163,11 +165,21 @@ class StudentService:
         student_code: str | None,
     ) -> AccountSummaryResponse:
         if email is not None and email != student.email:
-            if student.email.lower() == settings.ADMIN_EMAIL.lower():
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Không thể đổi email của tài khoản Super Admin.",
+            if student.role == UserRole.SUPER_ADMIN:
+                other_super = (
+                    self.db.query(Student.id)
+                    .filter(
+                        Student.role == UserRole.SUPER_ADMIN,
+                        Student.status == AccountStatus.ACTIVE,
+                        Student.id != student.id,
+                    )
+                    .first()
                 )
+                if other_super is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Không thể đổi email của Super Admin duy nhất.",
+                    )
             existing_email = (
                 self.db.query(Student)
                 .filter(func.lower(Student.email) == email.lower(), Student.id != student.id)
@@ -225,7 +237,13 @@ class StudentService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Mật khẩu mới phải khác mật khẩu hiện tại.",
             )
+        now = datetime.now(timezone.utc)
         student.password_hash = hash_password(new_password)
+        student.token_version = int(student.token_version) + 1
+        self.db.query(RefreshToken).filter(
+            RefreshToken.student_id == student.id,
+            RefreshToken.revoked_at.is_(None),
+        ).update({"revoked_at": now}, synchronize_session=False)
         self.db.add(
             AuditLog(
                 actor_id=student.id,
@@ -332,26 +350,52 @@ class StudentService:
         )
 
     def delete_own_account(self, student: Student, password: str) -> None:
-        if student.email.lower() == settings.ADMIN_EMAIL.lower():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Không thể tự xóa tài khoản Super Admin.",
+        if student.role == UserRole.SUPER_ADMIN:
+            other_super = (
+                self.db.query(Student.id)
+                .filter(
+                    Student.role == UserRole.SUPER_ADMIN,
+                    Student.status == AccountStatus.ACTIVE,
+                    Student.id != student.id,
+                )
+                .first()
             )
+            if other_super is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Không thể tự xóa tài khoản Super Admin duy nhất.",
+                )
         if not verify_password(password, student.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Mật khẩu xác nhận không đúng.",
             )
 
-        target_id = student.id
-        deleted_email, deleted_code = purge_student_account(self.db, target_id)
+        now = datetime.now(timezone.utc)
+        cancel_student_matches_and_notify(
+            self.db,
+            student.id,
+            "Đối tác đã yêu cầu xóa tài khoản. Yêu cầu đổi lớp của bạn đã được mở lại.",
+        )
+
+        student.status = AccountStatus.CLOSED
+        student.scheduled_purge_at = now + timedelta(days=SOFT_DELETE_GRACE_DAYS)
+        student.token_version = int(student.token_version) + 1
+        self.db.query(RefreshToken).filter(
+            RefreshToken.student_id == student.id,
+            RefreshToken.revoked_at.is_(None),
+        ).update({"revoked_at": now}, synchronize_session=False)
+
         self.db.add(
             AuditLog(
-                actor_id=None,
-                action="SELF_DELETE_ACCOUNT",
+                actor_id=student.id,
+                action="SELF_SCHEDULE_DELETE",
                 entity_type="student",
-                entity_id=target_id,
-                details={"email": deleted_email, "student_code": deleted_code},
+                entity_id=student.id,
+                details={
+                    "email": student.email,
+                    "scheduled_purge_at": student.scheduled_purge_at.isoformat(),
+                },
             )
         )
         self.db.commit()

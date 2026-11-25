@@ -30,18 +30,20 @@ class Notification(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 class Report(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "reports"
 
-    reporter_id: Mapped[uuid.UUID] = mapped_column(
+    reporter_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True),
-        ForeignKey("students.id", ondelete="RESTRICT"),
-        nullable=False,
+        ForeignKey("students.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
-    reported_student_id: Mapped[uuid.UUID] = mapped_column(
+    reported_student_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True),
-        ForeignKey("students.id", ondelete="RESTRICT"),
-        nullable=False,
+        ForeignKey("students.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
+    anonymized_reporter_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    anonymized_reported_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)
     conversation_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("conversations.id", ondelete="SET NULL"),

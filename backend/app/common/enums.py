@@ -5,6 +5,7 @@ class UserRole(str, Enum):
     STUDENT = "STUDENT"
     MODERATOR = "MODERATOR"
     ADMIN = "ADMIN"
+    SUPER_ADMIN = "SUPER_ADMIN"
 
 
 class AccountStatus(str, Enum):
@@ -29,6 +30,7 @@ class MatchStatus(str, Enum):
     DECLINED = "DECLINED"
     COMPLETED = "COMPLETED"
     CANCELLED = "CANCELLED"
+    EXPIRED = "EXPIRED"
 
 
 class SwipeAction(str, Enum):
