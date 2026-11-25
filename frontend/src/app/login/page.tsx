@@ -151,7 +151,7 @@ export default function LoginPage() {
                 type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="ban@gmail.com hoặc HE180123"
+                placeholder="ttpt1204@gmail.com hoặc DE120497"
                 disabled={submitting}
                 className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-3.5 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800"
               />
@@ -232,6 +232,9 @@ export default function LoginPage() {
             Điều khoản sử dụng
           </button>
         </div>
+        <p className="mt-3 text-center text-[11px] text-slate-400 dark:text-slate-500">
+          Quân, Hoàng — AI21A01 • Campus Đà Nẵng
+        </p>
       </div>
 
       <LegalModal

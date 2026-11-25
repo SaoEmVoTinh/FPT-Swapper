@@ -415,10 +415,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Main Content */}
-      <main id="main-content" className="flex-1 pb-20 md:pb-8 md:pl-64">
-        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+      <main id="main-content" className="flex flex-1 flex-col pb-20 md:pb-8 md:pl-64">
+        <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
           {children}
         </div>
+        <footer className="mx-auto w-full max-w-6xl border-t border-slate-200/70 px-4 py-4 text-center text-xs text-slate-400 dark:border-slate-800 dark:text-slate-500 sm:px-6 lg:px-8">
+          FPT Swapper • Quân, Hoàng — AI21A01 (Campus Đà Nẵng)
+        </footer>
       </main>
 
       {/* Mobile Bottom Navigation */}
