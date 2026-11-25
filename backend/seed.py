@@ -478,10 +478,12 @@ def run():
                 semester_map[s["code"]] = existing
                 print(f"  [=] Semester exists: {s['code']}")
 
-        # ── Courses ───────────────────────────────────────────────────────────
+        # ── Courses (batch lookup + bulk insert) ──────────────────────────────
+        course_map: dict[str, Course] = {
+            c.code: c for c in db.query(Course).all()
+        }
         seen_codes: set[str] = set()
-        course_map: dict[str, Course] = {}
-        added = 0
+        new_courses: list[Course] = []
         skipped_dup = 0
         for co in COURSES:
             if co["code"] in seen_codes:
@@ -489,15 +491,14 @@ def run():
                 continue
             seen_codes.add(co["code"])
 
-            existing = db.query(Course).filter(Course.code == co["code"]).first()
-            if not existing:
+            if co["code"] not in course_map:
                 obj = Course(**co)
-                db.add(obj)
-                db.flush()
+                new_courses.append(obj)
                 course_map[co["code"]] = obj
-                added += 1
-            else:
-                course_map[co["code"]] = existing
+
+        if new_courses:
+            db.add_all(new_courses)
+        added = len(new_courses)
 
         db.commit()
         print(f"\n  [+] Courses added: {added}")
