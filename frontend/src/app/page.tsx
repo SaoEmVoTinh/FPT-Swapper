@@ -11,8 +11,8 @@ import {
   Users,
 } from "lucide-react";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
+import { LandingHeaderActions } from "@/components/LandingHeaderActions";
 import { SiteFooter } from "@/components/SiteFooter";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function LandingPage() {
   return (
@@ -33,21 +33,7 @@ export default function LandingPage() {
             </span>
           </Link>
 
-          <div className="flex items-center gap-2.5">
-            <ThemeToggle variant="icon" />
-            <Link
-              href="/login"
-              className="rounded-xl px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-            >
-              Đăng nhập
-            </Link>
-            <Link
-              href="/register"
-              className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-600 transition-colors"
-            >
-              Đăng ký
-            </Link>
-          </div>
+          <LandingHeaderActions />
         </div>
       </header>
 

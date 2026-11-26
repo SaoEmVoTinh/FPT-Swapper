@@ -241,7 +241,7 @@ export default function RegisterPage() {
                   }}
                   className="font-semibold text-orange-600 hover:underline dark:text-orange-400"
                 >
-                  Chính sách Bảo vệ Dữ liệu Cá nhân (Luật 91/2025/QH15 &amp; NĐ 356/2025)
+                  Chính sách Bảo vệ Dữ liệu Cá nhân
                 </button>{" "}
                 và{" "}
                 <button

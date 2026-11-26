@@ -8,6 +8,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { NotificationToasts, ToastNotice } from "@/components/NotificationToasts";
 import { ApiError, apiFetch } from "@/lib/api";
 import {
   initSoundUnlock,
@@ -398,6 +399,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [typingByConv, setTypingByConv] = useState<Record<string, boolean>>({});
   const typingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [notifications, setNotifications] = useState<NotificationItem[]>(DEMO_NOTIFICATIONS);
+  const [toasts, setToasts] = useState<ToastNotice[]>([]);
   const [backendAuthed, setBackendAuthed] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -407,6 +409,33 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const seenConvStampRef = useRef<Map<string, string>>(new Map());
   const convsInitializedRef = useRef(false);
   const seenWsMessageIdsRef = useRef<Set<string>>(new Set());
+  const toastTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  const dismissToast = useCallback((id: string) => {
+    const timer = toastTimersRef.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      toastTimersRef.current.delete(id);
+    }
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const pushToast = useCallback(
+    (toast: ToastNotice) => {
+      setToasts((prev) => {
+        if (prev.some((p) => p.id === toast.id)) return prev;
+        return [toast, ...prev].slice(0, 3);
+      });
+      const existing = toastTimersRef.current.get(toast.id);
+      if (existing) clearTimeout(existing);
+      const timer = setTimeout(() => {
+        toastTimersRef.current.delete(toast.id);
+        setToasts((prev) => prev.filter((t) => t.id !== toast.id));
+      }, 6000);
+      toastTimersRef.current.set(toast.id, timer);
+    },
+    []
+  );
 
   const reportError = useCallback((err: unknown, fallback: string) => {
     setActionError(err instanceof ApiError ? err.message : fallback);
@@ -428,6 +457,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     let ringMessage = false;
     let ringNotification = false;
 
+    const onChatPage =
+      typeof window !== "undefined" && window.location.pathname.startsWith("/chat");
+
     if (convs) {
       const nextStamps = new Map<string, string>();
       const bumpedUnread = new Set<string>();
@@ -444,6 +476,15 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         ) {
           ringMessage = true;
           bumpedUnread.add(c.id);
+          if (!onChatPage) {
+            pushToast({
+              id: `msg-${c.id}-${stamp}`,
+              type: "MESSAGE",
+              title: `Tin nhắn từ ${c.partner_name || "Đối tác"}`,
+              body: c.last_message || "Bạn có tin nhắn mới.",
+              href: `/chat?conv=${encodeURIComponent(c.id)}`,
+            });
+          }
         }
       }
       seenConvStampRef.current = nextStamps;
@@ -461,6 +502,15 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       for (const n of notifs) {
         if (notifsInitializedRef.current && !n.is_read && !seenNotifIdsRef.current.has(n.id)) {
           ringNotification = true;
+          const mapped = mapNotification(n);
+          pushToast({
+            id: `notif-${n.id}`,
+            notificationId: n.id,
+            type: mapped.type,
+            title: mapped.title,
+            body: mapped.body,
+            href: mapped.href || "/notifications",
+          });
         }
         seenNotifIdsRef.current.add(n.id);
       }
@@ -473,7 +523,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     } else if (ringNotification) {
       playNotificationBell("notification");
     }
-  }, []);
+  }, [pushToast]);
 
   const applyAuthMe = useCallback(
     (me: AuthMeResponse, campusList: Campus[]) => {
@@ -552,6 +602,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setConversations(DEMO_CONVERSATIONS);
     setMessages(DEMO_MESSAGES);
     setNotifications(DEMO_NOTIFICATIONS);
+    setToasts([]);
     if (typeof window !== "undefined") {
       try {
         window.localStorage.removeItem(STORAGE_STUDENT_KEY);
@@ -740,6 +791,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           seenWsMessageIdsRef.current.add(incoming.id);
           seenConvStampRef.current.set(incoming.conversationId, raw.created_at);
           playNotificationBell("message");
+          const onChatPage =
+            typeof window !== "undefined" && window.location.pathname.startsWith("/chat");
+          if (!onChatPage) {
+            pushToast({
+              id: `ws-msg-${incoming.id}`,
+              type: "MESSAGE",
+              title: "Tin nhắn mới",
+              body: incoming.content,
+              href: `/chat?conv=${encodeURIComponent(incoming.conversationId)}`,
+            });
+          }
         }
 
         setMessages((prev) => {
@@ -779,7 +841,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         );
       }
     },
-    [student.id, refreshWorkspace]
+    [student.id, refreshWorkspace, pushToast]
   );
 
   const { status: realtimeStatus, sendEvent } = useRealtimeSocket({
@@ -1406,6 +1468,15 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
+      <NotificationToasts
+        toasts={toasts}
+        onDismiss={dismissToast}
+        onSelect={(toast) => {
+          if (toast.notificationId) {
+            markNotificationRead(toast.notificationId);
+          }
+        }}
+      />
     </AppStateContext.Provider>
   );
 }

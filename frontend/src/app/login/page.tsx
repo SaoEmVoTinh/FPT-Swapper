@@ -221,7 +221,7 @@ export default function LoginPage() {
             onClick={() => setLegalDoc("privacy")}
             className="hover:text-orange-600 hover:underline"
           >
-            Chính sách bảo mật (Luật 91/2025)
+            Chính sách bảo mật
           </button>
           <span>•</span>
           <button
