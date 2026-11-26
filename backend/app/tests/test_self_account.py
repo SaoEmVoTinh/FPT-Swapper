@@ -133,23 +133,31 @@ def test_self_account_management_full_flow(client, db_session):
     assert r_resume.status_code == 200
     assert r_resume.json()["updated_count"] == 1
 
-    # 3. Email & student_code are immutable (self-change rejected with 403)
+    # 3. Email & student_code can be updated when unique; duplicates rejected with 409
     assert (
         client.patch(
             "/api/v1/students/me/account",
             json={"email": other.email},
             headers=headers,
         ).status_code
-        == 403
+        == 409
     )
     assert (
         client.patch(
             "/api/v1/students/me/account",
-            json={"email": "self_renamed@fpt.edu.vn", "student_code": "DE190999"},
+            json={"student_code": other.student_code},
             headers=headers,
         ).status_code
-        == 403
+        == 409
     )
+    r_upd = client.patch(
+        "/api/v1/students/me/account",
+        json={"email": "self_renamed@fpt.edu.vn", "student_code": "de190999"},
+        headers=headers,
+    )
+    assert r_upd.status_code == 200
+    assert r_upd.json()["email"] == "self_renamed@fpt.edu.vn"
+    assert r_upd.json()["student_code"] == "DE190999"
 
     # 4. Change password (wrong current -> 400, same -> 400, valid -> 204)
     assert (
@@ -178,7 +186,7 @@ def test_self_account_management_full_flow(client, db_session):
     assert (
         client.post(
             "/api/v1/auth/login",
-            json={"email": "DE190001", "password": "NewPassword2"},
+            json={"email": "DE190999", "password": "NewPassword2"},
         ).status_code
         == 200
     )
@@ -187,7 +195,8 @@ def test_self_account_management_full_flow(client, db_session):
     r_exp = client.get("/api/v1/students/me/export", headers=headers)
     assert r_exp.status_code == 200
     exp = r_exp.json()
-    assert exp["account"]["student_code"] == "DE190001"
+    assert exp["account"]["email"] == "self_renamed@fpt.edu.vn"
+    assert exp["account"]["student_code"] == "DE190999"
     assert len(exp["requests"]) == 1
     assert len(exp["notifications"]) == 1
 

@@ -67,16 +67,14 @@ function ProfileForm({
   student,
   campuses,
   initialBio,
-  initialShareEmail,
-  initialShareStudentCode,
+  initialShareContact,
   updateStudent,
   onSaved,
 }: {
   student: StudentProfile;
   campuses: Campus[];
   initialBio: string;
-  initialShareEmail: boolean;
-  initialShareStudentCode: boolean;
+  initialShareContact: boolean;
   updateStudent: (patch: Partial<StudentProfile>) => Promise<void>;
   onSaved: () => void;
 }) {
@@ -86,10 +84,7 @@ function ProfileForm({
   const [campusId, setCampusId] = useState(student.campusId);
   const [avatarUrl, setAvatarUrl] = useState(student.avatarUrl || "");
   const [bio, setBio] = useState(initialBio);
-  const [shareEmail, setShareEmail] = useState(initialShareEmail);
-  const [shareStudentCode, setShareStudentCode] = useState(
-    initialShareStudentCode,
-  );
+  const [shareContact, setShareContact] = useState(initialShareContact);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -112,9 +107,7 @@ function ProfileForm({
         campusName: campus?.name || student.campusName,
         avatarUrl: avatarUrl.trim(),
         bio: bio.trim(),
-        shareContactAfterMatch: shareEmail && shareStudentCode,
-        shareEmailAfterMatch: shareEmail,
-        shareStudentCodeAfterMatch: shareStudentCode,
+        shareContactAfterMatch: shareContact,
       });
       setSaved(true);
       onSaved();
@@ -237,53 +230,25 @@ function ProfileForm({
         />
       </div>
 
-      <div className="space-y-2.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 text-sm dark:border-slate-700 dark:bg-slate-800/70">
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 text-sm dark:border-slate-700 dark:bg-slate-800/70">
+        <input
+          type="checkbox"
+          checked={shareContact}
+          onChange={(e) => setShareContact(e.target.checked)}
+          disabled={saving}
+          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
+        />
         <div>
           <p className="font-semibold text-slate-800 dark:text-slate-100">
-            Chia sẻ thông tin liên hệ sau khi Match được xác nhận
+            Chia sẻ Email &amp; MSSV đầy đủ sau khi Match được xác nhận
           </p>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-            Cả hai lựa chọn đều mặc định tắt, hoàn toàn tùy chọn và không bắt buộc
-            để sử dụng tính năng Chat 1-1. Bạn có thể bật riêng từng thông tin.
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Mặc định thông tin liên hệ ngoài được ẩn và không bắt buộc để sử dụng
+            Chat 1-1. Chỉ khi bạn bật tùy chọn này và hai bên cùng xác nhận đổi lớp,
+            đối tác mới nhìn thấy Email &amp; MSSV của bạn.
           </p>
         </div>
-
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200/80 bg-white/80 p-2.5 dark:border-slate-700 dark:bg-slate-900/60">
-          <input
-            type="checkbox"
-            checked={shareEmail}
-            onChange={(e) => setShareEmail(e.target.checked)}
-            disabled={saving}
-            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
-          />
-          <div>
-            <p className="font-medium text-slate-800 dark:text-slate-100">
-              Chia sẻ Email sau khi Match được xác nhận
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Chỉ hiển thị Email của bạn cho đối tác khi hai bên cùng xác nhận Match.
-            </p>
-          </div>
-        </label>
-
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200/80 bg-white/80 p-2.5 dark:border-slate-700 dark:bg-slate-900/60">
-          <input
-            type="checkbox"
-            checked={shareStudentCode}
-            onChange={(e) => setShareStudentCode(e.target.checked)}
-            disabled={saving}
-            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
-          />
-          <div>
-            <p className="font-medium text-slate-800 dark:text-slate-100">
-              Chia sẻ MSSV đầy đủ sau khi Match được xác nhận
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Trước Match MSSV luôn được che 4 ký tự đầu + <code>****</code>; chỉ hiện đầy đủ cho đối tác nếu bạn bật mục này.
-            </p>
-          </div>
-        </label>
-      </div>
+      </label>
 
       <div className="flex justify-end pt-2">
         <button
@@ -303,6 +268,141 @@ function ProfileForm({
   );
 }
 
+function AccountIdentityForm({
+  initialEmail,
+  initialStudentCode,
+  isAuthenticated,
+  isSuperAdmin,
+  onSaved,
+}: {
+  initialEmail: string;
+  initialStudentCode: string;
+  isAuthenticated: boolean;
+  isSuperAdmin: boolean;
+  onSaved: (updated: AccountSummary) => Promise<void>;
+}) {
+  const [email, setEmail] = useState(initialEmail);
+  const [studentCode, setStudentCode] = useState(initialStudentCode);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [savedMsg, setSavedMsg] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSavedMsg("");
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = studentCode.trim().toUpperCase();
+    if (!cleanEmail) {
+      setError("Vui lòng nhập Email hợp lệ.");
+      return;
+    }
+    if (cleanCode.length < 4) {
+      setError("Mã sinh viên phải có ít nhất 4 ký tự.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await apiFetch<AccountSummary>("/students/me/account", {
+        method: "PATCH",
+        body: JSON.stringify({
+          ...(isSuperAdmin ? {} : { email: cleanEmail }),
+          student_code: cleanCode,
+        }),
+      });
+      await onSaved(updated);
+      setSavedMsg("Đã cập nhật thông tin định danh tài khoản.");
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Không thể cập nhật Email hoặc Mã sinh viên.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+    >
+      <div>
+        <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+          Thông tin định danh (Email &amp; Mã sinh viên)
+        </h2>
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          {isSuperAdmin
+            ? "Email quản trị viên Super Admin được bảo vệ cố định; bạn có thể cập nhật Mã sinh viên nếu không trùng với tài khoản khác."
+            : "Bạn có thể chỉnh sửa Email và Mã sinh viên nếu cần; hệ thống sẽ kiểm tra không trùng lặp trong cơ sở dữ liệu. Bạn có thể đăng nhập bằng Email hoặc Mã sinh viên."}
+        </p>
+      </div>
+
+      {savedMsg && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-700 dark:border-emerald-500/35 dark:bg-emerald-500/15 dark:text-emerald-200">
+          {savedMsg}
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-500/35 dark:bg-rose-500/15 dark:text-rose-200">
+          {error}
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Email
+          </label>
+          <input
+            type="email"
+            required
+            disabled={!isAuthenticated || isSuperAdmin || saving}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-orange-500 disabled:bg-slate-100 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800 dark:disabled:text-slate-400"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Mã sinh viên
+          </label>
+          <input
+            type="text"
+            required
+            minLength={4}
+            maxLength={32}
+            disabled={!isAuthenticated || saving}
+            value={studentCode}
+            onChange={(e) => setStudentCode(e.target.value.toUpperCase())}
+            className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm uppercase outline-none focus:border-orange-500 disabled:bg-slate-100 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800 dark:disabled:text-slate-400"
+          />
+        </div>
+      </div>
+
+      {isAuthenticated && (
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            {saving ? "Đang cập nhật..." : "Cập nhật Email & MSSV"}
+          </button>
+        </div>
+      )}
+    </form>
+  );
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const {
@@ -310,6 +410,7 @@ export default function ProfilePage() {
     campuses,
     isAuthenticated,
     updateStudent,
+    refreshAuth,
     refreshWorkspace,
     logout,
   } = useAppState();
@@ -324,13 +425,6 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
-
-  // Identity correction request state
-  const [showCorrectionForm, setShowCorrectionForm] = useState(false);
-  const [corrEmail, setCorrEmail] = useState("");
-  const [corrStudentCode, setCorrStudentCode] = useState("");
-  const [corrReason, setCorrReason] = useState("");
-  const [sendingCorrection, setSendingCorrection] = useState(false);
 
   // Activity bulk actions / export
   const [busyActivity, setBusyActivity] = useState(false);
@@ -430,53 +524,6 @@ export default function ProfilePage() {
       );
     } finally {
       setChangingPassword(false);
-    }
-  }
-
-  async function handleRequestIdentityCorrection(e: React.FormEvent) {
-    e.preventDefault();
-    setNotice("");
-    setErrorMsg("");
-    const trimmedEmail = corrEmail.trim();
-    const trimmedCode = corrStudentCode.trim().toUpperCase();
-    const trimmedReason = corrReason.trim();
-    if (!trimmedEmail && !trimmedCode) {
-      setErrorMsg("Vui lòng nhập ít nhất Email mới hoặc MSSV mới cần đính chính.");
-      return;
-    }
-    if (trimmedReason.length < 5) {
-      setErrorMsg("Vui lòng nhập lý do đính chính (tối thiểu 5 ký tự).");
-      return;
-    }
-    setSendingCorrection(true);
-    try {
-      const res = await apiFetch<{ message: string }>(
-        "/students/me/identity-correction-request",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            requested_email: trimmedEmail || null,
-            requested_student_code: trimmedCode || null,
-            reason: trimmedReason,
-          }),
-        },
-      );
-      setCorrEmail("");
-      setCorrStudentCode("");
-      setCorrReason("");
-      setShowCorrectionForm(false);
-      setNotice(
-        res.message ||
-          "Đã gửi yêu cầu đính chính tới Quản trị viên để xác minh và cập nhật.",
-      );
-    } catch (err) {
-      setErrorMsg(
-        err instanceof ApiError
-          ? err.message
-          : "Không thể gửi yêu cầu đính chính. Vui lòng thử lại.",
-      );
-    } finally {
-      setSendingCorrection(false);
     }
   }
 
@@ -729,16 +776,12 @@ export default function ProfilePage() {
         {/* ════════ TAB 1: PROFILE ════════ */}
         {tab === "profile" && (
           <ProfileForm
-            key={`${student.id}-${student.campusId}-${summary?.bio ?? student.bio ?? ""}-${Boolean(summary?.share_email_after_match ?? student.shareEmailAfterMatch)}-${Boolean(summary?.share_student_code_after_match ?? student.shareStudentCodeAfterMatch)}`}
+            key={`${student.id}-${student.campusId}-${summary?.bio ?? student.bio ?? ""}-${Boolean(summary?.share_contact_after_match ?? student.shareContactAfterMatch)}`}
             student={student}
             campuses={campuses}
             initialBio={summary?.bio ?? student.bio ?? ""}
-            initialShareEmail={Boolean(
-              summary?.share_email_after_match ?? student.shareEmailAfterMatch,
-            )}
-            initialShareStudentCode={Boolean(
-              summary?.share_student_code_after_match ??
-                student.shareStudentCodeAfterMatch,
+            initialShareContact={Boolean(
+              summary?.share_contact_after_match ?? student.shareContactAfterMatch,
             )}
             updateStudent={updateStudent}
             onSaved={reloadSummary}
@@ -748,120 +791,17 @@ export default function ProfilePage() {
         {/* ════════ TAB 2: SECURITY & IDENTITY ════════ */}
         {tab === "security" && (
           <div className="space-y-6">
-            <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                    Thông tin định danh cố định (Email &amp; Mã sinh viên)
-                  </h2>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Email và Mã sinh viên được khóa tự sửa trực tiếp sau khi xác nhận đăng ký. Nếu thông tin đăng ký bị sai, bạn có thể gửi yêu cầu đính chính cho Quản trị viên.
-                  </p>
-                </div>
-                {isAuthenticated && (
-                  <button
-                    type="button"
-                    onClick={() => setShowCorrectionForm((v) => !v)}
-                    className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 hover:bg-orange-100 dark:border-orange-500/35 dark:bg-orange-500/15 dark:text-orange-200 dark:hover:bg-orange-500/25"
-                  >
-                    {showCorrectionForm ? "Đóng biểu mẫu" : "Yêu cầu đính chính"}
-                  </button>
-                )}
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    readOnly
-                    disabled
-                    value={summary?.email || student.email}
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none disabled:bg-slate-100 disabled:text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:disabled:bg-slate-800 dark:disabled:text-slate-300"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Mã sinh viên
-                  </label>
-                  <input
-                    type="text"
-                    readOnly
-                    disabled
-                    value={summary?.student_code || student.studentCode}
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm uppercase outline-none disabled:bg-slate-100 disabled:text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:disabled:bg-slate-800 dark:disabled:text-slate-300"
-                  />
-                </div>
-              </div>
-
-              {showCorrectionForm && isAuthenticated && (
-                <form
-                  onSubmit={handleRequestIdentityCorrection}
-                  className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/60"
-                >
-                  <p className="text-xs font-medium text-slate-700 dark:text-slate-200">
-                    Gửi yêu cầu đính chính Email / MSSV tới Quản trị viên
-                  </p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                        Email đề xuất sửa (nếu sai)
-                      </label>
-                      <input
-                        type="email"
-                        value={corrEmail}
-                        onChange={(e) => setCorrEmail(e.target.value)}
-                        disabled={sendingCorrection}
-                        placeholder="ttpt1204@fpt.edu.vn"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                        MSSV đề xuất sửa (nếu sai)
-                      </label>
-                      <input
-                        type="text"
-                        value={corrStudentCode}
-                        onChange={(e) => setCorrStudentCode(e.target.value)}
-                        disabled={sendingCorrection}
-                        placeholder="DE120497"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm uppercase outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                      Lý do đính chính <span className="text-rose-500">*</span>
-                    </label>
-                    <textarea
-                      rows={2}
-                      required
-                      minLength={5}
-                      maxLength={500}
-                      value={corrReason}
-                      onChange={(e) => setCorrReason(e.target.value)}
-                      disabled={sendingCorrection}
-                      placeholder="VD: Nhập nhầm 1 ký tự MSSV lúc đăng ký..."
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                    />
-                  </div>
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={sendingCorrection}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-orange-500 px-3.5 py-2 text-xs font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
-                    >
-                      {sendingCorrection && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                      Gửi yêu cầu đính chính
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
+            <AccountIdentityForm
+              key={`${student.id}-${summary?.email ?? student.email}-${summary?.student_code ?? student.studentCode}`}
+              initialEmail={summary?.email || student.email}
+              initialStudentCode={summary?.student_code || student.studentCode}
+              isAuthenticated={isAuthenticated}
+              isSuperAdmin={isSuperAdmin}
+              onSaved={async (updated) => {
+                setSummary(updated);
+                await refreshAuth();
+              }}
+            />
 
             <form
               onSubmit={handleChangePassword}

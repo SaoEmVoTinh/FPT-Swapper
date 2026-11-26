@@ -620,7 +620,7 @@ def test_vovinam_slots_and_cross_schedule_overlap(client, db_session):
     assert r_vov_ok.json().get("schedule_conflict_warning") is None
 
 
-def test_split_email_and_student_code_sharing_after_match(client, db_session):
+def test_unified_contact_sharing_after_match(client, db_session):
     stu_a, tok_a = _make_profiled_student(
         db_session, "split_a@fpt.edu.vn", "Split Alice", share_contact=False
     )
@@ -628,11 +628,11 @@ def test_split_email_and_student_code_sharing_after_match(client, db_session):
         db_session, "split_b@fpt.edu.vn", "Split Bob", share_contact=False
     )
 
-    # A opts into Email only; B opts into Student Code only
+    # A opts into sharing contact after match; B keeps contact hidden
     assert (
         client.put(
             "/api/v1/students/me",
-            json={"share_email_after_match": True, "share_student_code_after_match": False},
+            json={"share_contact_after_match": True},
             headers=auth_headers(tok_a),
         ).status_code
         == 200
@@ -640,7 +640,7 @@ def test_split_email_and_student_code_sharing_after_match(client, db_session):
     assert (
         client.put(
             "/api/v1/students/me",
-            json={"share_email_after_match": False, "share_student_code_after_match": True},
+            json={"share_contact_after_match": False},
             headers=auth_headers(tok_b),
         ).status_code
         == 200
@@ -696,13 +696,13 @@ def test_split_email_and_student_code_sharing_after_match(client, db_session):
     assert conf_b.status_code == 200
     b_view = conf_b.json()
     assert b_view["partner_email"] == "split_a@fpt.edu.vn"
-    assert b_view["partner_student_code"] is None
+    assert b_view["partner_student_code"] == stu_a.student_code
 
     a_view = client.get(f"/api/v1/class-swap/matches/{match_id}", headers=auth_headers(tok_a)).json()
     assert a_view["partner_email"] is None
-    assert a_view["partner_student_code"] == stu_b.student_code
+    assert a_view["partner_student_code"] is None
 
-    # 1-1 chat remains functional regardless of contact-sharing toggles
+    # 1-1 chat remains functional regardless of contact-sharing toggle
     msg = client.post(
         f"/api/v1/conversations/{conv_id}/messages",
         json={"content": "Chào bạn, mình xác nhận đổi trên FAP nhé."},

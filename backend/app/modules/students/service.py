@@ -3,9 +3,11 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.common.enums import AccountStatus, MatchStatus, NotificationType, SwapRequestStatus, UserRole
+from app.core.config import settings
 from app.core.security import hash_password, verify_password
 from app.database.models import (
     AcademicClass,
@@ -74,7 +76,11 @@ class StudentService:
             profile.avatar_url = avatar_url.strip() or None
         if bio is not None:
             profile.bio = bio.strip() or None
-        if share_email_after_match is not None or share_student_code_after_match is not None:
+        if share_contact_after_match is not None:
+            profile.share_contact_after_match = share_contact_after_match
+            profile.share_email_after_match = share_contact_after_match
+            profile.share_student_code_after_match = share_contact_after_match
+        elif share_email_after_match is not None or share_student_code_after_match is not None:
             if share_email_after_match is not None:
                 profile.share_email_after_match = share_email_after_match
             if share_student_code_after_match is not None:
@@ -82,10 +88,6 @@ class StudentService:
             profile.share_contact_after_match = bool(
                 profile.share_email_after_match and profile.share_student_code_after_match
             )
-        elif share_contact_after_match is not None:
-            profile.share_contact_after_match = share_contact_after_match
-            profile.share_email_after_match = share_contact_after_match
-            profile.share_student_code_after_match = share_contact_after_match
         if campus_id is not None:
             campus = resolve_campus(self.db, campus_id)
             if campus is None:
@@ -195,10 +197,93 @@ class StudentService:
         email: str | None,
         student_code: str | None,
     ) -> AccountSummaryResponse:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email và Mã sinh viên là định danh cố định, không thể tự thay đổi sau khi đăng ký.",
-        )
+        clean_email = email.strip().lower() if email is not None else None
+        clean_code = student_code.strip().upper() if student_code is not None else None
+
+        if clean_email is None and clean_code is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Vui lòng nhập Email hoặc Mã sinh viên cần cập nhật.",
+            )
+
+        if (
+            student.role == UserRole.SUPER_ADMIN
+            and clean_email is not None
+            and clean_email != student.email.lower()
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Tài khoản Super Admin không thể thay đổi Email quản trị.",
+            )
+
+        old_email = student.email
+        old_code = student.student_code
+
+        if clean_email is not None and clean_email != student.email.lower():
+            if (
+                clean_email == settings.ADMIN_EMAIL.lower()
+                and student.role != UserRole.SUPER_ADMIN
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Email này không khả dụng để sử dụng.",
+                )
+            taken_email = (
+                self.db.query(Student.id)
+                .filter(func.lower(Student.email) == clean_email, Student.id != student.id)
+                .first()
+            )
+            if taken_email is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Email này đã được tài khoản khác sử dụng.",
+                )
+            student.email = clean_email
+
+        if clean_code is not None and clean_code != student.student_code.upper():
+            if len(clean_code) < 4:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Mã sinh viên phải có ít nhất 4 ký tự.",
+                )
+            taken_code = (
+                self.db.query(Student.id)
+                .filter(func.upper(Student.student_code) == clean_code, Student.id != student.id)
+                .first()
+            )
+            if taken_code is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Mã sinh viên này đã được tài khoản khác sử dụng.",
+                )
+            student.student_code = clean_code
+
+        if student.email != old_email or student.student_code != old_code:
+            self.db.add(
+                AuditLog(
+                    actor_id=student.id,
+                    action="SELF_IDENTITY_UPDATE",
+                    entity_type="student",
+                    entity_id=student.id,
+                    details={
+                        "old_email": old_email,
+                        "new_email": student.email,
+                        "old_student_code": old_code,
+                        "new_student_code": student.student_code,
+                    },
+                )
+            )
+            try:
+                self.db.commit()
+            except IntegrityError:
+                self.db.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Email hoặc Mã sinh viên đã tồn tại trong cơ sở dữ liệu.",
+                )
+            self.db.refresh(student)
+
+        return self.get_account_summary(student)
 
     def request_identity_correction(
         self,

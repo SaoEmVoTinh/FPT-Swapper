@@ -175,16 +175,13 @@ def match_view(db: Session, match: Match, viewer_id: uuid.UUID) -> MatchResponse
     partner_student = db.get(Student, partner_student_id) if partner_student_id else None
     partner_profile = partner_student.profile if partner_student else None
     is_match_revealed = match.status in (MatchStatus.CONFIRMED, MatchStatus.COMPLETED)
-    reveal_email = bool(
+    reveal_contact = bool(
         is_match_revealed
         and partner_profile is not None
-        and partner_profile.share_email_after_match
+        and partner_profile.share_contact_after_match
     )
-    reveal_student_code = bool(
-        is_match_revealed
-        and partner_profile is not None
-        and partner_profile.share_student_code_after_match
-    )
+    reveal_email = reveal_contact
+    reveal_student_code = reveal_contact
     my_review_submitted = (
         db.query(MatchReview.id)
         .filter(MatchReview.match_id == match.id, MatchReview.reviewer_id == viewer_id)

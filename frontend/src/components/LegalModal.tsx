@@ -78,15 +78,14 @@ export function PrivacyPolicyContent() {
             <strong>Che MSSV &amp; ngoại lệ:</strong> Trước khi Match được xác
             nhận, MSSV hiển thị tối đa 4 ký tự đầu kèm <code>****</code> và
             Email bị ẩn hoàn toàn. Ngoại lệ chỉ áp dụng cho chính chủ tài khoản,
-            Quản trị viên/Kiểm duyệt viên khi xử lý vi phạm hoặc yêu cầu đính
-            chính, và đối tác Match sau khi xác nhận nếu bạn chủ động cho phép.
+            Quản trị viên/Kiểm duyệt viên khi xử lý vi phạm và đối tác Match sau
+            khi xác nhận nếu bạn chủ động bật tùy chọn chia sẻ.
           </li>
           <li>
-            <strong>Tách lựa chọn chia sẻ Email và MSSV:</strong> Trong{" "}
-            <em>Hồ sơ</em>, quyền chia sẻ Email và quyền chia sẻ MSSV sau Match
-            là hai công tắc độc lập và đều <strong>mặc định tắt</strong>. Bạn
-            có thể bật riêng một thông tin hoặc giữ ẩn cả hai — việc này hoàn
-            toàn tùy chọn và <strong>không bắt buộc</strong> để sử dụng Chat 1-1.
+            <strong>Chia sẻ Email &amp; MSSV sau Match:</strong> Trong{" "}
+            <em>Hồ sơ</em>, tùy chọn chia sẻ Email &amp; MSSV sau khi Match được
+            xác nhận luôn <strong>mặc định tắt</strong>. Việc bật chia sẻ là
+            hoàn toàn tùy chọn và <strong>không bắt buộc</strong> để sử dụng Chat 1-1.
           </li>
         </ul>
       </section>
@@ -131,12 +130,12 @@ export function PrivacyPolicyContent() {
         </h3>
         <ul className="list-inside list-disc space-y-1">
           <li>
-            <strong>Quyền truy cập, chỉnh sửa &amp; đính chính:</strong> Tải dữ
-            liệu <code>.json</code> tại <em>Hồ sơ → Hoạt động &amp; Dữ liệu</em>.
-            Họ tên, ngành, lớp và tùy chọn chia sẻ có thể tự sửa bất kỳ lúc nào;
-            riêng Email &amp; MSSV bị khóa tự sửa để bảo vệ định danh nhưng bạn
-            có thể gửi <strong>Yêu cầu đính chính</strong> tại{" "}
-            <em>Hồ sơ → Bảo mật</em> khi thông tin có sai sót.
+            <strong>Quyền truy cập, chỉnh sửa &amp; cập nhật định danh:</strong>{" "}
+            Tải dữ liệu <code>.json</code> tại{" "}
+            <em>Hồ sơ → Hoạt động &amp; Dữ liệu</em>. Bạn có thể tự cập nhật
+            hồ sơ, lớp học, tùy chọn chia sẻ cũng như chỉnh sửa Email và MSSV tại{" "}
+            <em>Hồ sơ → Bảo mật</em> khi phát hiện sai sót (hệ thống kiểm tra
+            không trùng lặp trong cơ sở dữ liệu).
           </li>
           <li>
             <strong>Quyền rút lại sự đồng ý:</strong> Bạn có thể tắt công tắc
@@ -192,7 +191,7 @@ export function TermsOfUseContent() {
           2. Trách nhiệm, An ninh mạng &amp; Quy tắc ứng xử
         </h3>
         <ul className="list-inside list-disc space-y-1">
-          <li>Cung cấp thông tin môn học, lớp hiện tại và lớp mong muốn trung thực; gửi yêu cầu đính chính nếu Email hoặc MSSV đăng ký bị sai.</li>
+          <li>Cung cấp thông tin môn học, lớp hiện tại và lớp mong muốn trung thực; kịp thời cập nhật Email hoặc MSSV nếu phát hiện sai sót.</li>
           <li>
             Tuân thủ <strong>Luật An ninh mạng 116/2025/QH15 &amp; NĐ 333/2026/NĐ-CP</strong>: không spam tin nhắn, không sử dụng ngôn ngữ thiếu tôn trọng, không lừa đảo hoặc xâm nhập trái phép hệ thống.
           </li>

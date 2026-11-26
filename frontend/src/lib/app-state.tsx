@@ -851,8 +851,6 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           avatar_url: cleanedPatch.avatarUrl,
           bio: cleanedPatch.bio,
           share_contact_after_match: cleanedPatch.shareContactAfterMatch,
-          share_email_after_match: cleanedPatch.shareEmailAfterMatch,
-          share_student_code_after_match: cleanedPatch.shareStudentCodeAfterMatch,
         }),
       });
     }
