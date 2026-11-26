@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -15,8 +15,11 @@ import {
   LogOut,
   Menu,
   MessageSquare,
+  Moon,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
+  Sun,
   User,
   Volume2,
   VolumeX,
@@ -29,21 +32,158 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAppState } from "@/lib/app-state";
 import { useLocale } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
+
+function QuickSettingsMenu({
+  placement = "top",
+}: {
+  placement?: "top" | "bottom";
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { locale, toggleLocale, t } = useLocale();
+  const { isDark, toggleTheme } = useTheme();
+  const { soundEnabled, toggleSound } = useAppState();
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        title={locale === "en" ? "Display & Sound settings" : "Cài đặt hiển thị & âm thanh"}
+        aria-label={locale === "en" ? "Display & Sound settings" : "Cài đặt hiển thị & âm thanh"}
+        className={`inline-flex items-center justify-center rounded-lg p-2 transition-colors ${
+          open
+            ? "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300"
+            : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+        }`}
+      >
+        <SlidersHorizontal className="h-4 w-4" />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className={`absolute right-0 z-50 w-60 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900 ${
+            placement === "top" ? "bottom-full mb-2" : "top-full mt-2"
+          }`}
+        >
+          <p className="px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            {locale === "en" ? "Quick Preferences" : "Tùy chọn nhanh"}
+          </p>
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={toggleLocale}
+            title={t("lang.toggleTitle")}
+            className="flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            <span className="flex items-center gap-2.5">
+              <Languages className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+              {locale === "en" ? "Language" : "Ngôn ngữ"}
+            </span>
+            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+              {locale === "vi" ? "Tiếng Việt" : "English"}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={toggleTheme}
+            className="flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            <span className="flex items-center gap-2.5">
+              {isDark ? (
+                <Moon className="h-4 w-4 text-amber-400" />
+              ) : (
+                <Sun className="h-4 w-4 text-orange-500" />
+              )}
+              {locale === "en" ? "Appearance" : "Giao diện"}
+            </span>
+            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+              {isDark
+                ? locale === "en"
+                  ? "Dark"
+                  : "Tối"
+                : locale === "en"
+                  ? "Light"
+                  : "Sáng"}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={toggleSound}
+            className="flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            <span className="flex items-center gap-2.5">
+              {soundEnabled ? (
+                <Volume2 className="h-4 w-4 text-orange-500" />
+              ) : (
+                <VolumeX className="h-4 w-4 text-slate-400" />
+              )}
+              {locale === "en" ? "Notification Sound" : "Âm thanh chuông"}
+            </span>
+            <span
+              className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
+                soundEnabled
+                  ? "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300"
+                  : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+              }`}
+            >
+              {soundEnabled
+                ? locale === "en"
+                  ? "On"
+                  : "Bật"
+                : locale === "en"
+                  ? "Off"
+                  : "Tắt"}
+            </span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [legalDoc, setLegalDoc] = useState<LegalDocType | null>(null);
-  const { locale, toggleLocale, t } = useLocale();
+  const { t } = useLocale();
   const { canInstall, triggerInstall } = usePwaInstall();
 
   const {
     student,
     isAuthenticated,
     logout,
-    soundEnabled,
-    toggleSound,
     unreadNotificationsCount,
     unreadMessagesCount,
   } = useAppState();
@@ -171,39 +311,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </p>
               </div>
             </Link>
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                onClick={toggleLocale}
-                title={t("lang.toggleTitle")}
-                aria-label={t("lang.toggleTitle")}
-                className="rounded-lg bg-slate-100 px-2 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-              >
-                {locale.toUpperCase()}
-              </button>
-              <ThemeToggle variant="icon" />
-              <button
-                type="button"
-                onClick={toggleSound}
-                title={
-                  soundEnabled ? "Tắt tiếng chuông báo" : "Bật tiếng chuông báo"
-                }
-                aria-label={
-                  soundEnabled ? "Tắt tiếng chuông báo" : "Bật tiếng chuông báo"
-                }
-                className={`rounded-lg p-2 transition-colors ${
-                  soundEnabled
-                    ? "bg-orange-50 text-orange-600 hover:bg-orange-100 dark:bg-orange-500/15 dark:text-orange-400 dark:hover:bg-orange-500/25"
-                    : "bg-slate-100 text-slate-400 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:hover:bg-slate-700"
-                }`}
-              >
-                {soundEnabled ? (
-                  <Volume2 className="h-4 w-4" />
-                ) : (
-                  <VolumeX className="h-4 w-4" />
-                )}
-              </button>
-            </div>
+            <QuickSettingsMenu placement="top" />
           </div>
 
           {canInstall && (
@@ -272,28 +380,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
 
           <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={toggleLocale}
-              aria-label={t("lang.toggleTitle")}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              <Languages className="h-3.5 w-3.5" />
-              {locale.toUpperCase()}
-            </button>
-            <ThemeToggle variant="icon" />
-            <button
-              type="button"
-              onClick={toggleSound}
-              aria-label={soundEnabled ? "Tắt tiếng chuông" : "Bật tiếng chuông"}
-              className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              {soundEnabled ? (
-                <Volume2 className="h-4 w-4 text-orange-500" />
-              ) : (
-                <VolumeX className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-              )}
-            </button>
+            <QuickSettingsMenu placement="bottom" />
             <Link
               href="/notifications"
               className="relative rounded-lg p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
