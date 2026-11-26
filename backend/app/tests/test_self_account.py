@@ -241,3 +241,52 @@ def test_super_admin_cannot_self_delete_or_change_email(client, db_session):
         ).status_code
         == 400
     )
+
+
+def test_identity_correction_request_logged_and_notifies_admin(client, db_session):
+    _, token = make_student(db_session, "corr_stu@fpt.edu.vn", student_code="DE180331")
+    admin_user, _ = make_student(
+        db_session,
+        "corr_admin@fpt.edu.vn",
+        role=UserRole.ADMIN,
+        student_code="DE180999",
+    )
+
+    resp = client.post(
+        "/api/v1/students/me/identity-correction-request",
+        json={
+            "requested_email": "corr_fixed@fpt.edu.vn",
+            "requested_student_code": "de180332",
+            "reason": "Gõ nhầm một chữ số trong MSSV khi đăng ký tài khoản.",
+        },
+        headers=auth_headers(token),
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["requested_email"] == "corr_fixed@fpt.edu.vn"
+    assert data["requested_student_code"] == "DE180332"
+
+    # Reject empty correction fields
+    bad = client.post(
+        "/api/v1/students/me/identity-correction-request",
+        json={"reason": "Không có thông tin đính chính nào được điền."},
+        headers=auth_headers(token),
+    )
+    assert bad.status_code == 422
+
+    # Admin receives notification & AuditLog is created
+    from app.database.models import AuditLog, Notification
+
+    notifs = (
+        db_session.query(Notification)
+        .filter(Notification.student_id == admin_user.id)
+        .all()
+    )
+    assert any("corr_fixed@fpt.edu.vn" in (n.body or "") for n in notifs)
+    logs = (
+        db_session.query(AuditLog)
+        .filter(AuditLog.action == "IDENTITY_CORRECTION_REQUEST")
+        .all()
+    )
+    assert len(logs) == 1
+

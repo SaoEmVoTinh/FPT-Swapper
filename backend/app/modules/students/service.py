@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from app.common.enums import AccountStatus, MatchStatus, SwapRequestStatus, UserRole
+from app.common.enums import AccountStatus, MatchStatus, NotificationType, SwapRequestStatus, UserRole
 from app.core.security import hash_password, verify_password
 from app.database.models import (
     AcademicClass,
@@ -28,6 +28,7 @@ from app.modules.students.schemas import (
     AccountSummaryResponse,
     BlockedStudentItem,
     BulkRequestsActionResponse,
+    IdentityCorrectionResponse,
 )
 
 SOFT_DELETE_GRACE_DAYS = 14
@@ -53,6 +54,8 @@ class StudentService:
         bio: str | None,
         campus_id: uuid.UUID | str | None = None,
         share_contact_after_match: bool | None = None,
+        share_email_after_match: bool | None = None,
+        share_student_code_after_match: bool | None = None,
         class_name: str | None = None,
         update_class_name: bool = False,
     ) -> StudentProfile:
@@ -71,8 +74,18 @@ class StudentService:
             profile.avatar_url = avatar_url.strip() or None
         if bio is not None:
             profile.bio = bio.strip() or None
-        if share_contact_after_match is not None:
+        if share_email_after_match is not None or share_student_code_after_match is not None:
+            if share_email_after_match is not None:
+                profile.share_email_after_match = share_email_after_match
+            if share_student_code_after_match is not None:
+                profile.share_student_code_after_match = share_student_code_after_match
+            profile.share_contact_after_match = bool(
+                profile.share_email_after_match and profile.share_student_code_after_match
+            )
+        elif share_contact_after_match is not None:
             profile.share_contact_after_match = share_contact_after_match
+            profile.share_email_after_match = share_contact_after_match
+            profile.share_student_code_after_match = share_contact_after_match
         if campus_id is not None:
             campus = resolve_campus(self.db, campus_id)
             if campus is None:
@@ -162,6 +175,8 @@ class StudentService:
             avatar_url=profile.avatar_url if profile else None,
             bio=profile.bio if profile else None,
             share_contact_after_match=bool(profile.share_contact_after_match) if profile else False,
+            share_email_after_match=bool(profile.share_email_after_match) if profile else False,
+            share_student_code_after_match=bool(profile.share_student_code_after_match) if profile else False,
             trust_score=float(profile.trust_score) if profile else 5.0,
             completed_swaps_count=int(profile.completed_swaps_count) if profile else 0,
             no_show_count=int(profile.no_show_count) if profile else 0,
@@ -183,6 +198,99 @@ class StudentService:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Email và Mã sinh viên là định danh cố định, không thể tự thay đổi sau khi đăng ký.",
+        )
+
+    def request_identity_correction(
+        self,
+        student: Student,
+        requested_email: str | None,
+        requested_student_code: str | None,
+        reason: str,
+    ) -> IdentityCorrectionResponse:
+        clean_email = requested_email.strip().lower() if requested_email else None
+        clean_code = requested_student_code.strip().upper() if requested_student_code else None
+        if not clean_email and not clean_code:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Vui lòng nhập Email mới hoặc Mã sinh viên mới cần đính chính.",
+            )
+        if clean_email and clean_email == student.email and not clean_code:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Email mới trùng với Email hiện tại.",
+            )
+        if clean_code and clean_code == student.student_code and not clean_email:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Mã sinh viên mới trùng với Mã sinh viên hiện tại.",
+            )
+        if clean_email and clean_email != student.email:
+            taken = (
+                self.db.query(Student.id)
+                .filter(func.lower(Student.email) == clean_email, Student.id != student.id)
+                .first()
+            )
+            if taken is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Email muốn đính chính đã thuộc về một tài khoản khác.",
+                )
+        if clean_code and clean_code != student.student_code:
+            taken = (
+                self.db.query(Student.id)
+                .filter(Student.student_code == clean_code, Student.id != student.id)
+                .first()
+            )
+            if taken is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Mã sinh viên muốn đính chính đã thuộc về một tài khoản khác.",
+                )
+
+        self.db.add(
+            AuditLog(
+                actor_id=student.id,
+                action="IDENTITY_CORRECTION_REQUEST",
+                entity_type="student",
+                entity_id=student.id,
+                details={
+                    "current_email": student.email,
+                    "current_student_code": student.student_code,
+                    "requested_email": clean_email,
+                    "requested_student_code": clean_code,
+                    "reason": reason.strip(),
+                },
+            )
+        )
+
+        staff_users = (
+            self.db.query(Student)
+            .filter(
+                Student.role.in_([UserRole.ADMIN, UserRole.SUPER_ADMIN]),
+                Student.status == AccountStatus.ACTIVE,
+            )
+            .all()
+        )
+        for admin in staff_users:
+            self.db.add(
+                Notification(
+                    student_id=admin.id,
+                    notification_type=NotificationType.SYSTEM,
+                    title=f"Yêu cầu đính chính định danh ({student.student_code})",
+                    body=(
+                        f"{student.email} ({student.student_code}) yêu cầu đính chính: "
+                        f"Email={clean_email or 'giữ nguyên'}, MSSV={clean_code or 'giữ nguyên'}. "
+                        f"Lý do: {reason.strip()}"
+                    ),
+                    is_read=False,
+                    reference_id=student.id,
+                )
+            )
+        self.db.commit()
+        return IdentityCorrectionResponse(
+            message="Đã ghi nhận yêu cầu đính chính Email / Mã sinh viên. Quản trị viên sẽ kiểm tra và cập nhật sớm nhất.",
+            requested_email=clean_email,
+            requested_student_code=clean_code,
         )
 
     def change_password(

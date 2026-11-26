@@ -58,6 +58,21 @@ TEST_EMAIL = "testuser@fpt.edu.vn"
 TEST_PASSWORD = "securepassword123"
 
 
+def test_register_requires_explicit_consent(test_client: TestClient) -> None:
+    res = test_client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "silent@fpt.edu.vn",
+            "student_code": "HE180995",
+            "full_name": "Silent User",
+            "major": "SE",
+            "campus_id": CAMPUS_ID,
+            "password": TEST_PASSWORD,
+        },
+    )
+    assert res.status_code == 422
+
+
 def test_register_success(test_client: TestClient) -> None:
     res = test_client.post(
         "/api/v1/auth/register",
@@ -68,6 +83,7 @@ def test_register_success(test_client: TestClient) -> None:
             "major": "Software Engineering",
             "campus_id": CAMPUS_ID,
             "password": TEST_PASSWORD,
+            "agree_privacy_terms": True,
         },
     )
     assert res.status_code == 201, res.json()
@@ -88,6 +104,7 @@ def test_register_duplicate_email(test_client: TestClient) -> None:
             "major": "SE",
             "campus_id": CAMPUS_ID,
             "password": TEST_PASSWORD,
+            "agree_privacy_terms": True,
         },
     )
     assert res.status_code == 409
@@ -103,6 +120,7 @@ def test_register_any_valid_email(test_client: TestClient) -> None:
             "major": "SE",
             "campus_id": CAMPUS_ID,
             "password": TEST_PASSWORD,
+            "agree_privacy_terms": True,
         },
     )
     assert res.status_code == 201
@@ -119,6 +137,7 @@ def test_register_invalid_email_format(test_client: TestClient) -> None:
             "major": "SE",
             "campus_id": CAMPUS_ID,
             "password": TEST_PASSWORD,
+            "agree_privacy_terms": True,
         },
     )
     assert res.status_code == 422
@@ -208,6 +227,7 @@ def test_register_by_campus_code(test_client: TestClient) -> None:
             "class_name": "ai21a01",
             "campus_id": "HL",
             "password": TEST_PASSWORD,
+            "agree_privacy_terms": True,
         },
     )
     assert res.status_code == 201, res.json()

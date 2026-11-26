@@ -48,6 +48,8 @@ def _student_to_response(student: Student, db: Session) -> StudentPublicResponse
         bio=profile.bio if profile else None,
         totp_enabled=bool(student.totp_enabled),
         share_contact_after_match=bool(profile.share_contact_after_match) if profile else False,
+        share_email_after_match=bool(profile.share_email_after_match) if profile else False,
+        share_student_code_after_match=bool(profile.share_student_code_after_match) if profile else False,
         notify_email=bool(profile.notify_email) if profile else True,
         notify_push=bool(profile.notify_push) if profile else True,
         trust_score=float(profile.trust_score) if profile else 5.0,

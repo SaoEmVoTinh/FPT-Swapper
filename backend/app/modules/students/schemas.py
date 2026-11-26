@@ -13,6 +13,8 @@ class ProfileUpdateRequest(BaseModel):
     avatar_url: str | None = Field(default=None, max_length=512)
     bio: str | None = Field(default=None, max_length=1000)
     share_contact_after_match: bool | None = None
+    share_email_after_match: bool | None = None
+    share_student_code_after_match: bool | None = None
 
     @field_validator("class_name")
     @classmethod
@@ -37,6 +39,8 @@ class ProfileResponse(BaseModel):
     avatar_url: str | None = None
     bio: str | None = None
     share_contact_after_match: bool = False
+    share_email_after_match: bool = False
+    share_student_code_after_match: bool = False
     trust_score: float = 5.0
     completed_swaps_count: int = 0
     no_show_count: int = 0
@@ -94,6 +98,8 @@ class AccountSummaryResponse(BaseModel):
     avatar_url: str | None = None
     bio: str | None = None
     share_contact_after_match: bool = False
+    share_email_after_match: bool = False
+    share_student_code_after_match: bool = False
     trust_score: float = 5.0
     completed_swaps_count: int = 0
     no_show_count: int = 0
@@ -104,6 +110,31 @@ class AccountSummaryResponse(BaseModel):
     total_matches: int = 0
     confirmed_matches: int = 0
     unread_notifications: int = 0
+
+
+class IdentityCorrectionRequest(BaseModel):
+    requested_email: EmailStr | None = None
+    requested_student_code: str | None = Field(default=None, min_length=4, max_length=32)
+    reason: str = Field(min_length=5, max_length=500)
+
+    @field_validator("requested_email")
+    @classmethod
+    def normalize_req_email(cls, v: str | None) -> str | None:
+        return v.strip().lower() if v is not None else None
+
+    @field_validator("requested_student_code")
+    @classmethod
+    def normalize_req_code(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        cleaned = v.strip().upper()
+        return cleaned or None
+
+
+class IdentityCorrectionResponse(BaseModel):
+    message: str
+    requested_email: str | None = None
+    requested_student_code: str | None = None
 
 
 class BulkRequestsActionResponse(BaseModel):

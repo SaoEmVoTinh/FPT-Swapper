@@ -404,15 +404,20 @@ export default function MatchesPage() {
                       )}
                       {(m.status === "CONFIRMED" || m.status === "COMPLETED") && (
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                          {m.partnerEmail ? (
+                          {m.partnerEmail || m.partnerStudentCode ? (
                             <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-medium text-emerald-800 dark:border-emerald-500/35 dark:bg-emerald-500/15 dark:text-emerald-200">
                               <Mail className="h-3.5 w-3.5" />
-                              Liên hệ: {m.partnerEmail}
-                              {m.partnerStudentCode ? ` (${m.partnerStudentCode})` : ""}
+                              Liên hệ:
+                              {m.partnerEmail ? ` ${m.partnerEmail}` : ""}
+                              {m.partnerStudentCode
+                                ? m.partnerEmail
+                                  ? ` (${m.partnerStudentCode})`
+                                  : ` MSSV: ${m.partnerStudentCode}`
+                                : ""}
                             </span>
                           ) : (
                             <span className="text-slate-400 dark:text-slate-500">
-                              Thông tin email/MSSV được ẩn theo cài đặt riêng tư của đối tác.
+                              Email &amp; MSSV đang ẩn theo cài đặt riêng tư của đối tác (vẫn dùng Chat 1-1 bình thường).
                             </span>
                           )}
                         </div>

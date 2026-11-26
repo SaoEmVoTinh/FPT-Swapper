@@ -70,6 +70,8 @@ export interface StudentProfile {
   avatarUrl?: string;
   bio?: string;
   shareContactAfterMatch?: boolean;
+  shareEmailAfterMatch?: boolean;
+  shareStudentCodeAfterMatch?: boolean;
   trustScore?: number;
   completedSwapsCount?: number;
   noShowCount?: number;

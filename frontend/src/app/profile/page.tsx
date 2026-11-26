@@ -44,6 +44,8 @@ interface AccountSummary {
   avatar_url?: string | null;
   bio?: string | null;
   share_contact_after_match?: boolean;
+  share_email_after_match?: boolean;
+  share_student_code_after_match?: boolean;
   trust_score?: number;
   completed_swaps_count?: number;
   no_show_count?: number;
@@ -65,12 +67,16 @@ function ProfileForm({
   student,
   campuses,
   initialBio,
+  initialShareEmail,
+  initialShareStudentCode,
   updateStudent,
   onSaved,
 }: {
   student: StudentProfile;
   campuses: Campus[];
   initialBio: string;
+  initialShareEmail: boolean;
+  initialShareStudentCode: boolean;
   updateStudent: (patch: Partial<StudentProfile>) => Promise<void>;
   onSaved: () => void;
 }) {
@@ -80,8 +86,9 @@ function ProfileForm({
   const [campusId, setCampusId] = useState(student.campusId);
   const [avatarUrl, setAvatarUrl] = useState(student.avatarUrl || "");
   const [bio, setBio] = useState(initialBio);
-  const [shareContact, setShareContact] = useState(
-    Boolean(student.shareContactAfterMatch),
+  const [shareEmail, setShareEmail] = useState(initialShareEmail);
+  const [shareStudentCode, setShareStudentCode] = useState(
+    initialShareStudentCode,
   );
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -105,7 +112,9 @@ function ProfileForm({
         campusName: campus?.name || student.campusName,
         avatarUrl: avatarUrl.trim(),
         bio: bio.trim(),
-        shareContactAfterMatch: shareContact,
+        shareContactAfterMatch: shareEmail && shareStudentCode,
+        shareEmailAfterMatch: shareEmail,
+        shareStudentCodeAfterMatch: shareStudentCode,
       });
       setSaved(true);
       onSaved();
@@ -228,24 +237,53 @@ function ProfileForm({
         />
       </div>
 
-      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 text-sm dark:border-slate-700 dark:bg-slate-800/70">
-        <input
-          type="checkbox"
-          checked={shareContact}
-          onChange={(e) => setShareContact(e.target.checked)}
-          disabled={saving}
-          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
-        />
+      <div className="space-y-2.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 text-sm dark:border-slate-700 dark:bg-slate-800/70">
         <div>
           <p className="font-semibold text-slate-800 dark:text-slate-100">
-            Chia sẻ Email &amp; MSSV đầy đủ sau khi Match được xác nhận
+            Chia sẻ thông tin liên hệ sau khi Match được xác nhận
           </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Mặc định thông tin liên hệ ngoài được ẩn. Chỉ khi bạn bật tùy chọn này
-            và hai bên cùng xác nhận đổi lớp, đối tác mới nhìn thấy Email &amp; MSSV của bạn.
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            Cả hai lựa chọn đều mặc định tắt, hoàn toàn tùy chọn và không bắt buộc
+            để sử dụng tính năng Chat 1-1. Bạn có thể bật riêng từng thông tin.
           </p>
         </div>
-      </label>
+
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200/80 bg-white/80 p-2.5 dark:border-slate-700 dark:bg-slate-900/60">
+          <input
+            type="checkbox"
+            checked={shareEmail}
+            onChange={(e) => setShareEmail(e.target.checked)}
+            disabled={saving}
+            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
+          />
+          <div>
+            <p className="font-medium text-slate-800 dark:text-slate-100">
+              Chia sẻ Email sau khi Match được xác nhận
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Chỉ hiển thị Email của bạn cho đối tác khi hai bên cùng xác nhận Match.
+            </p>
+          </div>
+        </label>
+
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200/80 bg-white/80 p-2.5 dark:border-slate-700 dark:bg-slate-900/60">
+          <input
+            type="checkbox"
+            checked={shareStudentCode}
+            onChange={(e) => setShareStudentCode(e.target.checked)}
+            disabled={saving}
+            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
+          />
+          <div>
+            <p className="font-medium text-slate-800 dark:text-slate-100">
+              Chia sẻ MSSV đầy đủ sau khi Match được xác nhận
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Trước Match MSSV luôn được che 4 ký tự đầu + <code>****</code>; chỉ hiện đầy đủ cho đối tác nếu bạn bật mục này.
+            </p>
+          </div>
+        </label>
+      </div>
 
       <div className="flex justify-end pt-2">
         <button
@@ -286,6 +324,13 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+
+  // Identity correction request state
+  const [showCorrectionForm, setShowCorrectionForm] = useState(false);
+  const [corrEmail, setCorrEmail] = useState("");
+  const [corrStudentCode, setCorrStudentCode] = useState("");
+  const [corrReason, setCorrReason] = useState("");
+  const [sendingCorrection, setSendingCorrection] = useState(false);
 
   // Activity bulk actions / export
   const [busyActivity, setBusyActivity] = useState(false);
@@ -385,6 +430,53 @@ export default function ProfilePage() {
       );
     } finally {
       setChangingPassword(false);
+    }
+  }
+
+  async function handleRequestIdentityCorrection(e: React.FormEvent) {
+    e.preventDefault();
+    setNotice("");
+    setErrorMsg("");
+    const trimmedEmail = corrEmail.trim();
+    const trimmedCode = corrStudentCode.trim().toUpperCase();
+    const trimmedReason = corrReason.trim();
+    if (!trimmedEmail && !trimmedCode) {
+      setErrorMsg("Vui lòng nhập ít nhất Email mới hoặc MSSV mới cần đính chính.");
+      return;
+    }
+    if (trimmedReason.length < 5) {
+      setErrorMsg("Vui lòng nhập lý do đính chính (tối thiểu 5 ký tự).");
+      return;
+    }
+    setSendingCorrection(true);
+    try {
+      const res = await apiFetch<{ message: string }>(
+        "/students/me/identity-correction-request",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            requested_email: trimmedEmail || null,
+            requested_student_code: trimmedCode || null,
+            reason: trimmedReason,
+          }),
+        },
+      );
+      setCorrEmail("");
+      setCorrStudentCode("");
+      setCorrReason("");
+      setShowCorrectionForm(false);
+      setNotice(
+        res.message ||
+          "Đã gửi yêu cầu đính chính tới Quản trị viên để xác minh và cập nhật.",
+      );
+    } catch (err) {
+      setErrorMsg(
+        err instanceof ApiError
+          ? err.message
+          : "Không thể gửi yêu cầu đính chính. Vui lòng thử lại.",
+      );
+    } finally {
+      setSendingCorrection(false);
     }
   }
 
@@ -637,10 +729,17 @@ export default function ProfilePage() {
         {/* ════════ TAB 1: PROFILE ════════ */}
         {tab === "profile" && (
           <ProfileForm
-            key={`${student.id}-${student.campusId}-${summary?.bio ?? student.bio ?? ""}`}
+            key={`${student.id}-${student.campusId}-${summary?.bio ?? student.bio ?? ""}-${Boolean(summary?.share_email_after_match ?? student.shareEmailAfterMatch)}-${Boolean(summary?.share_student_code_after_match ?? student.shareStudentCodeAfterMatch)}`}
             student={student}
             campuses={campuses}
             initialBio={summary?.bio ?? student.bio ?? ""}
+            initialShareEmail={Boolean(
+              summary?.share_email_after_match ?? student.shareEmailAfterMatch,
+            )}
+            initialShareStudentCode={Boolean(
+              summary?.share_student_code_after_match ??
+                student.shareStudentCodeAfterMatch,
+            )}
             updateStudent={updateStudent}
             onSaved={reloadSummary}
           />
@@ -650,13 +749,24 @@ export default function ProfilePage() {
         {tab === "security" && (
           <div className="space-y-6">
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div>
-                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                  Thông tin định danh cố định (Email &amp; Mã sinh viên)
-                </h2>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Email và Mã sinh viên được khóa cố định sau khi xác nhận đăng ký, không thể tự thay đổi. Bạn có thể đăng nhập bằng Email hoặc Mã sinh viên.
-                </p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                    Thông tin định danh cố định (Email &amp; Mã sinh viên)
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Email và Mã sinh viên được khóa tự sửa trực tiếp sau khi xác nhận đăng ký. Nếu thông tin đăng ký bị sai, bạn có thể gửi yêu cầu đính chính cho Quản trị viên.
+                  </p>
+                </div>
+                {isAuthenticated && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCorrectionForm((v) => !v)}
+                    className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 hover:bg-orange-100 dark:border-orange-500/35 dark:bg-orange-500/15 dark:text-orange-200 dark:hover:bg-orange-500/25"
+                  >
+                    {showCorrectionForm ? "Đóng biểu mẫu" : "Yêu cầu đính chính"}
+                  </button>
+                )}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -686,6 +796,71 @@ export default function ProfilePage() {
                   />
                 </div>
               </div>
+
+              {showCorrectionForm && isAuthenticated && (
+                <form
+                  onSubmit={handleRequestIdentityCorrection}
+                  className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/60"
+                >
+                  <p className="text-xs font-medium text-slate-700 dark:text-slate-200">
+                    Gửi yêu cầu đính chính Email / MSSV tới Quản trị viên
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                        Email đề xuất sửa (nếu sai)
+                      </label>
+                      <input
+                        type="email"
+                        value={corrEmail}
+                        onChange={(e) => setCorrEmail(e.target.value)}
+                        disabled={sendingCorrection}
+                        placeholder="ttpt1204@fpt.edu.vn"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                        MSSV đề xuất sửa (nếu sai)
+                      </label>
+                      <input
+                        type="text"
+                        value={corrStudentCode}
+                        onChange={(e) => setCorrStudentCode(e.target.value)}
+                        disabled={sendingCorrection}
+                        placeholder="DE120497"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm uppercase outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                      Lý do đính chính <span className="text-rose-500">*</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      required
+                      minLength={5}
+                      maxLength={500}
+                      value={corrReason}
+                      onChange={(e) => setCorrReason(e.target.value)}
+                      disabled={sendingCorrection}
+                      placeholder="VD: Nhập nhầm 1 ký tự MSSV lúc đăng ký..."
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-orange-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={sendingCorrection}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-orange-500 px-3.5 py-2 text-xs font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
+                    >
+                      {sendingCorrection && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      Gửi yêu cầu đính chính
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
 
             <form

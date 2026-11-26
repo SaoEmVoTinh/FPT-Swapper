@@ -59,6 +59,8 @@ export interface AuthMeResponse {
   avatar_url?: string | null;
   bio?: string | null;
   share_contact_after_match?: boolean;
+  share_email_after_match?: boolean;
+  share_student_code_after_match?: boolean;
   trust_score?: number;
   completed_swaps_count?: number;
   no_show_count?: number;
@@ -492,6 +494,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         avatarUrl: me.avatar_url || undefined,
         bio: me.bio || undefined,
         shareContactAfterMatch: Boolean(me.share_contact_after_match),
+        shareEmailAfterMatch: Boolean(me.share_email_after_match),
+        shareStudentCodeAfterMatch: Boolean(me.share_student_code_after_match),
         trustScore: me.trust_score ?? 5.0,
         completedSwapsCount: me.completed_swaps_count ?? 0,
         noShowCount: me.no_show_count ?? 0,
@@ -847,6 +851,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           avatar_url: cleanedPatch.avatarUrl,
           bio: cleanedPatch.bio,
           share_contact_after_match: cleanedPatch.shareContactAfterMatch,
+          share_email_after_match: cleanedPatch.shareEmailAfterMatch,
+          share_student_code_after_match: cleanedPatch.shareStudentCodeAfterMatch,
         }),
       });
     }

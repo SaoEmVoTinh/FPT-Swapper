@@ -61,6 +61,8 @@ class StudentProfile(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     share_contact_after_match: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    share_email_after_match: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    share_student_code_after_match: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     notify_email: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     notify_push: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     trust_score: Mapped[float] = mapped_column(Float, default=5.0, nullable=False)

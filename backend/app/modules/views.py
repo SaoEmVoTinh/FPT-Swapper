@@ -174,10 +174,16 @@ def match_view(db: Session, match: Match, viewer_id: uuid.UUID) -> MatchResponse
     )
     partner_student = db.get(Student, partner_student_id) if partner_student_id else None
     partner_profile = partner_student.profile if partner_student else None
-    reveal_contact = bool(
-        match.status in (MatchStatus.CONFIRMED, MatchStatus.COMPLETED)
+    is_match_revealed = match.status in (MatchStatus.CONFIRMED, MatchStatus.COMPLETED)
+    reveal_email = bool(
+        is_match_revealed
         and partner_profile is not None
-        and partner_profile.share_contact_after_match
+        and partner_profile.share_email_after_match
+    )
+    reveal_student_code = bool(
+        is_match_revealed
+        and partner_profile is not None
+        and partner_profile.share_student_code_after_match
     )
     my_review_submitted = (
         db.query(MatchReview.id)
@@ -220,9 +226,9 @@ def match_view(db: Session, match: Match, viewer_id: uuid.UUID) -> MatchResponse
         partner_confirmed=partner_confirmed,
         conversation_id=conversation.id if conversation else None,
         confirm_deadline_at=match.confirm_deadline_at,
-        partner_email=(partner_student.email if reveal_contact and partner_student else None),
+        partner_email=(partner_student.email if reveal_email and partner_student else None),
         partner_student_code=(
-            partner_student.student_code if reveal_contact and partner_student else None
+            partner_student.student_code if reveal_student_code and partner_student else None
         ),
         partner_trust_score=float(partner_profile.trust_score) if partner_profile else 5.0,
         partner_completed_swaps=int(partner_profile.completed_swaps_count) if partner_profile else 0,

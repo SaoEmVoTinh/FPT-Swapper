@@ -16,6 +16,8 @@ from app.modules.students.schemas import (
     BulkRequestsActionResponse,
     ChangePasswordRequest,
     DeleteAccountRequest,
+    IdentityCorrectionRequest,
+    IdentityCorrectionResponse,
     ProfileResponse,
     ProfileUpdateRequest,
 )
@@ -35,6 +37,8 @@ def _profile_to_response(profile, campus_id: uuid.UUID | None = None) -> Profile
         avatar_url=profile.avatar_url,
         bio=profile.bio,
         share_contact_after_match=bool(profile.share_contact_after_match),
+        share_email_after_match=bool(profile.share_email_after_match),
+        share_student_code_after_match=bool(profile.share_student_code_after_match),
         trust_score=float(profile.trust_score),
         completed_swaps_count=int(profile.completed_swaps_count),
         no_show_count=int(profile.no_show_count),
@@ -69,6 +73,8 @@ def update_my_profile(
             bio=payload.bio,
             campus_id=payload.campus_id,
             share_contact_after_match=payload.share_contact_after_match,
+            share_email_after_match=payload.share_email_after_match,
+            share_student_code_after_match=payload.share_student_code_after_match,
             class_name=payload.class_name,
             update_class_name="class_name" in payload.model_fields_set,
         )
@@ -96,6 +102,20 @@ def update_my_account_identity(
         student=student,
         email=payload.email,
         student_code=payload.student_code,
+    )
+
+
+@router.post("/me/identity-correction-request", response_model=IdentityCorrectionResponse, status_code=status.HTTP_201_CREATED)
+def request_identity_correction(
+    payload: IdentityCorrectionRequest,
+    student: Student = Depends(get_current_student),
+    db: Session = Depends(get_db),
+) -> IdentityCorrectionResponse:
+    return StudentService(db).request_identity_correction(
+        student=student,
+        requested_email=payload.requested_email,
+        requested_student_code=payload.requested_student_code,
+        reason=payload.reason,
     )
 
 

@@ -95,6 +95,8 @@ def _make_profiled_student(
         full_name=full_name,
         major="Software Engineering",
         share_contact_after_match=share_contact,
+        share_email_after_match=share_contact,
+        share_student_code_after_match=share_contact,
     )
     db.add(profile)
     db.commit()
@@ -616,4 +618,96 @@ def test_vovinam_slots_and_cross_schedule_overlap(client, db_session):
     )
     assert r_vov_ok.status_code == 201
     assert r_vov_ok.json().get("schedule_conflict_warning") is None
+
+
+def test_split_email_and_student_code_sharing_after_match(client, db_session):
+    stu_a, tok_a = _make_profiled_student(
+        db_session, "split_a@fpt.edu.vn", "Split Alice", share_contact=False
+    )
+    stu_b, tok_b = _make_profiled_student(
+        db_session, "split_b@fpt.edu.vn", "Split Bob", share_contact=False
+    )
+
+    # A opts into Email only; B opts into Student Code only
+    assert (
+        client.put(
+            "/api/v1/students/me",
+            json={"share_email_after_match": True, "share_student_code_after_match": False},
+            headers=auth_headers(tok_a),
+        ).status_code
+        == 200
+    )
+    assert (
+        client.put(
+            "/api/v1/students/me",
+            json={"share_email_after_match": False, "share_student_code_after_match": True},
+            headers=auth_headers(tok_b),
+        ).status_code
+        == 200
+    )
+
+    sem, course, classes = _seed_course_classes(
+        db_session,
+        "SWP391_SP",
+        [("SE2101", "Thứ 2", "Slot 1"), ("SE2102", "Thứ 4", "Slot 2")],
+    )
+    c1, c2 = classes
+
+    req_a = client.post(
+        "/api/v1/class-swap/requests",
+        json={
+            "semester_id": str(sem.id),
+            "course_id": str(course.id),
+            "current_class_id": str(c1.id),
+            "target_class_id": str(c2.id),
+        },
+        headers=auth_headers(tok_a),
+    ).json()
+    req_b = client.post(
+        "/api/v1/class-swap/requests",
+        json={
+            "semester_id": str(sem.id),
+            "course_id": str(course.id),
+            "current_class_id": str(c2.id),
+            "target_class_id": str(c1.id),
+        },
+        headers=auth_headers(tok_b),
+    ).json()
+
+    assert (
+        client.post(
+            "/api/v1/class-swap/swipes",
+            json={"swiper_request_id": req_a["id"], "target_request_id": req_b["id"], "action": "LIKE"},
+            headers=auth_headers(tok_a),
+        ).status_code
+        == 200
+    )
+    sw_b = client.post(
+        "/api/v1/class-swap/swipes",
+        json={"swiper_request_id": req_b["id"], "target_request_id": req_a["id"], "action": "LIKE"},
+        headers=auth_headers(tok_b),
+    )
+    assert sw_b.status_code == 200 and sw_b.json()["match_created"] is True
+    match_id = sw_b.json()["match_id"]
+    conv_id = sw_b.json()["match"]["conversation_id"]
+
+    assert client.post(f"/api/v1/class-swap/matches/{match_id}/confirm", headers=auth_headers(tok_a)).status_code == 200
+    conf_b = client.post(f"/api/v1/class-swap/matches/{match_id}/confirm", headers=auth_headers(tok_b))
+    assert conf_b.status_code == 200
+    b_view = conf_b.json()
+    assert b_view["partner_email"] == "split_a@fpt.edu.vn"
+    assert b_view["partner_student_code"] is None
+
+    a_view = client.get(f"/api/v1/class-swap/matches/{match_id}", headers=auth_headers(tok_a)).json()
+    assert a_view["partner_email"] is None
+    assert a_view["partner_student_code"] == stu_b.student_code
+
+    # 1-1 chat remains functional regardless of contact-sharing toggles
+    msg = client.post(
+        f"/api/v1/conversations/{conv_id}/messages",
+        json={"content": "Chào bạn, mình xác nhận đổi trên FAP nhé."},
+        headers=auth_headers(tok_a),
+    )
+    assert msg.status_code == 200
+
 

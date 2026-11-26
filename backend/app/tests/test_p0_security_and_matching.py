@@ -93,6 +93,7 @@ def test_password_minimum_8_chars_and_refresh_rotation_revocation(client, db_ses
             "major": "SE",
             "campus_id": str(CAMPUS_ID),
             "password": "1234567",
+            "agree_privacy_terms": True,
         },
     )
     assert r_short.status_code == 422
@@ -107,6 +108,7 @@ def test_password_minimum_8_chars_and_refresh_rotation_revocation(client, db_ses
             "major": "SE",
             "campus_id": str(CAMPUS_ID),
             "password": "StrongPw8",
+            "agree_privacy_terms": True,
         },
     )
     assert r_reg.status_code == 201

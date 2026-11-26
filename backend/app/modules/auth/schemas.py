@@ -11,14 +11,14 @@ class RegisterRequest(BaseModel):
     class_name: str | None = Field(default=None, max_length=32)
     campus_id: uuid.UUID | str
     password: str = Field(min_length=8, max_length=128)
-    agree_privacy_terms: bool = True
+    agree_privacy_terms: bool = Field(default=False, validate_default=True)
 
     @field_validator("agree_privacy_terms")
     @classmethod
     def must_agree_privacy_terms(cls, v: bool) -> bool:
         if not v:
             raise ValueError(
-                "Bạn cần đồng ý với Chính sách Bảo vệ Dữ liệu Cá nhân (Luật 91/2025/QH15 & NĐ 356/2025/NĐ-CP) và Điều khoản sử dụng."
+                "Bạn cần xác nhận đồng ý với Chính sách Bảo vệ Dữ liệu Cá nhân (Luật 91/2025/QH15 & NĐ 356/2025/NĐ-CP) và Điều khoản sử dụng."
             )
         return v
 
@@ -91,6 +91,8 @@ class StudentPublicResponse(BaseModel):
     bio: str | None = None
     totp_enabled: bool = False
     share_contact_after_match: bool = False
+    share_email_after_match: bool = False
+    share_student_code_after_match: bool = False
     notify_email: bool = True
     notify_push: bool = True
     trust_score: float = 5.0
