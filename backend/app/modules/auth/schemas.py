@@ -18,7 +18,7 @@ class RegisterRequest(BaseModel):
     def must_agree_privacy_terms(cls, v: bool) -> bool:
         if not v:
             raise ValueError(
-                "Bạn cần đồng ý với Chính sách Bảo vệ Dữ liệu Cá nhân (Nghị định 13/2023/NĐ-CP) và Điều khoản sử dụng."
+                "Bạn cần đồng ý với Chính sách Bảo vệ Dữ liệu Cá nhân (Luật 91/2025/QH15 & NĐ 356/2025/NĐ-CP) và Điều khoản sử dụng."
             )
         return v
 

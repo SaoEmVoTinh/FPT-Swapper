@@ -105,7 +105,7 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
                   onClick={() => setLegalDoc("privacy")}
                   className="text-left hover:text-orange-600 hover:underline dark:hover:text-orange-400"
                 >
-                  Chính sách bảo mật (NĐ 13/2023)
+                  Chính sách bảo mật (Luật 91/2025/QH15)
                 </button>
               </li>
               <li>

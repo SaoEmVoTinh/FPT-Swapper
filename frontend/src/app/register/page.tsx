@@ -46,7 +46,7 @@ export default function RegisterPage() {
     }
     if (!agreePrivacyTerms) {
       setError(
-        "Vui lòng đồng ý với Chính sách Bảo vệ Dữ liệu Cá nhân (Nghị định 13/2023/NĐ-CP) & Điều khoản sử dụng.",
+        "Vui lòng đồng ý với Chính sách Bảo vệ Dữ liệu Cá nhân (Luật 91/2025/QH15) & Điều khoản sử dụng.",
       );
       return;
     }
@@ -241,7 +241,7 @@ export default function RegisterPage() {
                   }}
                   className="font-semibold text-orange-600 hover:underline dark:text-orange-400"
                 >
-                  Chính sách Bảo vệ Dữ liệu Cá nhân (Nghị định 13/2023/NĐ-CP)
+                  Chính sách Bảo vệ Dữ liệu Cá nhân (Luật 91/2025/QH15 &amp; NĐ 356/2025)
                 </button>{" "}
                 và{" "}
                 <button

@@ -150,7 +150,7 @@ def test_nd13_consent_and_out_of_app_notifications(client, db_session):
     stu = db_session.query(Student).filter(Student.email == "consent@fpt.edu.vn").first()
     assert stu is not None
     assert stu.consent_accepted_at is not None
-    assert stu.consent_version == "2026-ND13-v1"
+    assert stu.consent_version == "2026-L91-ND356-v1"
 
     cookies = {"access_token": r_ok.cookies.get("access_token")}
     # Update notification preferences & register push subscription
