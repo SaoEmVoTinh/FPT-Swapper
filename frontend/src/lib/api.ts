@@ -40,11 +40,44 @@ function formatApiErrorDetail(detail: unknown, fallback: string): string {
   return fallback;
 }
 
+const SKIP_REFRESH_PATHS = new Set([
+  "/auth/login",
+  "/auth/register",
+  "/auth/refresh",
+  "/auth/logout",
+  "/auth/restore-account",
+]);
+
+let inflightRefresh: Promise<boolean> | null = null;
+
+async function trySilentRefresh(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if (!inflightRefresh) {
+    inflightRefresh = (async () => {
+      try {
+        const res = await fetch(resolveApiUrl("/auth/refresh"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        });
+        return res.ok;
+      } catch {
+        return false;
+      } finally {
+        inflightRefresh = null;
+      }
+    })();
+  }
+  return inflightRefresh;
+}
+
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  retryOn401 = true
 ): Promise<T> {
-  const res = await fetch(resolveApiUrl(path), {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const res = await fetch(resolveApiUrl(normalizedPath), {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -52,6 +85,18 @@ export async function apiFetch<T>(
     },
     credentials: "include",
   });
+
+  if (
+    res.status === 401 &&
+    retryOn401 &&
+    typeof window !== "undefined" &&
+    !SKIP_REFRESH_PATHS.has(normalizedPath)
+  ) {
+    const refreshed = await trySilentRefresh();
+    if (refreshed) {
+      return apiFetch<T>(normalizedPath, options, false);
+    }
+  }
 
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;

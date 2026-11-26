@@ -114,6 +114,10 @@ def test_password_minimum_8_chars_and_refresh_rotation_revocation(client, db_ses
     assert r_reg.status_code == 201
     old_refresh = r_reg.cookies.get("refresh_token")
     assert old_refresh
+    assert "max-age=2592000" in r_reg.headers.get("set-cookie", "").lower() or any(
+        "refresh_token=" in c and "max-age=2592000" in c.lower()
+        for c in r_reg.headers.get_list("set-cookie")
+    )
 
     # Rotate refresh token once -> new refresh token issued
     r_ref1 = client.post(
