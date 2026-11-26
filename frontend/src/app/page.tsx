@@ -11,6 +11,7 @@ import {
   Users,
 } from "lucide-react";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
+import { SiteFooter } from "@/components/SiteFooter";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function LandingPage() {
@@ -239,17 +240,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="border-t border-slate-200 bg-slate-50 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
-        <div className="mx-auto max-w-6xl space-y-1.5 px-4">
-          <p>
-            FPT Swapper — Student Connection Platform (MVP). Không phải hệ thống
-            đăng ký tín chỉ chính thức của Trường Đại học FPT.
-          </p>
-          <p className="text-xs text-slate-400 dark:text-slate-500">
-            Quân, Hoàng • AI21A01 — Campus Đà Nẵng
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

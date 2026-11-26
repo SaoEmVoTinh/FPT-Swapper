@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Ban, CheckCheck, Flag, ImagePlus, Loader2, Search, Send, X } from "lucide-react";
+import { ArrowLeft, Ban, CheckCheck, Flag, Search, Send, X } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { MatchStatusBadge } from "@/components/StatusBadge";
@@ -28,7 +28,6 @@ export default function ChatPage() {
     messages,
     typingByConv,
     sendMessage,
-    sendImageMessage,
     sendTyping,
     markConversationRead,
     loadConversationMessages,
@@ -59,11 +58,8 @@ export default function ChatPage() {
   const [reportDetails, setReportDetails] = useState("");
   const [submittingReport, setSubmittingReport] = useState(false);
   const [blockingPartner, setBlockingPartner] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [chatNotice, setChatNotice] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const typingStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filteredConversations = useMemo(() => {
@@ -122,35 +118,6 @@ export default function ChatPage() {
         sendTyping(activeConv.id, false);
       }, 2200);
     }
-  };
-
-  const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || !activeConv) return;
-    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
-      setChatNotice("Chỉ hỗ trợ ảnh TKB định dạng PNG, JPG hoặc WEBP.");
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      setChatNotice("Ảnh TKB tối đa 2MB.");
-      return;
-    }
-    setUploadingImage(true);
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        if (typeof reader.result === "string") {
-          await sendImageMessage(activeConv.id, reader.result, draft.trim() || undefined);
-          if (draft.trim()) setDraft("");
-        }
-      } catch {
-        // handled by actionError
-      } finally {
-        setUploadingImage(false);
-      }
-    };
-    reader.readAsDataURL(file);
   };
 
   const isReported = activeConv ? Boolean(reportedIds[activeConv.id]) : false;
@@ -432,21 +399,6 @@ export default function ChatPage() {
                               : "rounded-bl-sm bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100"
                           }`}
                         >
-                          {msg.attachmentUrl && (
-                            <button
-                              type="button"
-                              onClick={() => setLightboxUrl(msg.attachmentUrl || null)}
-                              className="mb-2 block overflow-hidden rounded-xl border border-black/10"
-                              aria-label="Phóng to ảnh TKB"
-                            >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={msg.attachmentUrl}
-                                alt="Ảnh thời khóa biểu"
-                                className="max-h-56 w-auto rounded-xl object-contain"
-                              />
-                            </button>
-                          )}
                           <p className="leading-relaxed">{msg.content}</p>
                           <p
                             className={`mt-1 flex items-center gap-1 text-[10px] ${
@@ -497,27 +449,6 @@ export default function ChatPage() {
                   onSubmit={handleSend}
                   className="flex items-center gap-2 border-t border-slate-200 bg-slate-50/50 p-3 dark:border-slate-800 dark:bg-slate-900"
                 >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={handleImagePick}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    disabled={uploadingImage}
-                    onClick={() => fileInputRef.current?.click()}
-                    title="Gửi ảnh thời khóa biểu"
-                    aria-label="Gửi ảnh thời khóa biểu"
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                  >
-                    {uploadingImage ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ImagePlus className="h-4 w-4" />
-                    )}
-                  </button>
                   <input
                     type="text"
                     value={draft}
@@ -610,34 +541,6 @@ export default function ChatPage() {
                 {submittingReport ? "Đang gửi..." : "Gửi báo cáo"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Image Lightbox Modal */}
-      {lightboxUrl && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Xem ảnh TKB"
-          onClick={() => setLightboxUrl(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4"
-        >
-          <div className="relative max-h-[90vh] max-w-4xl">
-            <button
-              type="button"
-              onClick={() => setLightboxUrl(null)}
-              aria-label="Đóng ảnh"
-              className="absolute -right-2 -top-2 rounded-full bg-white p-1.5 text-slate-800 shadow-lg"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={lightboxUrl}
-              alt="Ảnh thời khóa biểu phóng to"
-              className="max-h-[85vh] rounded-2xl object-contain"
-            />
           </div>
         </div>
       )}
