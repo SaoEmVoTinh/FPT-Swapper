@@ -90,9 +90,9 @@ export interface SwapRequest {
   currentScheduleText: string;
   currentDayOfWeek?: string;
   currentSlot?: string;
-  targetClassId: string;
-  targetClassCode: string;
-  targetScheduleText: string;
+  targetClassId?: string;
+  targetClassCode?: string;
+  targetScheduleText?: string;
   targetDayOfWeek?: string;
   targetSlot?: string;
   alternativeClassCode?: string;
@@ -110,6 +110,7 @@ export interface DiscoverCard {
   /** Your own ACTIVE request this candidate is compatible with (used when swiping). */
   myRequestId?: string;
   isCompatible?: boolean;
+  isSameCourse?: boolean;
   hasCourseConflict?: boolean;
   semesterId?: string;
   courseId?: string;
@@ -125,8 +126,8 @@ export interface DiscoverCard {
   courseName: string;
   currentClassCode: string;
   currentScheduleText: string;
-  targetClassCode: string;
-  targetScheduleText: string;
+  targetClassCode?: string;
+  targetScheduleText?: string;
   lecturerCurrent?: string;
   note?: string;
   isReciprocalReady: boolean;

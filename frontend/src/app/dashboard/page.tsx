@@ -277,7 +277,9 @@ export default function DashboardPage() {
                         </span>{" "}
                         →{" "}
                         <span className="font-semibold text-orange-600 dark:text-orange-400">
-                          {req.courseCode} - {req.targetClassCode}
+                          {req.targetClassCode
+                            ? `${req.courseCode} - ${req.targetClassCode}`
+                            : "Lớp khác bất kỳ"}
                         </span>
                       </p>
                     </div>

@@ -49,7 +49,7 @@ def request_view(db: Session, req: MatchingRequest) -> RequestResponse:
     course = db.get(Course, req.course_id)
     semester = db.get(Semester, req.semester_id)
     current = db.get(AcademicClass, req.current_class_id)
-    target = db.get(AcademicClass, req.target_class_id)
+    target = db.get(AcademicClass, req.target_class_id) if req.target_class_id else None
     return RequestResponse(
         id=req.id,
         student_id=req.student_id,
@@ -70,7 +70,7 @@ def request_view(db: Session, req: MatchingRequest) -> RequestResponse:
         current_class_code=current.code if current else None,
         current_schedule_text=schedule_text(current),
         target_class_code=target.code if target else None,
-        target_schedule_text=schedule_text(target),
+        target_schedule_text=schedule_text(target) if target else None,
         lecturer_current=None,
         schedule_conflict_warning=detect_schedule_conflict(
             db, req.student_id, target, exclude_request_id=req.id
@@ -87,13 +87,14 @@ def discover_view(
     reciprocal_ready: bool,
     has_course_conflict: bool = False,
     viewer_id: uuid.UUID | None = None,
+    is_same_course: bool = False,
 ) -> DiscoverItem:
     student = db.get(Student, candidate.student_id)
     profile = student.profile if student else None
     course = db.get(Course, candidate.course_id)
     semester = db.get(Semester, candidate.semester_id)
     current = db.get(AcademicClass, candidate.current_class_id)
-    target = db.get(AcademicClass, candidate.target_class_id)
+    target = db.get(AcademicClass, candidate.target_class_id) if candidate.target_class_id else None
     code = student.student_code if student else ""
     sched_warning = (
         detect_schedule_conflict(
@@ -116,6 +117,7 @@ def discover_view(
         status=candidate.status,
         for_request_id=mine.id if mine else None,
         is_compatible=mine is not None,
+        is_same_course=is_same_course or (mine is not None),
         has_course_conflict=has_course_conflict,
         campus_id=current.campus_id if current else None,
         student_display_name=display_name(db, candidate.student_id),
@@ -129,7 +131,7 @@ def discover_view(
         current_class_code=current.code if current else None,
         current_schedule_text=schedule_text(current),
         target_class_code=target.code if target else None,
-        target_schedule_text=schedule_text(target),
+        target_schedule_text=schedule_text(target) if target else None,
         lecturer_current=None,
         is_reciprocal_ready=reciprocal_ready,
         schedule_conflict_warning=sched_warning,

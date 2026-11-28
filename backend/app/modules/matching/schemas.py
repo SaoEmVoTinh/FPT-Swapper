@@ -68,12 +68,13 @@ class DiscoverItem(BaseModel):
     semester_id: uuid.UUID
     course_id: uuid.UUID
     current_class_id: uuid.UUID
-    target_class_id: uuid.UUID
+    target_class_id: uuid.UUID | None = None
     note: str | None
     status: SwapRequestStatus
     # Enriched display fields (filled by views.discover_view)
     for_request_id: uuid.UUID | None = None
     is_compatible: bool = False
+    is_same_course: bool = False
     has_course_conflict: bool = False
     campus_id: uuid.UUID | None = None
     student_display_name: str | None = None
@@ -125,7 +126,7 @@ class ThreeWayParticipantItem(BaseModel):
     student_name: str
     student_code_masked: str
     current_class_code: str
-    target_class_code: str
+    target_class_code: str = ""
     accepted: bool = False
 
 
@@ -155,7 +156,7 @@ class SmartRecommendationItem(BaseModel):
     course_code: str
     course_name: str
     current_class_code: str
-    target_class_code: str
+    target_class_code: str = ""
     current_schedule_text: str
     partner_name: str
     trust_score: float = 5.0

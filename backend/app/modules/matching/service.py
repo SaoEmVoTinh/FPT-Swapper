@@ -178,11 +178,16 @@ class MatchingService:
                 MatchingRequest.student_id != student_id,
                 MatchingRequest.course_id == active_request.course_id,
                 MatchingRequest.semester_id == active_request.semester_id,
-                MatchingRequest.current_class_id == active_request.target_class_id,
-                MatchingRequest.target_class_id == active_request.current_class_id,
+                MatchingRequest.current_class_id != active_request.current_class_id,
+                or_(
+                    MatchingRequest.target_class_id.is_(None),
+                    MatchingRequest.target_class_id == active_request.current_class_id,
+                ),
                 or_(MatchingRequest.expires_at.is_(None), MatchingRequest.expires_at > now),
             )
         )
+        if active_request.target_class_id is not None:
+            q = q.filter(MatchingRequest.current_class_id == active_request.target_class_id)
         if viewer is not None:
             q = q.filter(
                 Student.campus_id == viewer.campus_id,

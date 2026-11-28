@@ -41,6 +41,9 @@ export default function MyRequestsPage() {
     clearActionError,
   } = useAppState();
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [initialCourseCode, setInitialCourseCode] = useState<string | undefined>(
+    undefined,
+  );
   const [showTimetable, setShowTimetable] = useState(false);
   const [timetableSlots, setTimetableSlots] = useState<TimetableSlot[]>([]);
   const [createdBanner, setCreatedBanner] = useState(false);
@@ -61,8 +64,15 @@ export default function MyRequestsPage() {
   }, [showTimetable, isAuthenticated, requests]);
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("create") === "1") {
-      queueMicrotask(() => setShowCreateForm(true));
+    const params = new URLSearchParams(window.location.search);
+    const courseParam = params.get("course");
+    if (params.get("create") === "1") {
+      queueMicrotask(() => {
+        setShowCreateForm(true);
+        if (courseParam) setInitialCourseCode(courseParam);
+      });
+    } else if (courseParam) {
+      queueMicrotask(() => setInitialCourseCode(courseParam));
     }
   }, []);
 
@@ -92,7 +102,7 @@ export default function MyRequestsPage() {
         req.courseCode.toLowerCase().includes(q) ||
         req.courseName.toLowerCase().includes(q) ||
         req.currentClassCode.toLowerCase().includes(q) ||
-        req.targetClassCode.toLowerCase().includes(q)
+        (req.targetClassCode || "").toLowerCase().includes(q)
       );
     });
   }, [requests, statusFilter, searchQuery]);
@@ -239,6 +249,7 @@ export default function MyRequestsPage() {
 
         {isFormOpen && (
           <CreateRequestForm
+            initialCourseCode={initialCourseCode}
             onCreated={() => {
               setShowCreateForm(false);
               setCreatedBanner(true);
@@ -326,10 +337,13 @@ export default function MyRequestsPage() {
                     </span>
                     <span className="text-slate-400">→</span>
                     <span className="rounded-lg bg-orange-50 px-2.5 py-1 font-semibold text-orange-700 dark:bg-orange-500/15 dark:text-orange-300">
-                      Mong muốn: {req.courseCode} - {req.targetClassCode}
-                      {req.targetScheduleText && !req.targetScheduleText.startsWith("Theo TKB")
-                        ? ` (${req.targetScheduleText})`
-                        : ""}
+                      {req.targetClassCode
+                        ? `Mong muốn: ${req.courseCode} - ${req.targetClassCode}${
+                            req.targetScheduleText && !req.targetScheduleText.startsWith("Theo TKB")
+                              ? ` (${req.targetScheduleText})`
+                              : ""
+                          }`
+                        : "Mong muốn: Lớp khác bất kỳ (cùng môn)"}
                     </span>
                   </div>
                   {req.scheduleConflictWarning && (

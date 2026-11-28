@@ -831,3 +831,142 @@ def test_custom_class_code_requests_and_campus_isolation(client, db_session, flo
         headers=auth_headers(tok_hn_1),
     )
     assert cross_swipe.status_code == 422
+
+
+def test_open_swap_without_target_class_and_same_course_priority(client, db_session, flow):
+    """Students can post only their current class, match any other class in same course, and see same-course cards first."""
+    from app.database.models.academic import AcademicClass, Course
+
+    course_main = Course(code=f"PRF{uuid.uuid4().hex[:3]}", name="Programming Fundamentals", credits=3)
+    course_other = Course(code=f"SSL{uuid.uuid4().hex[:3]}", name="Academic Skills", credits=3)
+    db_session.add_all([course_main, course_other])
+    db_session.commit()
+
+    cls_o1 = AcademicClass(
+        code="SE2001",
+        course_id=course_other.id,
+        semester_id=flow["semester"].id,
+        campus_id=CAMPUS_ID,
+    )
+    cls_o2 = AcademicClass(
+        code="SE2002",
+        course_id=course_other.id,
+        semester_id=flow["semester"].id,
+        campus_id=CAMPUS_ID,
+    )
+    db_session.add_all([cls_o1, cls_o2])
+    db_session.commit()
+
+    _, tok1 = make_student(db_session, f"open1_{uuid.uuid4().hex[:4]}@fpt.edu.vn")
+    _, tok2 = make_student(db_session, f"open2_{uuid.uuid4().hex[:4]}@fpt.edu.vn")
+    _, tok3 = make_student(db_session, f"open3_{uuid.uuid4().hex[:4]}@fpt.edu.vn")
+    _, tok_other = make_student(db_session, f"open_oth_{uuid.uuid4().hex[:4]}@fpt.edu.vn")
+
+    # 1. Create request with ONLY current_class_code (no target class)
+    r1 = client.post(
+        "/api/v1/class-swap/requests",
+        json={
+            "semester_id": str(flow["semester"].id),
+            "course_id": str(course_main.id),
+            "current_class_code": "SE1901",
+        },
+        headers=auth_headers(tok1),
+    )
+    assert r1.status_code == 201, r1.text
+    d1 = r1.json()
+    assert d1["target_class_id"] is None
+    assert d1["target_class_code"] is None
+
+    # 2. Second student posts different current class SE1902 (also open)
+    r2 = client.post(
+        "/api/v1/class-swap/requests",
+        json={
+            "semester_id": str(flow["semester"].id),
+            "course_id": str(course_main.id),
+            "current_class_code": "SE1902",
+        },
+        headers=auth_headers(tok2),
+    )
+    assert r2.status_code == 201, r2.text
+    d2 = r2.json()
+
+    # 3. Third student posts the SAME current class SE1901 as student 1
+    r3 = client.post(
+        "/api/v1/class-swap/requests",
+        json={
+            "semester_id": str(flow["semester"].id),
+            "course_id": str(course_main.id),
+            "current_class_code": "SE1901",
+        },
+        headers=auth_headers(tok3),
+    )
+    assert r3.status_code == 201, r3.text
+    d3 = r3.json()
+
+    # 4. Other course student posts AFTER student 2 so created_at is newer
+    r_other = client.post(
+        "/api/v1/class-swap/requests",
+        json={
+            "semester_id": str(flow["semester"].id),
+            "course_id": str(course_other.id),
+            "current_class_id": str(cls_o1.id),
+            "target_class_id": str(cls_o2.id),
+        },
+        headers=auth_headers(tok_other),
+    )
+    assert r_other.status_code == 201, r_other.text
+
+    # Same-course cards (d2, d3) appear BEFORE other-course card (r_other) in Discover
+    disc1 = client.get("/api/v1/class-swap/discover", headers=auth_headers(tok1)).json()
+    ids_order = [item["id"] for item in disc1]
+    assert d2["id"] in ids_order
+    assert d3["id"] in ids_order
+    assert r_other.json()["id"] in ids_order
+    assert ids_order.index(d2["id"]) < ids_order.index(r_other.json()["id"])
+    assert ids_order.index(d3["id"]) < ids_order.index(r_other.json()["id"])
+
+    d2_card = next(x for x in disc1 if x["id"] == d2["id"])
+    d3_card = next(x for x in disc1 if x["id"] == d3["id"])
+    assert d2_card["is_compatible"] is True
+    assert d2_card["is_same_course"] is True
+    assert d3_card["is_compatible"] is False
+    assert d3_card["is_same_course"] is True
+
+    # Swiping same-class student (d1 -> d3) fails 422
+    same_cls_swipe = client.post(
+        "/api/v1/class-swap/swipes",
+        json={
+            "swiper_request_id": d1["id"],
+            "target_request_id": d3["id"],
+            "action": "LIKE",
+        },
+        headers=auth_headers(tok1),
+    )
+    assert same_cls_swipe.status_code == 422
+
+    # Mutual LIKE between d1 (SE1901) and d2 (SE1902) creates a Match
+    s1 = client.post(
+        "/api/v1/class-swap/swipes",
+        json={
+            "swiper_request_id": d1["id"],
+            "target_request_id": d2["id"],
+            "action": "LIKE",
+        },
+        headers=auth_headers(tok1),
+    )
+    assert s1.status_code == 200, s1.text
+    assert s1.json()["match_created"] is False
+
+    s2 = client.post(
+        "/api/v1/class-swap/swipes",
+        json={
+            "swiper_request_id": d2["id"],
+            "target_request_id": d1["id"],
+            "action": "LIKE",
+        },
+        headers=auth_headers(tok2),
+    )
+    assert s2.status_code == 200, s2.text
+    assert s2.json()["match_created"] is True
+    assert s2.json()["match"]["my_class_code"] == "SE1902"
+    assert s2.json()["match"]["partner_class_code"] == "SE1901"

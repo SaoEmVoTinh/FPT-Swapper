@@ -58,6 +58,10 @@ export default function DiscoverPage() {
   const [onlyCompatible, setOnlyCompatible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [likeFeedback, setLikeFeedback] = useState<string | null>(null);
+  const [needsRequestPrompt, setNeedsRequestPrompt] = useState<{
+    courseCode: string;
+    courseName: string;
+  } | null>(null);
 
   useEffect(() => {
     const courseParam = new URLSearchParams(window.location.search).get("course");
@@ -83,7 +87,7 @@ export default function DiscoverPage() {
         c.courseCode.toLowerCase().includes(q) ||
         c.courseName.toLowerCase().includes(q) ||
         c.currentClassCode.toLowerCase().includes(q) ||
-        c.targetClassCode.toLowerCase().includes(q) ||
+        (c.targetClassCode || "").toLowerCase().includes(q) ||
         c.major.toLowerCase().includes(q) ||
         c.studentDisplayName.toLowerCase().includes(q)
       );
@@ -98,11 +102,17 @@ export default function DiscoverPage() {
     if (action === "LIKE" && currentCard.hasCourseConflict) return;
     clearActionError();
     setLikeFeedback(null);
+    setNeedsRequestPrompt(null);
     setShowDetails(false);
     setSwiping(true);
     try {
       const result = await swipeCard(currentCard.requestId, action);
-      if (result.matched && result.match) {
+      if (result.needsRequest) {
+        setNeedsRequestPrompt({
+          courseCode: currentCard.courseCode,
+          courseName: currentCard.courseName,
+        });
+      } else if (result.matched && result.match) {
         setMatchedModal(result.match);
       } else if (action === "LIKE") {
         setLikeFeedback(
@@ -189,6 +199,7 @@ export default function DiscoverPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    setNeedsRequestPrompt(null);
     try {
       await refreshWorkspace();
       if (viewMode === "cycles" && isAuthenticated) {
@@ -431,6 +442,37 @@ export default function DiscoverPage() {
           )}
         </div>
 
+        {needsRequestPrompt && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3.5 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <div>
+                <p className="font-semibold">
+                  Bạn chưa đăng lớp hiện tại cho môn {needsRequestPrompt.courseCode}
+                </p>
+                <p className="text-xs text-amber-800/90 dark:text-amber-200/90">
+                  Hãy đăng lớp hiện tại của bạn trước để hệ thống ghép cặp và giữ lịch sử Like với sinh viên này.
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Link
+                href={`/requests?create=1&course=${encodeURIComponent(needsRequestPrompt.courseCode)}`}
+                className="rounded-xl bg-orange-500 px-3.5 py-2 text-xs font-semibold text-white hover:bg-orange-600"
+              >
+                Đăng lớp hiện tại cho môn {needsRequestPrompt.courseCode}
+              </Link>
+              <button
+                type="button"
+                onClick={() => setNeedsRequestPrompt(null)}
+                className="text-xs font-semibold underline"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        )}
+
         {likeFeedback && (
           <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-500/35 dark:bg-emerald-500/15 dark:text-emerald-200">
             <span>{likeFeedback}</span>
@@ -606,7 +648,10 @@ export default function DiscoverPage() {
                                 {rec.score}% phù hợp
                               </span>
                               <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                                {rec.course_code} - {rec.current_class_code} → {rec.course_code} - {rec.target_class_code}
+                                {rec.course_code} - {rec.current_class_code} →{" "}
+                                {rec.target_class_code
+                                  ? `${rec.course_code} - ${rec.target_class_code}`
+                                  : "Lớp khác bất kỳ"}
                               </span>
                             </div>
                             <p className="text-xs text-slate-600 dark:text-slate-300">
@@ -783,9 +828,13 @@ export default function DiscoverPage() {
                       <Sparkles className="h-3.5 w-3.5" />
                       Đã Like bạn — Like lại để Match ngay!
                     </span>
-                  ) : currentCard.isCompatible ? (
+                  ) : currentCard.isCompatible && currentCard.targetClassCode ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-white/25 px-3 py-1 text-xs font-semibold text-white">
-                      Khớp ngược chiều với yêu cầu của bạn
+                      Khớp yêu cầu của bạn
+                    </span>
+                  ) : currentCard.isCompatible || currentCard.isSameCourse ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/25 px-3 py-1 text-xs font-semibold text-white">
+                      Cùng môn {currentCard.courseCode} của bạn
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-medium text-white">
@@ -822,11 +871,15 @@ export default function DiscoverPage() {
                       Lớp họ muốn sang
                     </span>
                     <p className="mt-1 text-lg font-bold text-orange-700 dark:text-orange-300">
-                      {currentCard.courseCode} - {currentCard.targetClassCode}
+                      {currentCard.targetClassCode
+                        ? `${currentCard.courseCode} - ${currentCard.targetClassCode}`
+                        : "Lớp khác bất kỳ"}
                     </p>
                     <p className="mt-1.5 flex items-start gap-1.5 text-xs text-orange-900/80 dark:text-orange-200/80">
                       <ArrowLeftRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-orange-500 dark:text-orange-400" />
-                      {currentCard.targetScheduleText}
+                      {currentCard.targetClassCode
+                        ? currentCard.targetScheduleText
+                        : "Mở đổi cùng môn — nhắn tin để trao đổi giờ học"}
                     </p>
                   </div>
                 </div>
@@ -942,9 +995,7 @@ export default function DiscoverPage() {
                       )}
                       {currentCard.hasCourseConflict
                         ? "Đã có yêu cầu khác"
-                        : currentCard.isCompatible
-                          ? "Like để đổi"
-                          : "Nhận đổi & Like"}
+                        : "Like để đổi"}
                     </button>
                   </div>
                   <p className="hidden text-center text-[11px] text-slate-400 sm:block">

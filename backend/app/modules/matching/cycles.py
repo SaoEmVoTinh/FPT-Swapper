@@ -154,7 +154,7 @@ def _cycle_view(
     participants = []
     for req, acc in zip(ordered_reqs, ordered_flags):
         cur_cls = db.get(AcademicClass, req.current_class_id)
-        tgt_cls = db.get(AcademicClass, req.target_class_id)
+        tgt_cls = db.get(AcademicClass, req.target_class_id) if req.target_class_id else None
         stu = db.get(Student, req.student_id)
         code = stu.student_code if stu else ""
         participants.append(
@@ -202,13 +202,14 @@ def list_three_way_cycles(
     now = datetime.now(timezone.utc)
     blocked = _blocked_set(db, student_id)
 
-    # Active requests in same campus
+    # Active requests in same campus with explicit target class
     active_reqs = (
         db.query(MatchingRequest)
         .join(Student, Student.id == MatchingRequest.student_id)
         .join(AcademicClass, AcademicClass.id == MatchingRequest.current_class_id)
         .filter(
             MatchingRequest.status == SwapRequestStatus.ACTIVE,
+            MatchingRequest.target_class_id.isnot(None),
             Student.campus_id == campus_id,
             AcademicClass.campus_id == campus_id,
             or_(MatchingRequest.expires_at.is_(None), MatchingRequest.expires_at > now),
@@ -319,6 +320,9 @@ def accept_three_way_cycle(
     if not (
         ra.course_id == rb.course_id == rc.course_id
         and ra.semester_id == rb.semester_id == rc.semester_id
+        and ra.target_class_id is not None
+        and rb.target_class_id is not None
+        and rc.target_class_id is not None
         and ra.target_class_id == rb.current_class_id
         and rb.target_class_id == rc.current_class_id
         and rc.target_class_id == ra.current_class_id

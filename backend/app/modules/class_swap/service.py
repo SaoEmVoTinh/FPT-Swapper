@@ -102,7 +102,7 @@ class ClassSwapService:
         db: Session,
         student: Student,
         data: CreateRequestSchema,
-    ) -> tuple[AcademicClass, AcademicClass]:
+    ) -> tuple[AcademicClass, AcademicClass | None]:
         course = db.get(Course, data.course_id)
         semester = db.get(Semester, data.semester_id)
         if course is None or semester is None:
@@ -124,50 +124,69 @@ class ClassSwapService:
                 slot=data.current_slot,
             )
 
+        target: AcademicClass | None = None
         if data.target_class_id is not None:
             target = db.get(AcademicClass, data.target_class_id)
-        else:
+            if target is None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Lớp mong muốn không tồn tại trong danh mục.",
+                )
+        elif data.target_class_code:
             target = ClassSwapService._resolve_or_create_class(
                 db,
                 course_id=data.course_id,
                 semester_id=data.semester_id,
                 campus_id=student.campus_id,
-                code=data.target_class_code or "",
+                code=data.target_class_code,
                 day_of_week=data.target_day_of_week,
                 slot=data.target_slot,
             )
 
-        if current is None or target is None:
+        if current is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Lớp hiện tại hoặc lớp mong muốn không tồn tại trong danh mục.",
+                detail="Lớp hiện tại không tồn tại trong danh mục.",
             )
-        if current.id == target.id:
+
+        if current.course_id != data.course_id or current.semester_id != data.semester_id:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Lớp hiện tại và lớp mong muốn không được trùng nhau.",
+                detail="Lớp học phải thuộc đúng môn học và học kỳ đã chọn.",
             )
-        for cls in (current, target):
-            if cls.course_id != data.course_id or cls.semester_id != data.semester_id:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="Lớp học phải thuộc đúng môn học và học kỳ đã chọn.",
-                )
-            if not cls.is_swappable:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=f"Lớp {cls.code} hiện không cho phép đổi.",
-                )
-        if current.campus_id != target.campus_id:
+        if not current.is_swappable:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Hai lớp phải cùng một cơ sở.",
+                detail=f"Lớp {current.code} hiện không cho phép đổi.",
             )
         if current.campus_id != student.campus_id:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Chỉ có thể tạo yêu cầu đổi lớp trong cơ sở (campus) của bạn.",
             )
+
+        if target is not None:
+            if current.id == target.id:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Lớp hiện tại và lớp mong muốn không được trùng nhau.",
+                )
+            if target.course_id != data.course_id or target.semester_id != data.semester_id:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Lớp học phải thuộc đúng môn học và học kỳ đã chọn.",
+                )
+            if not target.is_swappable:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Lớp {target.code} hiện không cho phép đổi.",
+                )
+            if current.campus_id != target.campus_id:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Hai lớp phải cùng một cơ sở.",
+                )
+
         return current, target
 
     @staticmethod
@@ -184,7 +203,7 @@ class ClassSwapService:
             semester_id=data.semester_id,
             course_id=data.course_id,
             current_class_id=current.id,
-            target_class_id=target.id,
+            target_class_id=target.id if target is not None else None,
             note=data.note,
             expires_at=data.expires_at,
         )

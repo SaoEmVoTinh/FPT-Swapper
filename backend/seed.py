@@ -33,7 +33,15 @@ SEMESTERS = [
     {"code": "SU2025", "name": "Summer 2025",
      "start_date": date(2025, 5, 19), "end_date": date(2025, 9, 5), "is_active": False},
     {"code": "FA2025", "name": "Fall 2025",
-     "start_date": date(2025, 9, 8), "end_date": date(2026, 1, 9), "is_active": True},
+     "start_date": date(2025, 9, 8), "end_date": date(2026, 1, 9), "is_active": False},
+    {"code": "SP2026", "name": "Spring 2026",
+     "start_date": date(2026, 1, 12), "end_date": date(2026, 5, 15), "is_active": False},
+    {"code": "SU2026", "name": "Summer 2026",
+     "start_date": date(2026, 5, 18), "end_date": date(2026, 9, 4), "is_active": False},
+    {"code": "FA2026", "name": "Fall 2026",
+     "start_date": date(2026, 9, 7), "end_date": date(2027, 1, 2), "is_active": False},
+    {"code": "SP2027", "name": "Spring 2027",
+     "start_date": date(2027, 1, 4), "end_date": date(2027, 5, 15), "is_active": True},
 ]
 
 # ─────────────────────────── Courses ────────────────────────────
@@ -492,8 +500,12 @@ def run():
                 semester_map[s["code"]] = obj
                 print(f"  [+] Semester: {s['code']}")
             else:
+                existing.name = s["name"]
+                existing.start_date = s["start_date"]
+                existing.end_date = s["end_date"]
+                existing.is_active = s["is_active"]
                 semester_map[s["code"]] = existing
-                print(f"  [=] Semester exists: {s['code']}")
+                print(f"  [~] Semester synced: {s['code']} (active={s['is_active']})")
 
         # ── Courses (batch lookup + bulk insert) ──────────────────────────────
         course_map: dict[str, Course] = {

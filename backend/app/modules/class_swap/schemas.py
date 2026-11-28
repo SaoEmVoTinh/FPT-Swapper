@@ -29,8 +29,6 @@ class CreateRequestSchema(BaseModel):
 
         if self.current_class_id is None and not self.current_class_code:
             raise ValueError("Vui lòng chọn hoặc nhập mã lớp hiện tại.")
-        if self.target_class_id is None and not self.target_class_code:
-            raise ValueError("Vui lòng chọn hoặc nhập mã lớp mong muốn.")
         if (
             self.current_class_id is not None
             and self.target_class_id is not None
@@ -40,6 +38,7 @@ class CreateRequestSchema(BaseModel):
         if (
             self.current_class_id is None
             and self.target_class_id is None
+            and self.target_class_code
             and self.current_class_code == self.target_class_code
         ):
             raise ValueError("Lớp hiện tại và lớp mong muốn không được trùng nhau.")
@@ -59,7 +58,7 @@ class RequestResponse(BaseModel):
     semester_id: uuid.UUID
     course_id: uuid.UUID
     current_class_id: uuid.UUID
-    target_class_id: uuid.UUID
+    target_class_id: uuid.UUID | None = None
     note: str | None
     expires_at: datetime | None
     status: SwapRequestStatus

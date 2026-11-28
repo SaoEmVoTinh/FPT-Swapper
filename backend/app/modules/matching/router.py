@@ -61,6 +61,7 @@ def discover(
                 mine,
                 MatchingService.has_liked(db, candidate.id, mine.id),
                 viewer_id=current_student.id,
+                is_same_course=True,
             )
             for candidate in MatchingService.get_discover_candidates(
                 db, current_student.id, mine, limit
@@ -70,6 +71,7 @@ def discover(
         return items[:limit]
 
     my_requests = MatchingService.list_my_active_requests(db, current_student.id)
+    my_course_ids = {m.course_id for m in my_requests}
     busy_pairs = MatchingService.list_busy_course_semesters(db, current_student.id)
     campus_posts = MatchingService.list_campus_discover_requests(
         db, current_student.id, current_student.campus_id, limit
@@ -86,6 +88,7 @@ def discover(
             if compatible_mine is not None
             else False
         )
+        same_course = candidate.course_id in my_course_ids
         conflict = (
             compatible_mine is None
             and (candidate.course_id, candidate.semester_id) in busy_pairs
@@ -98,11 +101,18 @@ def discover(
                 reciprocal,
                 has_course_conflict=conflict,
                 viewer_id=current_student.id,
+                is_same_course=same_course,
             )
         )
 
-    # Order: 1) already liked you, 2) compatible with your request, 3) all other campus posts
-    items.sort(key=lambda item: (not item.is_reciprocal_ready, not item.is_compatible))
+    # Order: 1) already liked you, 2) compatible with your request, 3) same course, 4) other campus posts
+    items.sort(
+        key=lambda item: (
+            not item.is_reciprocal_ready,
+            not item.is_compatible,
+            not item.is_same_course,
+        )
+    )
     return items[:limit]
 
 

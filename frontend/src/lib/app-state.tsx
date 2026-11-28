@@ -75,7 +75,7 @@ interface ApiRequest {
   semester_id: string;
   course_id: string;
   current_class_id: string;
-  target_class_id: string;
+  target_class_id?: string | null;
   note?: string | null;
   expires_at?: string | null;
   status: SwapRequestStatus;
@@ -97,9 +97,10 @@ interface ApiDiscover {
   semester_id?: string;
   course_id?: string;
   current_class_id?: string;
-  target_class_id?: string;
+  target_class_id?: string | null;
   for_request_id?: string | null;
   is_compatible?: boolean;
+  is_same_course?: boolean;
   has_course_conflict?: boolean;
   note?: string | null;
   student_display_name?: string | null;
@@ -208,9 +209,11 @@ function mapRequest(r: ApiRequest): SwapRequest {
     currentClassId: r.current_class_id,
     currentClassCode: r.current_class_code || r.current_class_id.slice(0, 8).toUpperCase(),
     currentScheduleText: r.current_schedule_text || "Chưa cập nhật lịch",
-    targetClassId: r.target_class_id,
-    targetClassCode: r.target_class_code || r.target_class_id.slice(0, 8).toUpperCase(),
-    targetScheduleText: r.target_schedule_text || "Chưa cập nhật lịch",
+    targetClassId: r.target_class_id || undefined,
+    targetClassCode:
+      r.target_class_code ||
+      (r.target_class_id ? r.target_class_id.slice(0, 8).toUpperCase() : undefined),
+    targetScheduleText: r.target_schedule_text || undefined,
     note: r.note || undefined,
     expiresAt: r.expires_at ? r.expires_at.slice(0, 10) : "—",
     status: r.status,
@@ -226,11 +229,12 @@ function mapDiscover(d: ApiDiscover): DiscoverCard {
     studentId: d.student_id,
     myRequestId: d.for_request_id || undefined,
     isCompatible: Boolean(d.is_compatible ?? d.for_request_id),
+    isSameCourse: Boolean(d.is_same_course),
     hasCourseConflict: Boolean(d.has_course_conflict),
     semesterId: d.semester_id,
     courseId: d.course_id,
     currentClassId: d.current_class_id,
-    targetClassId: d.target_class_id,
+    targetClassId: d.target_class_id || undefined,
     studentDisplayName: d.student_display_name || "Sinh viên",
     studentCodeMasked: d.student_code_masked || "****",
     studentClassName: d.student_class_name || undefined,
@@ -241,8 +245,8 @@ function mapDiscover(d: ApiDiscover): DiscoverCard {
     courseName: d.course_name || "",
     currentClassCode: d.current_class_code || "—",
     currentScheduleText: d.current_schedule_text || "Chưa cập nhật lịch",
-    targetClassCode: d.target_class_code || "—",
-    targetScheduleText: d.target_schedule_text || "Chưa cập nhật lịch",
+    targetClassCode: d.target_class_code || undefined,
+    targetScheduleText: d.target_schedule_text || undefined,
     lecturerCurrent: d.lecturer_current || "Đang cập nhật",
     note: d.note || undefined,
     isReciprocalReady: d.is_reciprocal_ready,
@@ -346,7 +350,7 @@ interface AppStateContextValue {
   swipeCard: (
     requestId: string,
     action: SwipeAction
-  ) => Promise<{ matched: boolean; match?: MatchItem }>;
+  ) => Promise<{ matched: boolean; match?: MatchItem; needsRequest?: boolean }>;
   undoLastSwipe: () => Promise<boolean>;
   blockStudent: (targetStudentId: string, reason?: string) => Promise<void>;
   submitReport: (payload: {
@@ -951,13 +955,15 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
                 current_day_of_week: req.currentDayOfWeek ?? null,
                 current_slot: req.currentSlot ?? null,
               }),
-          ...(uuidRe.test(req.targetClassId)
+          ...(req.targetClassId && uuidRe.test(req.targetClassId)
             ? { target_class_id: req.targetClassId }
-            : {
-                target_class_code: req.targetClassCode,
-                target_day_of_week: req.targetDayOfWeek ?? null,
-                target_slot: req.targetSlot ?? null,
-              }),
+            : req.targetClassCode
+              ? {
+                  target_class_code: req.targetClassCode,
+                  target_day_of_week: req.targetDayOfWeek ?? null,
+                  target_slot: req.targetSlot ?? null,
+                }
+              : {}),
           note: req.note ?? null,
           expires_at: req.expiresAt ? `${req.expiresAt}T23:59:59Z` : null,
         }),
@@ -1001,7 +1007,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const swipeCard = async (
     requestId: string,
     action: SwipeAction
-  ): Promise<{ matched: boolean; match?: MatchItem }> => {
+  ): Promise<{ matched: boolean; match?: MatchItem; needsRequest?: boolean }> => {
     const card = discoverCards.find((c) => c.requestId === requestId);
 
     if (backendAuthed) {
@@ -1018,47 +1024,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           );
           return { matched: false };
         }
-        if (
-          !card.semesterId ||
-          !card.courseId ||
-          !card.currentClassId ||
-          !card.targetClassId
-        ) {
-          setActionError("Thiếu thông tin lớp học để tạo yêu cầu đối ứng.");
-          return { matched: false };
-        }
-
-        try {
-          const createdReq = await apiFetch<ApiRequest>("/class-swap/requests", {
-            method: "POST",
-            body: JSON.stringify({
-              semester_id: card.semesterId,
-              course_id: card.courseId,
-              current_class_id: card.targetClassId,
-              target_class_id: card.currentClassId,
-              note: "Nhận đổi lớp từ Discover",
-            }),
-          });
-          const res = await apiFetch<ApiSwipe>("/class-swap/swipes", {
-            method: "POST",
-            body: JSON.stringify({
-              swiper_request_id: createdReq.id,
-              target_request_id: card.requestId,
-              action: "LIKE",
-            }),
-          });
-          setDiscoverCards((prev) => prev.filter((c) => c.requestId !== requestId));
-          void refreshWorkspace();
-          if (res.match && res.match_created) {
-            const match = mapMatch(res.match);
-            setMatches((prev) => [match, ...prev.filter((m) => m.id !== match.id)]);
-            return { matched: true, match };
-          }
-          return { matched: false };
-        } catch (err) {
-          reportError(err, "Không thể gửi yêu cầu đổi lớp. Vui lòng thử lại.");
-          return { matched: false };
-        }
+        return { matched: false, needsRequest: true };
       }
 
       try {
@@ -1096,6 +1062,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
     const matchId = `match-${Date.now()}`;
     const convId = `conv-${Date.now()}`;
+    const myDemoClassCode = card.targetClassCode || "Lớp của bạn";
     const newMatch: MatchItem = {
       id: matchId,
       myRequestId: requests[0]?.id || "req-1",
@@ -1105,7 +1072,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       courseCode: card.courseCode,
       courseName: card.courseName,
       semesterName: card.semesterName,
-      myClassCode: card.targetClassCode,
+      myClassCode: myDemoClassCode,
       partnerClassCode: card.currentClassCode,
       status: "PENDING_CONFIRMATION",
       myConfirmed: false,
@@ -1119,7 +1086,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       matchId,
       partnerName: card.studentDisplayName,
       courseCode: card.courseCode,
-      myClassCode: card.targetClassCode,
+      myClassCode: myDemoClassCode,
       partnerClassCode: card.currentClassCode,
       matchStatus: "PENDING_CONFIRMATION",
       lastMessage: "Hai bạn đã Match! Hãy bắt đầu trao đổi lịch đổi lớp.",
@@ -1130,7 +1097,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     const newNotif: NotificationItem = {
       id: `notif-${Date.now()}`,
       title: `Match mới cho môn ${card.courseCode}!`,
-      body: `Bạn và ${card.studentDisplayName} đã cùng Like (${card.targetClassCode} ⇄ ${card.currentClassCode}).`,
+      body: `Bạn và ${card.studentDisplayName} đã cùng Like (${myDemoClassCode} ⇄ ${card.currentClassCode}).`,
       type: "MATCH",
       isRead: false,
       createdAt: "Vừa xong",

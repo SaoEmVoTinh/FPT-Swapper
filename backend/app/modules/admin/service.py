@@ -406,7 +406,7 @@ class AdminService:
             course = db.get(Course, r.course_id)
             sem = db.get(Semester, r.semester_id)
             cur = db.get(AcademicClass, r.current_class_id)
-            tgt = db.get(AcademicClass, r.target_class_id)
+            tgt = db.get(AcademicClass, r.target_class_id) if r.target_class_id else None
             campus = db.get(Campus, cur.campus_id) if cur else None
             items.append(
                 AdminRequestItem(

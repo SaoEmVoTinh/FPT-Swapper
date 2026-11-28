@@ -22,7 +22,10 @@ from app.database.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 class MatchingRequest(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "matching_requests"
     __table_args__ = (
-        CheckConstraint("current_class_id <> target_class_id", name="ck_matching_requests_diff_classes"),
+        CheckConstraint(
+            "target_class_id IS NULL OR current_class_id <> target_class_id",
+            name="ck_matching_requests_diff_classes",
+        ),
     )
 
     student_id: Mapped[uuid.UUID] = mapped_column(
@@ -49,10 +52,10 @@ class MatchingRequest(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         nullable=False,
         index=True,
     )
-    target_class_id: Mapped[uuid.UUID] = mapped_column(
+    target_class_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("classes.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
     note: Mapped[str | None] = mapped_column(Text, nullable=True)

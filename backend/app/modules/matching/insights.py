@@ -67,7 +67,7 @@ def build_swap_insights(
         )
 
         cur_cls = db.get(AcademicClass, cand.current_class_id)
-        tgt_cls = db.get(AcademicClass, cand.target_class_id)
+        tgt_cls = db.get(AcademicClass, cand.target_class_id) if cand.target_class_id else None
         course = db.get(Course, cand.course_id)
         partner = db.get(Student, cand.student_id)
         profile = partner.profile if partner else None
@@ -88,7 +88,10 @@ def build_swap_insights(
             reasons.append("Đã Like bạn trước")
         if compatible_mine is not None:
             score += 25
-            reasons.append("Khớp ngược chiều 100%")
+            if compatible_mine.target_class_id is not None and cand.target_class_id is not None:
+                reasons.append("Khớp ngược chiều 100%")
+            else:
+                reasons.append("Cùng môn • Mở đổi lớp")
         elif any(m.course_id == cand.course_id for m in my_requests):
             score += 10
             reasons.append("Cùng môn bạn đang tìm")
@@ -134,12 +137,13 @@ def build_swap_insights(
 
     for req in active_campus_reqs:
         leaving_counts[req.current_class_id] += 1
-        entering_counts[req.target_class_id] += 1
+        if req.target_class_id is not None:
+            entering_counts[req.target_class_id] += 1
         if req.current_class_id not in class_meta:
             c = db.get(AcademicClass, req.current_class_id)
             if c:
                 class_meta[req.current_class_id] = c
-        if req.target_class_id not in class_meta:
+        if req.target_class_id is not None and req.target_class_id not in class_meta:
             c = db.get(AcademicClass, req.target_class_id)
             if c:
                 class_meta[req.target_class_id] = c

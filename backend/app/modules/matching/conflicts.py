@@ -156,6 +156,7 @@ def _student_held_classes(
         cls_id = (
             req.target_class_id
             if req.status in (SwapRequestStatus.MATCHED, SwapRequestStatus.COMPLETED)
+            and req.target_class_id is not None
             else req.current_class_id
         )
         cls = db.get(AcademicClass, cls_id)

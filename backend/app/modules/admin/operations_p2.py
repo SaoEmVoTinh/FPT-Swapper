@@ -143,7 +143,7 @@ def export_admin_csv(db: Session, resource: str) -> tuple[str, str]:
             stu = db.get(Student, r.student_id)
             crs = db.get(Course, r.course_id)
             c1 = db.get(AcademicClass, r.current_class_id)
-            c2 = db.get(AcademicClass, r.target_class_id)
+            c2 = db.get(AcademicClass, r.target_class_id) if r.target_class_id else None
             writer.writerow([
                 r.id,
                 _csv_safe(stu.email if stu else ""),
